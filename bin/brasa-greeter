@@ -15,7 +15,9 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 say() { printf '\e[1;31m▶\e[0m %s\n' "$*"; }
 
 make_bg() {  # blurred, slightly darkened wallpaper for the greeter
-  local src=~/.local/share/backgrounds/brasa.png out=$1
+  local src=~/.local/share/backgrounds/brasa-login.png out=$1   # brasa-wallpaper login
+  [ -f "$src" ] || src=~/.local/share/backgrounds/brasa-lock.png
+  [ -f "$src" ] || src=~/.local/share/backgrounds/brasa.png
   [ -f "$src" ] || src=$B/wallpaper.png
   if command -v magick >/dev/null; then
     magick "$src" -resize '2880x1800^' -gravity center -extent 2880x1800 -blur 0x18 -fill '#00040f' -colorize 30% -quality 92 "$out"
@@ -38,7 +40,10 @@ put() {  # source destination: back up a file that is not ours, then install
 
 case ${1:-} in
   bg)
-    t=$(mktemp --suffix .jpg); make_bg "$t" && $SUDO install -Dm644 "$t" /usr/share/nwg-hello/brasa-bg.jpg; rm -f "$t"
+    t=$(mktemp --suffix .jpg)
+    if [ -w /usr/share/nwg-hello/brasa-bg.jpg ]; then make_bg "$t" && cat "$t" > /usr/share/nwg-hello/brasa-bg.jpg
+    else make_bg "$t" && $SUDO install -Dm644 "$t" /usr/share/nwg-hello/brasa-bg.jpg; fi
+    rm -f "$t"
     say "Greeter background updated" ;;
   install)
     command -v greetd >/dev/null && command -v nwg-hello >/dev/null || { echo "Install greetd and nwg-hello first (./install.sh --greeter)" >&2; exit 1; }

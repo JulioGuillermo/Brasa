@@ -5,10 +5,11 @@
   dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SWAYSOCK HYPRLAND_INSTANCE_SIGNATURE 2>/dev/null
 ~/.local/bin/brasa-fx reset
 ~/.local/bin/brasa-monitors apply --settle   # saved layout + refresh rate of every monitor
-# Start a program unless this session already runs it. The remote session (brasa-remote session) is a
-# fresh one next to the local session, whose bar, notifications... must not count, so it always starts them.
+# Start a program unless this session already runs it. Only this session's processes count: the remote
+# session (brasa-remote session) and the local one each have their own bar, notifications, lock...
+here() { ~/.local/bin/brasa-here "$@" >/dev/null; }
 run() {
-  [ -z "${BRASA_REMOTE_SESSION:-}" ] && pgrep -x "$1" >/dev/null && return
+  here "$1" && return
   setsid -f "$@" >/dev/null 2>&1
 }
 
@@ -16,7 +17,7 @@ run() {
 [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && run swaybg -m fill -c '#00040f' -i ~/.local/share/backgrounds/brasa.png
 
 run swayosd-server
-{ [ -z "${BRASA_REMOTE_SESSION:-}" ] && pgrep -f 'brasa-monitors watch' >/dev/null; } || \
+here -f 'brasa-monitors watch' || \
   setsid -f ~/.local/bin/brasa-monitors watch >/dev/null 2>&1   # re-apply on hotplug
 run waybar
 run swaync
@@ -26,9 +27,9 @@ for a in /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \
          /usr/libexec/polkit-gnome-authentication-agent-1 \
          /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
          /usr/lib/hyprpolkitagent/hyprpolkitagent; do
-  [ -x "$a" ] && { { [ -z "${BRASA_REMOTE_SESSION:-}" ] && pgrep -f "$a" >/dev/null; } || setsid -f "$a" >/dev/null 2>&1; break; }
+  [ -x "$a" ] && { here -f "$a" || setsid -f "$a" >/dev/null 2>&1; break; }
 done
-command -v cliphist >/dev/null && { { [ -z "${BRASA_REMOTE_SESSION:-}" ] && pgrep -f "wl-paste --watch cliphist" >/dev/null; } ||
+command -v cliphist >/dev/null && { here -f "wl-paste --watch cliphist" ||
   setsid -f wl-paste --watch cliphist store >/dev/null 2>&1; }
 
 # Lock after 15 min (like GNOME), screen off after 20, and always lock before suspending

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full-screen app grid with rofi (Super+d). Pressing Super+d again, or Escape, closes it.
 # Its own config and theme, ~/.config/brasa/config/rofi/drawer.rasi, so any ~/.config/rofi is left alone.
-if pid=$(pgrep -u "$(id -u)" -x rofi); then kill $pid; exit 0; fi
+if pid=$(~/.local/bin/brasa-here rofi); then kill $pid; exit 0; fi
 icons=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
 # Apps whose icon is missing get Brasa's generic app icon
 exec rofi -config ~/.config/brasa/config/rofi/drawer.rasi -show drun ${icons:+-icon-theme "$icons"} -terminal foot \

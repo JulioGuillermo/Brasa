@@ -4,7 +4,7 @@
 #        brasa-osd ICON TEXT VALUE:SEGMENTS      a segmented bar (e.g. keyboard light 2:3)
 # ICON is a freedesktop icon name. Falls back to a quiet notification without SwayOSD.
 icon=$1 text=$2 seg=${3:-}
-if command -v swayosd-client >/dev/null && pgrep -x swayosd-server >/dev/null; then
+if command -v swayosd-client >/dev/null && ~/.local/bin/brasa-here swayosd-server >/dev/null; then
   if [ -n "$seg" ]; then
     exec swayosd-client --custom-icon "$icon" --custom-segmented-progress "$seg" --custom-progress-text "$text"
   fi

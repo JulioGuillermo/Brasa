@@ -1,5 +1,5 @@
 # Brasa · Redline for swaylock
-image=~/.local/share/backgrounds/brasa.png
+image=~/.local/share/backgrounds/brasa-lock.png
 scaling=fill
 color=00040f
 font=Hack Nerd Font Propo

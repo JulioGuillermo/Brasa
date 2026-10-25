@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Lock the screen with hyprlock (the same card as the login screen) on Hyprland and on sway/SwayFX;
 # plain swaylock only if hyprlock is missing. Always returns once the lock is up.
-if pgrep -x hyprlock >/dev/null || pgrep -x swaylock >/dev/null; then exit 0; fi
+# Already locked? Only this session counts (the remote session can be locked on its own)
+if ~/.local/bin/brasa-here hyprlock >/dev/null || ~/.local/bin/brasa-here swaylock >/dev/null; then exit 0; fi
 if command -v hyprlock >/dev/null; then
   setsid -f hyprlock >/dev/null 2>&1; sleep 0.5
 else

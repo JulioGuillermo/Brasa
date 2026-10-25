@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Is a program running in *this* graphical session? Several Brasa sessions can run at once (the local
+# one and brasa-remote's remote session), so a plain pgrep would find the other session's bar, lock...
+# Usage: brasa-here NAME         by exact process name (like pgrep -x)
+#        brasa-here -f PATTERN   by full command line (like pgrep -f)
+# Prints the matching PIDs of this session (same WAYLAND_DISPLAY); exit status 0 if there is any.
+mode=-x; [ "${1:-}" = -f ] && { mode=-f; shift; }
+[ -n "${1:-}" ] || { sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+found=1
+for p in $(pgrep -u "$(id -u)" $mode -- "$1"); do
+  [ "$p" = $$ ] && continue
+  if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    tr '\0' '\n' < /proc/$p/environ 2>/dev/null | grep -qx "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" || continue
+  fi
+  echo "$p"; found=0
+done
+exit $found

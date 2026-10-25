@@ -184,6 +184,10 @@ if [ $UNINSTALL = 1 ]; then
   root_unprompt
   uninstall_zsh
   unlink_ours ~/.local/share/backgrounds/brasa.png
+  readlink ~/.local/share/backgrounds/brasa.png 2>/dev/null | grep -q '/brasa-custom\.' &&
+    run rm ~/.local/share/backgrounds/brasa.png ~/.local/share/backgrounds/brasa-custom.*
+  run rm -f ~/.local/share/backgrounds/brasa-lock.png ~/.local/share/backgrounds/brasa-lock-custom.* \
+    ~/.local/share/backgrounds/brasa-login.png ~/.local/share/backgrounds/brasa-login-custom.*
   [ -f /etc/greetd/.brasa-previous-dm ] && run "$HERE/bin/brasa-greeter" uninstall
   say "Done"; exit 0
 fi
@@ -403,7 +407,12 @@ for f in $OBSOLETE; do
   [ -L ~/.config/$f ] && [[ "$(readlink ~/.config/$f)" == "$HERE"* ]] && run rm ~/.config/$f && info "removed old ~/.config/$f"
 done
 for f in $BINS; do link "$HERE/bin/$f" ~/.local/bin/$f; done
-link "$HERE/wallpaper.png" ~/.local/share/backgrounds/brasa.png
+# The wallpaper, unless one was chosen with brasa-wallpaper
+readlink ~/.local/share/backgrounds/brasa.png 2>/dev/null | grep -q '/brasa-custom\.' ||
+  link "$HERE/wallpaper.png" ~/.local/share/backgrounds/brasa.png
+# The lock screen's follows the desktop's, and the login screen's the lock's, until brasa-wallpaper changes them
+[ -e ~/.local/share/backgrounds/brasa-lock.png ] || run ln -s brasa.png ~/.local/share/backgrounds/brasa-lock.png
+[ -e ~/.local/share/backgrounds/brasa-login.png ] || run ln -s brasa-lock.png ~/.local/share/backgrounds/brasa-login.png
 if [ $GTK = 1 ]; then
   link "$HERE/config/gtk-3.0/gtk.css" ~/.config/gtk-3.0/gtk.css
   link "$HERE/config/gtk-4.0/gtk.css" ~/.config/gtk-4.0/gtk.css

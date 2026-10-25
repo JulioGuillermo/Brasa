@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # Centered exit dialog (Super+Shift+e)
-pgrep -x nwg-bar >/dev/null && exit 0
+~/.local/bin/brasa-here nwg-bar >/dev/null && exit 0
 exec nwg-bar -t bar.json -s style.css -i 56

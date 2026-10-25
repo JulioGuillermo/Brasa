@@ -35,7 +35,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 |---|---|---|
 | `install.sh` | Installer | — |
 | `keys.tsv` | **Every key binding**, single source | `~/.config/brasa/keys.tsv` |
-| `wallpaper.png` | Wallpaper and lock screen background | `~/.local/share/backgrounds/brasa.png` |
+| `wallpaper.png` | Default wallpaper and lock screen background (change it with `brasa-wallpaper`) | `~/.local/share/backgrounds/brasa.png` |
 | `data/emoji.tsv` | 3963 Unicode emoji with English names and CLDR keywords | — |
 | `bin/brasa-gen` | Generates the sway and Hyprland bindings from `keys.tsv` | `~/.local/bin/` |
 | `bin/brasa-wm` | Window actions that work in both (close, kill, focus, workspaces, exit…) | `~/.local/bin/` |
@@ -50,6 +50,8 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
 | `bin/brasa-kbd` | Keyboard backlight, for any `*kbd_backlight*` LED | `~/.local/bin/` |
 | `bin/brasa-display` | Displays and monitors (wdisplays) | `~/.local/bin/` |
+| `bin/brasa-here` | Is a program running in this graphical session? (the local and the remote session each run their own bar, lock...) | `~/.local/bin/` |
+| `bin/brasa-wallpaper` | Wallpapers of the desktop, lock and login screens, together or each on its own | `~/.local/bin/` |
 | `bin/brasa-drawer` | Full-screen app grid with rofi (`Super+d`, again to close) | `~/.local/bin/` |
 | `bin/brasa-radio` | Airplane mode (rfkill) | `~/.local/bin/` |
 | `bin/brasa-cam` | Tells which app is using the camera | `~/.local/bin/` |
@@ -509,6 +511,42 @@ brasa-remote on | off | status | setup | help
 - **Clients**: TigerVNC Viewer (Windows, Linux, macOS) or RealVNC Viewer. In TigerVNC 1.16:
   `Ctrl+Alt` releases the keyboard grab, `Ctrl+Alt+G` grabs again, `Ctrl+Alt+M` opens the menu,
   `Ctrl+Alt+Enter` toggles full screen. `vncviewer 10.x.x.x:5900` (session) or `:5901` (local desktop).
+
+## Wallpaper
+
+Each screen can have its own wallpaper:
+
+| Screen | Seen | Image | Drawn by |
+|---|---|---|---|
+| desktop | with the session open | `~/.local/share/backgrounds/brasa.png` | swaybg (Hyprland) or sway, as you |
+| lock | when the screen locks | `~/.local/share/backgrounds/brasa-lock.png` | hyprlock / swaylock, as you |
+| login | at boot and after logging out | `/usr/share/nwg-hello/brasa-bg.jpg` (blurred copy of `brasa-login.png`) | nwg-hello, as the `greeter` user |
+
+```
+brasa-wallpaper [SCREEN...] IMAGE             SCREEN: desktop, lock, login (one or several, any order)
+brasa-wallpaper ~/Pictures/a.jpg              all three (lock and login follow the desktop)
+brasa-wallpaper desktop ~/Pictures/a.jpg      only the desktop
+brasa-wallpaper lock login ~/Pictures/b.jpg   the lock and login screens
+brasa-wallpaper desktop login ~/Pictures/c.jpg
+brasa-wallpaper lock default                  Brasa's own (any screens)
+brasa-wallpaper lock login same               lock follows the desktop, login the lock screen
+brasa-wallpaper reset                         Brasa's own everywhere, following each other again
+brasa-wallpaper                               show the current ones
+```
+
+- By default the lock screen follows the desktop and the login screen follows the lock screen, so
+  changing the desktop changes all three until one of them gets its own image.
+- A copy of each image is kept in `~/.local/share/backgrounds/` (`brasa-custom.*`,
+  `brasa-lock-custom.*`, `brasa-login-custom.*`), so the originals can be moved or deleted, and
+  `./install.sh` leaves chosen wallpapers alone.
+- The desktop changes at once on every running session (the remote one too); on Hyprland swaybg runs
+  as the user service `brasa-swaybg-<display>`, so it survives the terminal or SSH session it was
+  changed from. The lock screen changes the next time it locks. Neither needs root.
+- The login screen runs before you log in, as another user that cannot read your home, so its blurred
+  copy lives in `/usr/share/nwg-hello/` and writing it needs sudo. `brasa-wallpaper` only does that when
+  the login image really changes, asking for the password when run from a terminal; otherwise it says
+  to run `brasa-greeter bg`.
+- Formats: png, jpg, webp, bmp.
 
 ## Colors
 

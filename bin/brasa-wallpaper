@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# Wallpapers for Brasa, each screen on its own: desktop, lock screen and login screen.
+# Usage: brasa-wallpaper [SCREEN...] IMAGE
+#   SCREEN: desktop, lock, login, one or several in any order, e.g.
+#        brasa-wallpaper ~/a.jpg                  all three (lock and login follow the desktop)
+#        brasa-wallpaper desktop ~/a.jpg          only the desktop (Hyprland and sway/SwayFX)
+#        brasa-wallpaper lock login ~/b.jpg       the lock screen and the login screen
+#        brasa-wallpaper desktop login ~/c.jpg    the desktop and the login screen
+#   IMAGE can also be "default" (Brasa's own) or "same": the lock screen uses the desktop's, the
+#   login screen the lock screen's. That is how it starts: change the desktop and all three follow.
+#        brasa-wallpaper reset                    Brasa's own everywhere, following each other again
+#        brasa-wallpaper                          show the current ones
+# Copies are kept in ~/.local/share/backgrounds/ (the originals can be moved or deleted):
+#   brasa.png        desktop        read by swaybg / sway, changes at once
+#   brasa-lock.png   lock screen    read by hyprlock / swaylock the next time the screen locks
+#   brasa-login.png  login screen   the greeter cannot read your home, so a blurred copy goes to
+#                                   /usr/share/nwg-hello/: that step asks for sudo, only when it changes
+set -u
+B=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+DIR=${XDG_DATA_HOME:-$HOME/.local/share}/backgrounds
+DESK=$DIR/brasa.png LOCK=$DIR/brasa-lock.png LOGIN=$DIR/brasa-login.png
+BG='#00040f'
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+usage() { sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; }
+
+# The links as they start: lock follows the desktop, login follows the lock screen
+mkdir -p "$DIR"
+[ -e "$DESK" ] || ln -sfn "$B/wallpaper.png" "$DESK"
+[ -e "$LOCK" ] || ln -sfn brasa.png "$LOCK"
+[ -e "$LOGIN" ] || ln -sfn brasa-lock.png "$LOGIN"
+
+apply_desktop() {  # show it now in every running Brasa session
+  # Hyprland: swaybg draws it; restart the one of each Hyprland instance (found also over SSH)
+  local sig wl p sock
+  if command -v hyprctl >/dev/null; then
+    while read -r sig wl; do
+      [ -n "$sig" ] || continue
+      systemctl --user stop "brasa-swaybg-$wl" 2>/dev/null
+      for p in $(pgrep -u "$(id -u)" -x swaybg); do
+        tr '\0' '\n' < /proc/$p/environ 2>/dev/null | grep -qx "WAYLAND_DISPLAY=$wl" && kill "$p"
+      done
+      # As a user service, so it survives closing the terminal or SSH session this runs from
+      systemctl --user reset-failed "brasa-swaybg-$wl" 2>/dev/null
+      systemd-run --user --quiet --collect --unit="brasa-swaybg-$wl" \
+        --setenv=WAYLAND_DISPLAY="$wl" --setenv=XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+        swaybg -m fill -c "$BG" -i "$DESK" >/dev/null 2>&1 ||
+        WAYLAND_DISPLAY=$wl setsid -f swaybg -m fill -c "$BG" -i "$DESK" >/dev/null 2>&1
+    done < <(hyprctl instances -j 2>/dev/null | jq -r '.[] | "\(.instance) \(.wl_socket)"')
+  fi
+  # sway / SwayFX (the local session and the remote one): each draws its own background
+  for sock in "$XDG_RUNTIME_DIR"/sway-ipc.*.sock; do
+    [ -S "$sock" ] && swaymsg -q -s "$sock" output '*' bg "$DESK" fill "$BG" 2>/dev/null
+  done
+}
+apply_login() {  # the greeter's blurred copy
+  [ -f /usr/share/nwg-hello/brasa-bg.jpg ] || return 0      # Brasa's login screen is not installed
+  if [ -w /usr/share/nwg-hello/brasa-bg.jpg ] || [ -t 0 ]; then "$B/bin/brasa-greeter" bg
+  else echo "Login screen: run  brasa-greeter bg  in a terminal to update it (needs sudo)"; fi
+}
+notify() { ~/.local/bin/brasa-osd preferences-desktop-wallpaper-symbolic "$1" 2>/dev/null; echo "$1"; }
+
+keep() {  # IMAGE NAME -> copies the image to $DIR/NAME.<ext> and prints that path
+  local img ext kind
+  img=$(readlink -f "$1" 2>/dev/null)
+  [ -f "$img" ] || { echo "No such file: $1" >&2; exit 1; }
+  if command -v file >/dev/null; then kind=$(file -b --mime-type "$img"); else kind=image/${img##*.}; fi
+  case ${kind,,} in image/png|image/jpeg|image/jpg|image/webp|image/bmp) ;;
+    *) echo "Not a supported image (png, jpg, webp, bmp): $1" >&2; exit 1 ;; esac
+  ext=${img##*.}; ext=${ext,,}
+  cp -f "$img" "$DIR/.$2.$$.$ext" || exit 1
+  rm -f "$DIR/$2".*
+  mv "$DIR/.$2.$$.$ext" "$DIR/$2.$ext"
+  echo "$DIR/$2.$ext"
+}
+set_one() {  # LINK NAME FOLLOWS CHOICE: an image, "default" or "same" (FOLLOWS: the link it then points to)
+  local link=$1 name=$2 follows=$3 f
+  case $4 in
+    same)    rm -f "$DIR/$name".*; ln -sfn "$follows" "$link" ;;
+    default) rm -f "$DIR/$name".*; ln -sfn "$B/wallpaper.png" "$link" ;;
+    *)       f=$(keep "$4" "$name") || exit 1; ln -sfn "$f" "$link" ;;
+  esac
+}
+label() { case $1 in default) echo "Brasa's own" ;; same) echo "$2" ;; *) basename "$1" ;; esac; }
+show() {  # what a link shows, for the listing
+  case $(readlink "$1") in
+    brasa.png) echo "the desktop's" ;; brasa-lock.png) echo "the lock screen's" ;;
+    *) [ "$(readlink -f "$1")" = "$(readlink -f "$B/wallpaper.png")" ] && echo "Brasa's own" || readlink -f "$1" ;;
+  esac
+}
+
+# Change, then refresh: the desktop always, the login screen (sudo) only when its image changed
+file_id() { stat -L -c '%d:%i' "$1" 2>/dev/null; }   # the file itself: a new copy has the same name, not the same inode
+before_login=$(file_id "$LOGIN")
+refresh() {
+  apply_desktop   # always: cheap, and it also brings back a desktop that lost its swaybg
+  [ "$(file_id "$LOGIN")" != "$before_login" ] && apply_login
+  notify "$1"
+}
+
+case ${1:-} in
+  -h|--help|help) usage; exit 0 ;;
+  "") printf 'desktop: %s\nlock:    %s\nlogin:   %s\n' "$(show "$DESK")" "$(show "$LOCK")" "$(show "$LOGIN")"; exit 0 ;;
+  reset)
+    set_one "$DESK" brasa-custom "" default; set_one "$LOCK" brasa-lock-custom brasa.png same
+    set_one "$LOGIN" brasa-login-custom brasa-lock.png same; refresh "Wallpapers: Brasa's own"; exit 0 ;;
+esac
+
+# [SCREEN...] IMAGE: the last argument is the image, the ones before it the screens
+args=("$@"); choice=${args[-1]}; unset 'args[-1]'
+screens=() all=0
+for a in "${args[@]}"; do
+  case $a in desktop|lock|login) [[ " ${screens[*]} " == *" $a "* ]] || screens+=("$a") ;;
+    *) echo "Unknown screen: $a (desktop, lock or login)" >&2; usage; exit 1 ;; esac
+done
+case $choice in desktop|lock|login) echo "Missing the image after: ${args[*]:+${args[*]} }$choice" >&2; usage; exit 1 ;; esac
+[ ${#screens[@]} -gt 0 ] || { screens=(desktop); all=1; }
+if [ "$choice" = same ] && [[ " ${screens[*]} " == *" desktop "* ]]; then
+  echo '"same" is for lock (the desktop'"'"'s) and login (the lock screen'"'"'s), not the desktop' >&2; exit 1
+fi
+done_list=()
+for sc in "${screens[@]}"; do
+  case $sc in
+    desktop) set_one "$DESK" brasa-custom "" "$choice"; done_list+=(Desktop) ;;
+    lock)    set_one "$LOCK" brasa-lock-custom brasa.png "$choice"; done_list+=(Lock) ;;
+    login)   set_one "$LOGIN" brasa-login-custom brasa-lock.png "$choice"; done_list+=(Login) ;;
+  esac
+done
+if [ $all = 1 ]; then   # all three: lock and login follow the desktop
+  set_one "$LOCK" brasa-lock-custom brasa.png same; set_one "$LOGIN" brasa-login-custom brasa-lock.png same
+  refresh "Wallpaper: $(label "$choice")"
+else
+  what=$(IFS=,; echo "${done_list[*]}" | sed 's/,/ + /g')
+  case $choice in same) refresh "$what: following the previous screen" ;; *) refresh "$what wallpaper: $(label "$choice")" ;; esac
+fi
