@@ -232,6 +232,7 @@ wl-clipboard      wl-clipboard            wl-clipboard                wl-clipboa
 cliphist          cliphist                cliphist                    cliphist                  cliphist                  cliphist
 thunar            thunar                  thunar                      Thunar                    thunar                    thunar
 polkit-agent      polkit-gnome            mate-polkit|policykit-1-gnome polkit-gnome              polkit-gnome              polkit-gnome
+gtk-theme         adw-gtk-theme           adw-gtk3                    adw-gtk3-theme            adw-gtk3                  -
 portal-gtk        xdg-desktop-portal-gtk  xdg-desktop-portal-gtk      xdg-desktop-portal-gtk    xdg-desktop-portal-gtk    xdg-desktop-portal-gtk
 wtype             wtype                   wtype                       wtype                     wtype                     wtype
 wdisplays         wdisplays               wdisplays                   wdisplays                 wdisplays                 wdisplays
@@ -415,11 +416,30 @@ readlink ~/.local/share/backgrounds/brasa.png 2>/dev/null | grep -q '/brasa-cust
 # The lock screen's follows the desktop's, and the login screen's the lock's, until brasa-wallpaper changes them
 [ -e ~/.local/share/backgrounds/brasa-lock.png ] || run ln -s brasa.png ~/.local/share/backgrounds/brasa-lock.png
 [ -e ~/.local/share/backgrounds/brasa-login.png ] || run ln -s brasa-lock.png ~/.local/share/backgrounds/brasa-login.png
+ini_set() {  # file key value: set one key of a GTK settings.ini (its [Settings] section)
+  local f=$1 k=$2 v=$3
+  [ $DRY = 1 ] && { info "[dry run] $f: $k=$v"; return; }
+  mkdir -p "$(dirname "$f")"; [ -s "$f" ] || echo "[Settings]" > "$f"
+  if grep -q "^$k=" "$f"; then sed -i "s|^$k=.*|$k=$v|" "$f"; else echo "$k=$v" >> "$f"; fi
+}
 if [ $GTK = 1 ]; then
   link "$HERE/config/gtk-3.0/gtk.css" ~/.config/gtk-3.0/gtk.css
   link "$HERE/config/gtk-4.0/gtk.css" ~/.config/gtk-4.0/gtk.css
-  # Red accent for apps that follow the desktop accent setting (GNOME 47+ / libadwaita)
-  command -v gsettings >/dev/null && run gsettings set org.gnome.desktop.interface accent-color red 2>/dev/null
+  # Dark everywhere: GTK 3 apps take adw-gtk3-dark (Brasa's gtk.css goes on top), GTK 4 / libadwaita
+  # apps the dark style; red accent where the desktop accent is followed (GNOME 47+)
+  if command -v gsettings >/dev/null; then
+    run gsettings set org.gnome.desktop.interface color-scheme prefer-dark 2>/dev/null
+    run gsettings set org.gnome.desktop.interface accent-color red 2>/dev/null
+    [ -d /usr/share/themes/adw-gtk3-dark ] && run gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark 2>/dev/null
+  fi
+  [ -d /usr/share/themes/adw-gtk3-dark ] && ini_set ~/.config/gtk-3.0/settings.ini gtk-theme-name adw-gtk3-dark
+  ini_set ~/.config/gtk-3.0/settings.ini gtk-application-prefer-dark-theme 1
+  ini_set ~/.config/gtk-4.0/settings.ini gtk-application-prefer-dark-theme 1
+  # GTK_THEME overrides all of the above, in every GTK app
+  for f in ~/.profile ~/.zprofile ~/.bash_profile ~/.pam_environment ~/.config/environment.d/*.conf /etc/environment; do
+    [ -f "$f" ] && grep -qE "^[^#]*GTK_THEME=" "$f" &&
+      problem "$f sets GTK_THEME, which overrides Brasa's dark theme in every GTK app: remove that line and log in again"
+  done
 fi
 # Avatar for the lock screens: the account picture GNOME/AccountsService already has
 if [ ! -e ~/.face ] && [ -r "/var/lib/AccountsService/icons/$USER" ]; then

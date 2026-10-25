@@ -100,7 +100,11 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
   and root must not run a file your user can edit. Run it again after changing the prompt.
 - `--no-gtk`: skips the GTK colors. By default Brasa links its `gtk.css` for GTK3 and GTK4/libadwaita
   (red accent, night-blue surfaces, red focus rings) and sets the desktop accent color to red; this also
-  affects those apps inside GNOME. Any previous `gtk.css` is backed up.
+  affects those apps inside GNOME. Any previous `gtk.css` is backed up. It also makes everything dark:
+  the `adw-gtk3-dark` theme for GTK3 apps (gsettings and `~/.config/gtk-3.0/settings.ini`) and the dark
+  style for GTK4 ones. A `GTK_THEME=` exported in `~/.profile`, `~/.zprofile`, `environment.d` or
+  `/etc/environment` overrides all that in every GTK app (dialogs such as the polkit password prompt
+  turn light when it names a theme that is not installed): the installer reports it.
 - `--no-deps`: only links, installs no packages. Running it again is safe (it adds new links).
 - `--dry-run`: shows what it would do without doing it.
 - `--uninstall`: removes the links, restores the backups (`*.bak-brasa-DATE`) and, if the greeter was installed, switches back to the previous display manager. Packages stay.
