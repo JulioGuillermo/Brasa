@@ -81,7 +81,7 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
 
 ```
 ./install.sh [--wm swayfx|hyprland|both] [--greeter|--no-greeter] [--zsh|--no-zsh] [--no-gtk] [--no-prompt]
-             [--no-deps] [--dry-run]
+             [--root-prompt] [--no-deps] [--dry-run]
 ./install.sh --uninstall
 ```
 
@@ -90,6 +90,9 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
 - `--zsh` / `--no-zsh`: set up zsh with Brasa's config (see [Shell](#shell-zsh-and-starship)) or skip it.
   **Without either option the installer asks.**
 - `--no-prompt`: skips starship.
+- `--root-prompt`: the same starship prompt for root (asks for sudo). root gets a root-owned copy in
+  `/root/.config/starship.toml`, not a link into your home: starship runs the commands in its config,
+  and root must not run a file your user can edit. Run it again after changing the prompt.
 - `--no-gtk`: skips the GTK colors. By default Brasa links its `gtk.css` for GTK3 and GTK4/libadwaita
   (red accent, night-blue surfaces, red focus rings) and sets the desktop accent color to red; this also
   affects those apps inside GNOME. Any previous `gtk.css` is backed up.
