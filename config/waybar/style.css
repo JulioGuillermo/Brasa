@@ -95,6 +95,9 @@ tooltip label { color: @text; padding: 4px 6px; }
   transition: all 200ms ease;
 }
 #workspaces button label { padding: 0; }
+/* sway's module redraws its buttons on every window event (focus, a terminal changing its title): with a
+   transition each redraw fades in from the plain style, which flickers. Instant changes there. */
+#workspaces.sway button { transition: none; }
 /* Workspaces with windows stand out (light blue) from empty ones (faint). Hyprland marks empty ones
    ".empty"; sway only lists workspaces that exist, the others are ".persistent" placeholders. */
 #workspaces.hypr button:not(.empty),
