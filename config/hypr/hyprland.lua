@@ -120,6 +120,13 @@ hl.window_rule({
     match = { class = "^(pavucontrol|org.pulseaudio.pavucontrol|blueman-manager|nm-connection-editor)$" },
     float = true,
 })
+-- Dialogs and other floating windows open centred, whatever position the app asks for (XWayland apps
+-- such as TigerVNC put their dialogs in the top-left corner). Windows without a class (drag icons) excluded.
+hl.window_rule({
+    name   = "brasa-center-floating",
+    match  = { class = ".+", float = true, fullscreen = false },
+    center = true,
+})
 hl.window_rule({
     name  = "fix-xwayland-drags",
     match = { class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false },
