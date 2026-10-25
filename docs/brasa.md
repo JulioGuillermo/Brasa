@@ -48,7 +48,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
-| `bin/brasa-kbd` | Keyboard backlight, for any `*kbd_backlight*` LED | `~/.local/bin/` |
+| `bin/brasa-kbd` | Keyboard backlight, for any `*kbd_backlight*` LED: up, down, toggle, set N, get, max | `~/.local/bin/` |
 | `bin/brasa-display` | Displays and monitors (wdisplays) | `~/.local/bin/` |
 | `bin/brasa-here` | Is a program running in this graphical session? (the local and the remote session each run their own bar, lock...) | `~/.local/bin/` |
 | `bin/brasa-battery` | Battery charge limit (e.g. 80 %), kept across reboots; right click on the bar's battery | `~/.local/bin/` |
@@ -571,6 +571,7 @@ choice is lit:
 | Layout | the focused workspace's window layout (like `Super+w`), the current one lit. Hyprland: dwindle, master, scrolling. sway: side by side, above/below, tabs, stacked (`config-sway.json`, the panel swaync gets on sway) |
 | Battery | charge limit 60 / 80 / 90 / 100 % (laptops that support it, see below) |
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
+| Light | keyboard backlight level, the levels the driver offers (e.g. off, low, medium, high), the current one lit (`brasa-kbd set N`; only on keyboards with a backlight) |
 | Remote | sharing this machine's desktop on port 5901: off, mirror, screen, take |
 | Startup | what starts with the machine: the remote session, the SSH server (lit = on; the panel stays open) |
 | Custom | your own buttons, from `~/.config/brasa/panel.conf` (only when that file has some) |

@@ -188,6 +188,17 @@ MENUS["menu#boot"] = {"label": tile("\U000F14DE", "Startup"), "position": "left"
            "systemctl --user -q is-enabled brasa-remote-session && echo true || echo false")},
     {**tog(f"{'SSH server at boot':<38}", B + "brasa-remote ssh boot", B + "brasa-remote ssh noboot",
            "{ systemctl -q is-enabled sshd || systemctl -q is-enabled ssh; } 2>/dev/null && echo true || echo false")}]}
+# Keyboard backlight levels, from what the driver offers (Off and 1..max; percentages when there are many)
+KBD = next(iter(glob.glob("/sys/class/leds/*kbd_backlight*")), None)
+if KBD:
+    top = int(read(f"{KBD}/max_brightness") or 0)
+    names = {1: ["On"], 2: ["Low", "High"], 3: ["Low", "Medium", "High"], 4: ["Low", "Medium", "High", "Max"]}
+    levels = ([(0, "Off")] + list(zip(range(1, top + 1), names[top]))) if top in names else \
+             [(round(top * p / 100), "Off" if p == 0 else f"{p} %") for p in (0, 25, 50, 75, 100)]
+    if top:
+        MENUS["menu#kbdlight"] = {"label": tile("\U000F06E9", "Light"), "position": "left", "actions": [
+            choice(f"Keyboard light: {name}", B + f"brasa-kbd set {n}", f"{B}brasa-kbd get | grep -qx {n}")
+            for n, name in levels]}
 # Sharing this machine's own desktop (port 5901): one mode at a time
 MODE = "$XDG_RUNTIME_DIR/brasa-remote/mode"
 MENUS["menu#remote"] = {"label": tile("\U000F1483", "Remote"), "position": "left", "actions": [
@@ -217,7 +228,8 @@ for line in (open(CUSTOM, encoding="utf-8") if os.path.exists(CUSTOM) else []):
         custom.append(tog(f"{text:<38}", run(cmds[0]), run(cmds[1]), f"{cmds[2]} && echo true || echo false"))
 if custom:
     MENUS["menu#custom"] = {"label": tile("\U000F09AC", "Custom"), "position": "left", "actions": custom}
-MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "menu#remote", "menu#boot", "menu#custom")
+MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "menu#kbdlight", "menu#remote", "menu#boot",
+                            "menu#custom")
          if k in MENUS}
 
 
