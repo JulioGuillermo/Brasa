@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+# Where the RAM is: apps, graphics, shared memory and tmpfs, the kernel, what drivers hold without the
+# kernel naming it, what the kernel keeps back, cache and free; then tmpfs folders, swap and the apps
+# that use the most. Used is total minus available, as free(1) and waybar count it.
+# A click on the bar's RAM block opens it in a small floating terminal; it refreshes every 2 s while it
+# is open and costs nothing once closed (q or Esc closes it). Reads /proc and this user's processes: no root.
+# Usage: brasa-mem          live, until q / Esc
+#        brasa-mem --once   print it once
+import glob, os, select, sys, termios, time, tty
+
+DIM, RED, BOLD, OFF = "\033[38;2;90;106;144m", "\033[38;2;255;0;0m", "\033[1m", "\033[0m"
+EVERY = 2
+TMPFS = ("/tmp", "/dev/shm", f"/run/user/{os.getuid()}")
+
+
+def meminfo():
+    m = {}
+    for line in open("/proc/meminfo"):
+        k, v = line.split(":", 1)
+        m[k] = int(v.split()[0]) * 1024
+    return m
+
+
+def watermarks():
+    """Bytes below the kernel's min and low marks, all zones together."""
+    mins = lows = 0
+    for line in open("/proc/zoneinfo"):
+        p = line.split()
+        if len(p) == 2 and p[0] == "min":
+            mins += int(p[1])
+        elif len(p) == 2 and p[0] == "low":
+            lows += int(p[1])
+    page = os.sysconf("SC_PAGE_SIZE")
+    return mins * page, lows * page
+
+
+def graphics():
+    """Memory the GPU driver gives this user's processes (DRM fdinfo, each client once): what each owns
+    alone, plus the largest shared buffer set once (the same buffers appear in every client sharing them)."""
+    seen, own, shared = set(), 0, 0
+    for fd in glob.glob("/proc/[0-9]*/fd/*"):
+        try:
+            if not os.readlink(fd).startswith("/dev/dri/"):
+                continue
+            info = open(fd.replace("/fd/", "/fdinfo/")).read()
+        except OSError:
+            continue
+        f = dict(l.split(":", 1) for l in info.splitlines() if ":" in l)
+        cid = f.get("drm-client-id", "").strip()
+        if not cid or cid in seen:
+            continue
+        seen.add(cid)
+        def total(prefix):
+            n = 0
+            for k, v in f.items():
+                # memory regions only (system, gtt, vram…): not stolen memory, not the engines' cycle counters
+                if k.startswith(prefix) and not k.endswith("-stolen") and "cycles" not in k:
+                    num, *unit = v.split()
+                    n += int(num) * {"KiB": 1024, "MiB": 1 << 20, "GiB": 1 << 30}.get(unit[0] if unit else "", 1)
+            return n
+        t, s = total("drm-total-"), total("drm-shared-")
+        own += t - s
+        shared = max(shared, s)
+    return own + shared
+
+
+def apps(n=6):
+    """This user's programs by private memory (resident minus shared pages), helpers grouped under
+    their program (all of a browser's processes count as the browser)."""
+    page, use = os.sysconf("SC_PAGE_SIZE"), {}
+    me = os.getuid()
+    for d in glob.glob("/proc/[0-9]*"):
+        try:
+            if os.stat(d).st_uid != me:
+                continue
+            size, res, shr = map(int, open(f"{d}/statm").read().split()[:3])
+            exe = os.path.basename(os.readlink(f"{d}/exe"))
+            if exe.startswith("python") or exe in ("bash", "sh", "node"):
+                args = open(f"{d}/cmdline", "rb").read().split(b"\0")
+                script = next((a.decode(errors="replace") for a in args[1:] if a and not a.startswith(b"-")), "")
+                exe = os.path.basename(script) or exe
+        except (OSError, ValueError):
+            continue
+        if not any(c.isalpha() for c in exe):   # a binary named after its version: the process name
+            exe = open(f"{d}/comm").read().strip()
+        name = exe.removesuffix("-bin")
+        use[name] = use.get(name, 0) + (res - shr) * page
+    return sorted(use.items(), key=lambda x: -x[1])[:n]
+
+
+def swaps():
+    lines = []
+    for z in sorted(glob.glob("/sys/block/zram*")):
+        try:
+            orig, comp = map(int, open(f"{z}/mm_stat").read().split()[:2])
+            lines.append((f"zram {os.path.basename(z)}", f"{gib(orig)} stored in {gib(comp)} of RAM"))
+        except (OSError, ValueError):
+            pass
+    return lines
+
+
+def gib(b):
+    return f"{b / (1 << 30):.1f} G" if b >= 1 << 30 else f"{b / (1 << 20):.0f} M"
+
+
+def row(label, value, note=""):
+    return f"{label:<17}{value:>8}" + (f"  {DIM}{note}{OFF}" if note else "")
+
+
+def head(text, note=""):
+    return f"{BOLD}{text}{OFF}" + (f"  {DIM}{note}{OFF}" if note else "")
+
+
+def breakdown(m):
+    total, free, avail = m["MemTotal"], m["MemFree"], m["MemAvailable"]
+    used = total - avail
+    shmem = m.get("Shmem", 0)
+    cache = m.get("Buffers", 0) + m.get("Cached", 0) - shmem
+    reclaim = m.get("KReclaimable", m.get("SReclaimable", 0))
+    kernel = (m.get("SUnreclaim", 0) + m.get("KernelStack", 0) + m.get("PageTables", 0) + m.get("SecPageTables", 0)
+              + m.get("VmallocUsed", 0) + m.get("Percpu", 0))
+    anon = m.get("AnonPages", 0)
+    gpu = graphics()
+    # What is neither free nor in any meminfo category nor the GPU's: pages drivers take directly
+    other = max(0, total - free - anon - shmem - cache - reclaim - kernel - gpu)
+    # Free and cache the kernel does not count as available: its reserve and reclaim margin
+    held = max(0, free + cache + reclaim - avail)
+    wmin, wlow = watermarks()
+    pct = lambda b: f"{100 * b / total:.0f}%"
+
+    out = [f"{RED}{BOLD}RAM{OFF}  {gib(total)} total",
+           "",
+           head(f"Used  {gib(used)}", f"({pct(used)})"),
+           row("  Apps", gib(anon), "programs' own memory"),
+           row("  Graphics", "≈" + gib(gpu), "GPU buffers (it shares the RAM)"),
+           row("  Shared / tmpfs", gib(shmem), "shared buffers, files in RAM folders"),
+           row("  Kernel", gib(kernel), "its own structures"),
+           row("  Drivers", "≈" + gib(other), "held by drivers, not itemized"),
+           row("  Kept back", gib(held), f"reserve {gib(wmin)}, reclaim starts below {gib(wlow)}"),
+           "",
+           head(f"Available  {gib(avail)}"),
+           row("  Free", gib(free)),
+           row("  Cache", gib(cache + reclaim), "files kept in RAM, given back on demand")]
+
+    tmp = []
+    for path in TMPFS:
+        try:
+            s = os.statvfs(path)
+            usedb = (s.f_blocks - s.f_bfree) * s.f_frsize
+            tmp.append(row(f"  {path}", gib(usedb), f"of {gib(s.f_blocks * s.f_frsize)}"))
+        except OSError:
+            pass
+    if tmp:
+        out += ["", head("RAM folders", "(part of Shared)")] + tmp
+
+    st, sf = m.get("SwapTotal", 0), m.get("SwapFree", 0)
+    out += ["", head(f"Swap  {gib(st - sf)} of {gib(st)}" if st else "Swap  none")]
+    if m.get("SwapCached"):
+        out.append(row("  In RAM too", gib(m["SwapCached"]), "swapped pages also kept in RAM"))
+    if m.get("Zswapped"):
+        out.append(row("  zswap", gib(m["Zswapped"]), f"compressed into {gib(m.get('Zswap', 0))}"))
+    out += [row(f"  {k}", "", v) for k, v in swaps()]
+
+    out += ["", head("Apps using the most", "(own memory)")]
+    out += [row(f"  {name[:15]}", gib(b)) for name, b in apps()]
+    return "\n".join(out)
+
+
+def main():
+    if "--once" in sys.argv or not sys.stdin.isatty():
+        print(breakdown(meminfo()))
+        return
+    old = termios.tcgetattr(sys.stdin)
+    tty.setcbreak(sys.stdin)
+    sys.stdout.write("\033[?25l")   # no cursor
+    try:
+        while True:
+            sys.stdout.write("\033[H\033[2J" + breakdown(meminfo()) + f"\n\n{DIM}q / Esc: close{OFF}")
+            sys.stdout.flush()
+            ready, _, _ = select.select([sys.stdin], [], [], EVERY)
+            if ready and os.read(sys.stdin.fileno(), 16)[:1] in (b"q", b"Q", b"\033"):
+                break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)
+        sys.stdout.write("\033[?25h\n")
+
+
+main()

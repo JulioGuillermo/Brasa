@@ -72,7 +72,9 @@ waybar = {
   "custom/fan": {"exec": S + " fan", "return-type": "json", "interval": 3},
   "memory": {"interval": 1, "states": {"warm": 70, "hot": 85, "crit": 93},
              "format": I(ICON["ram"]) + " {used:.1f}<small>G</small> <span color='#5a6a90'>·</span> {avail:.1f}<small>G</small> <span color='#5a6a90'>·</span> {percentage}%",
-             "tooltip-format": "RAM: {used:.1f} of {total:.1f} GiB used, {avail:.1f} GiB available"},
+             "tooltip-format": "RAM: {used:.1f} of {total:.1f} GiB used, {avail:.1f} GiB available\nClick: where it is (apps, graphics, kernel, cache, swap)",
+             # The breakdown in a small floating terminal, only while it is open (brasa-mem)
+             "on-click": "foot --app-id=brasa-mem --title=Memory -W 76x32 ~/.local/bin/brasa-mem"},
   "memory#swap": {"interval": 5, "format": I(ICON["swap"]) + " {swapPercentage}%",
                   "tooltip-format": "Swap: {swapUsed:.1f} of {swapTotal:.1f} GiB used"},
   "network#rate": {"interval": 2,
