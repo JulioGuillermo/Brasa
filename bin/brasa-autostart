@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # What starts with the session, the same in sway/SwayFX and Hyprland.
+# Brasa commands added by a later "git pull": link any that is missing (install.sh does the rest)
+for f in ~/.config/brasa/bin/brasa-*; do [ -e ~/.local/bin/"${f##*/}" ] || ln -s "$f" ~/.local/bin/ 2>/dev/null; done
 # The remote session (brasa-remote session) must not overwrite the local session's environment
 [ -n "${BRASA_REMOTE_SESSION:-}" ] || \
   dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SWAYSOCK HYPRLAND_INSTANCE_SIGNATURE 2>/dev/null

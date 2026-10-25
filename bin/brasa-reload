@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Reload Brasa's programs without touching the window manager (Super+Ctrl+r).
+# Brasa commands added by a later "git pull": link any that is missing (install.sh does the rest)
+for f in ~/.config/brasa/bin/brasa-*; do [ -e ~/.local/bin/"${f##*/}" ] || ln -s "$f" ~/.local/bin/ 2>/dev/null; done
 python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/null 2>&1   # bar + panel (panel.conf)
 pkill -SIGUSR2 -x waybar || setsid -f waybar >/dev/null 2>&1                    # bar: config and style
 swaync-client -R -sw >/dev/null 2>&1; swaync-client -rs -sw >/dev/null 2>&1   # notifications

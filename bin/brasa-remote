@@ -149,10 +149,12 @@ scale_for() {  # WxH -> the scale to use: REMOTE_SCALE, or with "auto" one picke
 }
 resize_flag() { [ "$REMOTE_RESIZE" = no ] && echo -R; }
 
-layout() {  # first keyboard layout of the session, for wayvnc's key mapping
+layout() {  # your first keyboard layout, for wayvnc's key mapping (characters such as ñ need it)
+  # brasa-keyboard's list first: a remote session has no keyboard yet when wayvnc starts
+  local l; l=$(awk 'NF { print $1 (NF > 1 ? "-" $2 : ""); exit }' ~/.config/brasa/keyboard.conf 2>/dev/null)
+  [ -n "$l" ] && { echo "$l"; return; }
   if hypr; then hyprctl getoption input:kb_layout -j 2>/dev/null | jq -r '.str // empty' | cut -d, -f1
-  else swaymsg -t get_inputs -r 2>/dev/null | jq -r '[.[] | select(.type == "keyboard")][0].xkb_layout_names[0] // empty' |
-         sed 's/ .*//; s/^Spanish$/es/; s/^English$/us/'; fi
+  else sed -n 's/^\s*xkb_layout\s\+//p' ~/.config/sway/brasa.conf 2>/dev/null | head -1 | cut -d, -f1; fi
 }
 
 create_virtual() {  # size -> prints the virtual monitor's name
@@ -359,6 +361,7 @@ session() {
       command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; }
       working "Remote session"
       session_unit
+      rm -f "$STATE/session-layout" "$STATE/session-layout-index"   # a new session starts with your first layout
       systemctl --user start "$SESSION_UNIT"; sleep 3
       if session_running; then say "Remote session ON" "Port $REMOTE_PORT · $(where)
 $(also_on session)"
@@ -431,8 +434,14 @@ $(also_on local)"
           last=$size; swaymsg -q output "$out" scale "$(scale_for "$size")"
         done ) &
     fi
-    kb=$(layout)
-    exec wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock" ;;
+    # wayvnc's virtual keyboard keeps the layout it starts with (sway cannot change it), so choosing another
+    # layout in the remote session (brasa-keyboard) saves it in $STATE/session-layout and stops wayvnc:
+    # this loop starts it again with that layout while the session's sway is alive (the viewer reconnects)
+    while swaymsg -t get_version >/dev/null 2>&1; do
+      kb=$(cat "$STATE/session-layout" 2>/dev/null); kb=${kb:-$(layout)}
+      wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock"
+      sleep 0.5
+    done ;;
   _take-restore) take_restore ;;
   _take-watch)    # nobody connected to "take" in time: stop it (which restores everything)
     clients=$(wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null | grep -c '^[[:space:]]*[0-9]')

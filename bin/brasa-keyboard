@@ -35,14 +35,27 @@ apply() {
     mkdir -p "$(dirname "$LUA")"
     printf -- '-- Written by brasa-keyboard: your keyboard layouts\nhl.config({ input = { kb_layout = "%s", kb_variant = "%s" } })\n' "$L" "$V" > "$LUA"
   else
-    swaymsg -q "input type:keyboard xkb_layout $L"; swaymsg -q "input type:keyboard xkb_variant ${V:-\"\"}"
+    # quoted: for sway a comma separates commands
+    swaymsg -q "input type:keyboard xkb_layout \"$L\""; swaymsg -q "input type:keyboard xkb_variant \"$V\""
   fi
 }
 active() {  # index of the layout in use
+  if [ -n "${BRASA_REMOTE_SESSION:-}" ]; then
+    cat "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote/session-layout-index" 2>/dev/null || echo 0; return
+  fi
   if hypr; then hyprctl devices -j | jq -r '[.keyboards[] | select(.main)][0].active_layout_index // 0'
   else swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "keyboard")][0].xkb_active_layout_index // 0'; fi
 }
 use() {
+  if [ -n "${BRASA_REMOTE_SESSION:-}" ]; then
+    # Remote session: its keyboard is wayvnc's, whose layout is set when wayvnc starts. Save the choice
+    # and stop wayvnc: brasa-remote starts it again with this layout, and the viewer reconnects.
+    local st=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote p
+    echo "${LAYOUTS[$1]}${VARIANTS[$1]:+-${VARIANTS[$1]}}" > "$st/session-layout"
+    echo "$1" > "$st/session-layout-index"
+    for p in $(pgrep -u "$(id -u)" -f "brasa-remote/session.sock"); do kill "$p"; done
+    echo "Keyboard: $(name "${LAYOUTS[$1]}" "${VARIANTS[$1]}") (the viewer reconnects)"; return
+  fi
   if hypr; then hyprctl -q switchxkblayout all "$1"; else swaymsg -q "input type:keyboard xkb_switch_layout $1"; fi
   osd "Keyboard: $(name "${LAYOUTS[$1]}" "${VARIANTS[$1]}")"
 }
