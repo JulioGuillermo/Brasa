@@ -5,6 +5,7 @@ bin/__pycache__/
 config/waybar/segments.css
 config/waybar/config.jsonc
 config/swaync/config.json
+config/swaync/config-sway.json
 config/swaync/menus.css
 # Your own settings (~/.config/brasa is a link to this folder)
 remote.conf

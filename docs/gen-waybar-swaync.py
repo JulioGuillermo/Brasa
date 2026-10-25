@@ -279,6 +279,14 @@ for i, g in enumerate(LEFT):
 open(f"{out}/waybar/segments.css", "w").write("\n".join(css) + "\n")
 print("waybar: left blocks", ", ".join(LEFT), "| hardware", {k: v for k, v in HAS.items()})
 json.dump(swaync, open(f"{out}/swaync/config.json", "w"), ensure_ascii=False, indent=2)
+# sway has its own layouts: the same panel with sway's in the Layout menu (brasa-autostart starts
+# swaync with this file on sway)
+sway_panel = json.loads(json.dumps(swaync))
+sway_panel["widget-config"]["menubar"]["menu#layout"]["actions"] = [
+    choice(f"{name:<12} {desc}", B + f"brasa-wm layout-set {mode}", f"{B}brasa-wm layout-current | grep -qx {mode}")
+    for name, mode, desc in (("Side by side", "splith", "windows in a row"), ("Above/below", "splitv", "one over another"),
+                             ("Tabs", "tabbed", "one at a time, tab bar"), ("Stacked", "stacking", "one at a time, titles"))]
+json.dump(sway_panel, open(f"{out}/swaync/config-sway.json", "w"), ensure_ascii=False, indent=2)
 # The menu buttons share the row (480 px: six of 75 px with 6 px gaps, the grid's width), however many
 # menus this machine has, so the row always spans the grid. Imported by style.css.
 n = len(MENUS)

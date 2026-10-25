@@ -188,7 +188,7 @@ The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter
 | `Super+Shift+q` | Kill the focused window's app (`kill -9` to its PID, nothing else) |
 | `Super+f` | Fullscreen |
 | `Super+Space` | Floating / tiled |
-| `Super+w` | Window layout of the focused workspace. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like columns on a strip you scroll through); each workspace remembers its own. sway: tiles ↔ tabs |
+| `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like columns on a strip you scroll through), remembered across logins. sway: side by side → one above the other → tabs → stacked |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |
@@ -568,7 +568,7 @@ choice is lit:
 
 | Menu | Choices |
 |---|---|
-| Layout | the focused workspace's window layout: dwindle, master, scrolling (like `Super+w`) |
+| Layout | the focused workspace's window layout (like `Super+w`), the current one lit. Hyprland: dwindle, master, scrolling. sway: side by side, above/below, tabs, stacked (`config-sway.json`, the panel swaync gets on sway) |
 | Battery | charge limit 60 / 80 / 90 / 100 % (laptops that support it, see below) |
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
 | Remote | sharing this machine's desktop on port 5901: off, mirror, screen, take |

@@ -64,17 +64,28 @@ else
     layout-next) swaymsg -q input type:keyboard xkb_switch_layout next
                  ~/.local/bin/brasa-osd input-keyboard-symbolic "$(swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "keyboard")][0].xkb_active_layout_name')" ;;
     reload)      ~/.local/bin/brasa-gen >/dev/null; swaymsg -q reload; ~/.local/bin/brasa-monitors apply --settle ;;
-    layout-current) # tabs show as "scrolling", tiles as "dwindle" (the panel's names)
-                 l=$(swaymsg -t get_tree | jq -r '.. | objects | select(any(.nodes[]?; .focused == true)) | .layout' | head -1)
-                 [ "$l" = tabbed ] && echo scrolling || echo dwindle ;;
-    layout-cycle|layout-set) # sway has no scrolling layout: the focused container switches between tiles and
-                 # tabs (from the panel: dwindle/master = tiles, scrolling = tabs)
+    layout-current) # the focused workspace's layout: splith, splitv, tabbed or stacking
+                 swaymsg -t get_tree | jq -r '[.. | objects | select(.type? == "workspace" and any(.. ; .focused? == true))][0].layout' |
+                   sed 's/^stacked$/stacking/' ;;   # the tree says "stacked", the command "stacking"
+    layout-cycle|layout-set) # sway's own layouts for the focused workspace, like Hyprland's per workspace: side by
+                 # side (splith), one above the other (splitv), tabs (tabbed), stacked titles (stacking).
+                 # Super+w goes through them; the panel sets one (Hyprland's names map to the nearest)
                  if [ "$verb" = layout-set ]; then
-                   case $arg in scrolling) swaymsg -q layout tabbed ;; *) swaymsg -q layout splith ;; esac
-                 else swaymsg -q layout toggle split tabbed; fi
-                 # the layout of the container holding the focused window
-                 l=$(swaymsg -t get_tree | jq -r '.. | objects | select(any(.nodes[]?; .focused == true)) | .layout' | head -1)
-                 ~/.local/bin/brasa-osd view-grid-symbolic "Layout: $([ "$l" = tabbed ] && echo tabs || echo tiles)" ;;
+                   case $arg in splitv) l=splitv ;; tabbed|scrolling) l=tabbed ;; stacking) l=stacking ;; *) l=splith ;; esac
+                 else
+                   case $("$0" layout-current) in splith) l=splitv ;; splitv) l=tabbed ;; tabbed) l=stacking ;; *) l=splith ;; esac
+                 fi
+                 # "layout" acts on the focused node's container: climb to the workspace, set it, give focus back.
+                 # (One command each: criteria in a comma-separated list would apply to every command.)
+                 win=$(swaymsg -t get_tree | jq -r '.. | objects | select(.focused? == true and .type? == "con") | .id' | head -1)
+                 for _ in 1 2 3 4 5 6; do
+                   [ "$(swaymsg -t get_tree | jq -r '.. | objects | select(.focused? == true) | .type' | head -1)" = workspace ] && break
+                   swaymsg -q "focus parent"
+                 done
+                 swaymsg -q layout "$l"
+                 [ -n "$win" ] && swaymsg -q "[con_id=$win] focus"
+                 case $l in splith) n="side by side" ;; splitv) n="one above the other" ;; tabbed) n="tabs" ;; *) n="stacked" ;; esac
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $(swaymsg -t get_workspaces -r | jq -r '.[] | select(.focused) | .name'): $n" ;;
     dpms)        swaymsg -q output '*' power "$arg" ;;
     remote-keys) if [ "$(swaymsg -t get_binding_state -r | jq -r .name)" = remote ]; then swaymsg -q mode default; msg=off
                  else swaymsg -q mode remote; msg="on · Ctrl+Super+Esc to leave"; fi
