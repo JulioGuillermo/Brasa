@@ -47,7 +47,7 @@ waybar = {
   "margin-top": 6, "margin-left": 8, "margin-right": 8, "spacing": 0,
   # Left: resource blocks this machine has, each followed by a triangle (l1, l2...)
   "modules-left": [m for i, g in enumerate(LEFT) for m in (f"group/{g}", f"custom/l{i + 1}")],
-  "modules-center": ["custom/c1", "sway/workspaces", "hyprland/workspaces", "custom/c2"],
+  "modules-center": ["custom/c1", "sway/workspaces#sway", "hyprland/workspaces#hypr", "custom/c2"],
   # Network sits on the right, nearest the center: its width changes the most and nothing else moves
   "modules-right": ["custom/r0", "group/g-net", "custom/r1", "clock", "custom/r2", "group/g-ctl", "custom/r3",
                     "tray", "custom/notif"],
@@ -93,10 +93,11 @@ waybar = {
                 "on-click": "~/.local/bin/brasa-refresh menu", "on-click-right": "~/.local/bin/brasa-refresh cycle",
                 "on-click-middle": "~/.local/bin/brasa-hz-real"},
 
-  # Each bar shows its own monitor's workspaces: the number, inside a circle drawn in style.css
-  "sway/workspaces": {"format": "{name}", "disable-scroll": False, "all-outputs": False,
+  # Each bar shows its own monitor's workspaces: the number, inside a circle drawn in style.css.
+  # "#sway" / "#hypr" become CSS classes: the two modules mark empty workspaces differently.
+  "sway/workspaces#sway": {"format": "{name}", "disable-scroll": False, "all-outputs": False,
                       "persistent-workspaces": {str(n): [INTERNAL] if INTERNAL else [] for n in range(1, 5)}},
-  "hyprland/workspaces": {"format": "{name}", "all-outputs": False,
+  "hyprland/workspaces#hypr": {"format": "{name}", "all-outputs": False,
                           "persistent-workspaces": {INTERNAL: [1, 2, 3, 4]} if INTERNAL else {"*": 4}},
 
   "clock": {"interval": 1, "format": I(ICON["cal"]) + " {:%a %d %b  " + I(ICON["clock"]) + " %H:%M:%S}",  # one {} only

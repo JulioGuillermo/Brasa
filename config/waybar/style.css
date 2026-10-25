@@ -95,20 +95,27 @@ tooltip label { color: @text; padding: 4px 6px; }
   transition: all 200ms ease;
 }
 #workspaces button label { padding: 0; }
-/* Workspaces with windows stand out a little from empty ones */
-#workspaces button:not(.empty):not(.persistent) { border-color: @dim; color: @sub; }
+/* Workspaces with windows stand out (light blue) from empty ones (faint). Hyprland marks empty ones
+   ".empty"; sway only lists workspaces that exist, the others are ".persistent" placeholders. */
+#workspaces.hypr button:not(.empty),
+#workspaces.sway button:not(.persistent) {
+  border-color: @steel;
+  color: @text;
+  background: rgba(153, 204, 255, 0.14);
+}
 /* No hover effect: GTK keeps a clicked workspace button in hover state after switching (it never gets
    the pointer-leave), which left it highlighted. Inherit everything so hover looks like the normal state. */
 #workspaces button:hover { background: inherit; box-shadow: inherit; text-shadow: inherit; }
 /* Shown on its monitor but that monitor is not focused: red outline */
-#workspaces button.visible { border-color: @accent; color: @text; }
-#workspaces button.focused, #workspaces button.active {
+/* The states below name both modules (.hypr / .sway) so they win over the "has windows" style above */
+#workspaces.hypr button.visible, #workspaces.sway button.visible { border-color: @accent; color: @text; }
+#workspaces.hypr button.active, #workspaces.sway button.focused, #workspaces.sway button.active {
   background: @accent;
   border-color: @accent;
   color: #00040f;
   box-shadow: 0 0 8px rgba(255, 0, 0, 0.75);
 }
-#workspaces button.urgent { border-color: @amber; color: @amber; }
+#workspaces.hypr button.urgent, #workspaces.sway button.urgent { border-color: @amber; color: @amber; }
 
 /* Interactive */
 #network.wifi, #network.ethernet, #network.disconnected, #bluetooth, #wireplumber, #backlight {
