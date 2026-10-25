@@ -180,6 +180,7 @@ if [ $UNINSTALL = 1 ]; then
   unlink_ours ~/.config/gtk-3.0/gtk.css
   unlink_ours ~/.config/gtk-4.0/gtk.css
   unlink_ours ~/.config/starship.toml
+  unlink_ours ~/.config/Kvantum/Brasa
   prompt_unhook
   root_unprompt
   uninstall_zsh
@@ -233,6 +234,8 @@ cliphist          cliphist                cliphist                    cliphist  
 thunar            thunar                  thunar                      Thunar                    thunar                    thunar
 polkit-agent      polkit-gnome            mate-polkit|policykit-1-gnome polkit-gnome              polkit-gnome              polkit-gnome
 qt5ct             qt5ct                   qt5ct                       qt5ct                     qt5ct                     -
+kvantum           kvantum                 qt-style-kvantum            kvantum                   kvantum-qt6               kvantum
+kvantum-qt5       kvantum-qt5             -                           kvantum-qt5               kvantum-qt5               -
 qt6ct             qt6ct                   qt6ct                       qt6ct                     qt6ct                     -
 gtk-theme         adw-gtk-theme           adw-gtk3                    adw-gtk3-theme            adw-gtk3                  -
 portal-gtk        xdg-desktop-portal-gtk  xdg-desktop-portal-gtk      xdg-desktop-portal-gtk    xdg-desktop-portal-gtk    xdg-desktop-portal-gtk
@@ -437,16 +440,29 @@ if [ $GTK = 1 ]; then
   [ -d /usr/share/themes/adw-gtk3-dark ] && ini_set ~/.config/gtk-3.0/settings.ini gtk-theme-name adw-gtk3-dark
   ini_set ~/.config/gtk-3.0/settings.ini gtk-application-prefer-dark-theme 1
   ini_set ~/.config/gtk-4.0/settings.ini gtk-application-prefer-dark-theme 1
-  # Qt apps: Brasa's colors with the Fusion style, through qt5ct / qt6ct (QT_QPA_PLATFORMTHEME=qt5ct is
-  # set by hyprland.lua, the login screen and environment.d; Qt 6 apps take it for qt6ct too)
+  # Qt apps, through qt5ct / qt6ct (QT_QPA_PLATFORMTHEME=qt5ct is set by hyprland.lua, the login screen
+  # and environment.d; Qt 6 apps take it for qt6ct too): Brasa's flat Kvantum theme (config/kvantum,
+  # made by docs/gen-kvantum.py) when Kvantum is installed, else the Fusion style with Brasa's colors
+  if command -v kvantummanager >/dev/null; then
+    qtstyle=kvantum qtpalette=false
+    link "$HERE/config/kvantum/Brasa" ~/.config/Kvantum/Brasa
+    kv=~/.config/Kvantum/kvantum.kvconfig
+    if ! grep -qx "theme=Brasa" "$kv" 2>/dev/null; then
+      [ -f "$kv" ] && run cp -a "$kv" "$kv.bak-brasa-$STAMP"
+      [ $DRY = 1 ] || printf '[General]\ntheme=Brasa\n' > "$kv"
+      info "Kvantum theme: Brasa"
+    fi
+  else
+    qtstyle=Fusion qtpalette=true
+  fi
   for v in qt5ct qt6ct; do
     f=~/.config/$v/$v.conf
     [ -f "$f" ] && ! grep -q "brasa-colors.conf" "$f" && run cp -a "$f" "$f.bak-brasa-$STAMP"
-    [ $DRY = 1 ] && { info "[dry run] $f: Brasa colors, Fusion style"; continue; }
-    python3 - "$f" "$HERE/config/qt/brasa-colors.conf" <<'PY'
+    [ $DRY = 1 ] && { info "[dry run] $f: style $qtstyle"; continue; }
+    python3 - "$f" "$HERE/config/qt/brasa-colors.conf" "$qtstyle" "$qtpalette" <<'PY'
 import os, re, sys
-path, colors = sys.argv[1:]
-want = {"color_scheme_path": colors, "custom_palette": "true", "style": "Fusion"}
+path, colors, style, palette = sys.argv[1:]
+want = {"color_scheme_path": colors, "custom_palette": palette, "style": style}
 lines = open(path).read().splitlines() if os.path.exists(path) else []
 out, section, done = [], None, set()
 for line in lines + ["[End]"]:
