@@ -438,7 +438,10 @@ brasa-greeter bg          # regenerate the blurred background after changing the
   greetd. **It takes effect on the next boot**; the running session is not touched.
 - **If something goes wrong** and there is no login screen: `Ctrl+Alt+F3`, log in on the text
   console and run `~/brasa/bin/brasa-greeter uninstall`, then reboot.
-- GNOME still works from greetd, but GNOME's "switch user" needs GDM.
+- GNOME still works from greetd, but GNOME's "switch user" needs GDM. GNOME only starts on a session
+  that logind marks as `wayland`, and greetd opens every session as `tty` unless the greeter says
+  otherwise: `XDG_SESSION_TYPE=wayland` in the `env-vars` of `greeter/nwg-hello.json` does it
+  (Hyprland and sway did not need it, they change the type themselves).
 
 ## Shell: zsh and starship
 

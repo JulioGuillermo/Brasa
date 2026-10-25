@@ -26,5 +26,5 @@
   "avatar-border-color": "#d00000",
   "avatar-corner-radius": 18,
   "avatar-circle": true,
-  "env-vars": ["QT_QPA_PLATFORMTHEME=qt5ct"]
+  "env-vars": ["QT_QPA_PLATFORMTHEME=qt5ct", "XDG_SESSION_TYPE=wayland"]
 }
