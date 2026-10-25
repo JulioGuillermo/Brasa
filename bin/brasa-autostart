@@ -21,6 +21,9 @@ here -f 'brasa-monitors watch' || \
   setsid -f ~/.local/bin/brasa-monitors watch >/dev/null 2>&1   # re-apply on hotplug
 run waybar
 run swaync
+# sway: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)
+[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && { here -f "brasa-wm remote-watch" ||
+  setsid -f ~/.local/bin/brasa-wm remote-watch >/dev/null 2>&1; }
 run nm-applet --indicator
 run blueman-applet
 for a in /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \

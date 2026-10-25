@@ -19,6 +19,9 @@ if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
     reload)      ~/.local/bin/brasa-gen >/dev/null; hyprctl -q reload; sleep 0.5   # the reload finishes asynchronously
                  ~/.local/bin/brasa-monitors apply --settle; ~/.local/bin/brasa-fx restore ;;
     dpms)        d "hl.dsp.dpms({ action = \"$arg\" })" ;;
+    remote-keys) if [ "$(hyprctl submap | head -1)" = remote ]; then d 'hl.dsp.submap("reset")'; msg=off
+                 else d 'hl.dsp.submap("remote")'; msg="on · Ctrl+Super+Esc to leave"; fi
+                 ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard $msg" ;;
     exit)        command -v hyprshutdown >/dev/null && hyprshutdown || d 'hl.dsp.exit()' ;;
     touchpad)    st=${XDG_RUNTIME_DIR:-/tmp}/brasa-touchpad-off
                  tp=$(hyprctl devices -j | jq -r '[.mice[] | select(.name | test("touchpad"; "i"))][0].name')
@@ -44,6 +47,18 @@ else
                  ~/.local/bin/brasa-osd input-keyboard-symbolic "$(swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "keyboard")][0].xkb_active_layout_name')" ;;
     reload)      ~/.local/bin/brasa-gen >/dev/null; swaymsg -q reload; ~/.local/bin/brasa-monitors apply --settle ;;
     dpms)        swaymsg -q output '*' power "$arg" ;;
+    remote-keys) if [ "$(swaymsg -t get_binding_state -r | jq -r .name)" = remote ]; then swaymsg -q mode default; msg=off
+                 else swaymsg -q mode remote; msg="on · Ctrl+Super+Esc to leave"; fi
+                 ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard $msg" ;;
+    remote-watch) # sway has no focus hook in its config: follow focus changes, remote mode in viewers
+                 swaymsg -m -t subscribe '["window"]' | jq --unbuffered -r 'select(.change == "focus") |
+                     (.container.app_id // .container.window_properties.class // "")' | while read -r app; do
+                   cur=$(swaymsg -t get_binding_state -r | jq -r .name)
+                   if [[ $app =~ ^(Vncviewer|vncviewer|wlvncc|xfreerdp|wlfreerdp|sdl-freerdp|sdl3-freerdp|remote-viewer|virt-viewer)$ ]]; then
+                     [ "$cur" = remote ] || { swaymsg -q mode remote
+                       ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard on · Ctrl+Super+Esc to leave"; }
+                   elif [ "$cur" = remote ]; then swaymsg -q mode default; fi
+                 done ;;
     exit)        swaymsg -q exit ;;
     touchpad)    swaymsg -q input type:touchpad events toggle enabled disabled
                  st=$(swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "touchpad")][0].libinput.send_events')

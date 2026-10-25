@@ -10,6 +10,12 @@
 #   session [stop|boot|noboot]   an independent remote-only session (sway without a physical screen),
 #                                persistent: closing the viewer leaves it running with its windows.
 #                                boot/noboot: start it automatically when the machine boots (or not)
+#   session size auto|WxH        auto (default): starts at 1920x1080 and takes the viewer's size;
+#                                WxH: always that size, e.g. 2560x1440
+#   session scale auto|N         auto (default): picked from the height; N: fixed, e.g. 1.25
+#   session defaults             back to size auto and scale auto
+#   session settings             show them
+#                                (size/scale apply at once to a running session, and are kept)
 #   screen [WxH]                 a virtual second monitor in the current session (default 1920x1080)
 #   mirror                       share the physical screen as it is (the focused monitor)
 #   take [WxH]                   take over the current session: physical screens off, local keyboard
@@ -283,8 +289,63 @@ WantedBy=default.target
 EOF
   systemctl --user daemon-reload
 }
+# ---- remote.conf settings, changed by "session size|scale|defaults"
+USER_CONF=~/.config/brasa/remote.conf
+conf_set() {  # KEY VALUE: replace or add the line
+  mkdir -p "$(dirname "$USER_CONF")"; touch "$USER_CONF"
+  if grep -q "^$1=" "$USER_CONF"; then sed -i "s|^$1=.*|$1=$2|" "$USER_CONF"; else echo "$1=$2" >> "$USER_CONF"; fi
+}
+conf_unset() { [ -f "$USER_CONF" ] && sed -i "/^$1=/d" "$USER_CONF"; return 0; }
+session_sway() {  # the remote session's sway IPC socket, if it is running
+  # (the service's main process is dbus-run-session, sway is its child; sway's own environment cannot be
+  # read, it makes itself non-dumpable)
+  local main p
+  main=$(systemctl --user show -p MainPID --value "$SESSION_UNIT" 2>/dev/null)
+  [ -n "$main" ] && [ "$main" != 0 ] || return 1
+  p=$(pgrep -P "$main" -x sway) || return 1
+  echo "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/sway-ipc.$(id -u).$p.sock"
+}
+session_live() {  # apply the current size/scale settings to a running session
+  local sock out size
+  sock=$(session_sway) || return 0
+  out=$(swaymsg -s "$sock" -t get_outputs -r | jq -r '.[0].name')
+  [ "$REMOTE_RESIZE" = no ] && swaymsg -q -s "$sock" -- output "$out" mode --custom "${REMOTE_SIZE}@60Hz"
+  size=$(swaymsg -s "$sock" -t get_outputs -r | jq -r '.[0] | "\(.current_mode.width)x\(.current_mode.height)"')
+  swaymsg -q -s "$sock" output "$out" scale "$(scale_for "$size")"
+  echo "Applied to the running session: $size at scale $(scale_for "$size")"
+}
+session_settings() {
+  if [ "$REMOTE_RESIZE" = no ]; then echo "size:  $REMOTE_SIZE (fixed)"
+  else echo "size:  auto (starts at $REMOTE_SIZE, then takes the viewer's size)"; fi
+  if [ "$REMOTE_SCALE" = auto ]; then echo "scale: auto (from the height)"; else echo "scale: $REMOTE_SCALE (fixed)"; fi
+}
+session_restart_note() {
+  session_running && echo "(follows the viewer or not from the next start: brasa-remote session stop, then session)"
+}
+
 session() {
   case ${1:-start} in
+    size)
+      case ${2:-} in
+        auto) conf_unset REMOTE_SIZE; conf_unset REMOTE_RESIZE; REMOTE_SIZE=1920x1080 REMOTE_RESIZE=yes ;;
+        [0-9]*x[0-9]*) [[ $2 =~ ^[0-9]+x[0-9]+$ ]] || { echo "Size as WxH, e.g. 2560x1440" >&2; exit 1; }
+                       conf_set REMOTE_SIZE "$2"; conf_set REMOTE_RESIZE no; REMOTE_SIZE=$2 REMOTE_RESIZE=no ;;
+        *) echo "brasa-remote session size auto|WxH" >&2; exit 1 ;;
+      esac
+      session_settings; session_live; session_restart_note ;;
+    scale)
+      case ${2:-} in
+        auto) conf_unset REMOTE_SCALE; REMOTE_SCALE=auto ;;
+        *) [[ ${2:-} =~ ^[0-9]+(\.[0-9]+)?$ ]] && awk "BEGIN { exit !(${2} >= 0.5 && ${2} <= 4) }" ||
+             { echo "brasa-remote session scale auto|N  (N between 0.5 and 4, e.g. 1.25)" >&2; exit 1; }
+           conf_set REMOTE_SCALE "$2"; REMOTE_SCALE=$2 ;;
+      esac
+      session_settings; session_live ;;
+    defaults)
+      conf_unset REMOTE_SIZE; conf_unset REMOTE_SCALE; conf_unset REMOTE_RESIZE
+      REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes
+      session_settings; session_live; session_restart_note ;;
+    settings) session_settings ;;
     start)
       if session_running; then echo "The remote session is already running on $(where)"; return; fi
       [ -f "$CONF_DIR/config" ] || setup || exit 1
@@ -339,6 +400,7 @@ $(also_on local)"
       wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null
     fi
     if session_running; then echo "remote session: running at $(where)$(systemctl --user -q is-enabled $SESSION_UNIT 2>/dev/null && echo ', starts at boot')"
+      session_settings | sed 's/^/  /' 
       wayvncctl -S "$STATE/session.sock" client-list 2>/dev/null
     fi
     running || session_running || echo "off (all modes)"

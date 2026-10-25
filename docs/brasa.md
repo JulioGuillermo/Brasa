@@ -175,6 +175,7 @@ The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter
 | `Super+1…9` | Go to workspace |
 | `Super+Shift+1…9` | Move the window to a workspace |
 | `Super+Escape` | Lock the screen |
+| `Ctrl+Super+Escape` | Remote keyboard on/off: every key goes to the focused window (automatic in VNC/RDP viewers) |
 | `Super+Shift+e` | Exit dialog: lock, log out, suspend, reboot, power off, cancel |
 | `Super+Shift+r` | Reload the window manager (and regenerate bindings) |
 | `Super+Ctrl+r` | Reload bar, notifications and menus |
@@ -471,6 +472,10 @@ modes find the running Hyprland or sway by themselves (also when run from inside
 
 ```
 brasa-remote session [stop|boot|noboot]  an independent remote-only session (the default for "on")
+brasa-remote session size auto|WxH       auto: 1920x1080, then the viewer's size; WxH: always that size
+brasa-remote session scale auto|N        auto: from the height; N: fixed, e.g. 1.25
+brasa-remote session defaults            size and scale back to auto
+brasa-remote session settings            show them
 brasa-remote screen [WxH]                a virtual second monitor in the current session
 brasa-remote mirror                      share the physical screen (the focused monitor)
 brasa-remote take [WxH]                  take over the current session; the laptop goes dark
@@ -507,8 +512,9 @@ brasa-remote on | off | status | setup | help
   viewer's size: TigerVNC asks for its window size, so in full screen (`Ctrl+Alt+Enter`) each remote
   pixel is one screen pixel, sharp. VNC tells the size but not the scale, so `REMOTE_SCALE=auto` picks
   it from the height: up to 1200 px 100 %, 1500 px 125 %, 1900 px 133 %, 2200 px 150 %, more 200 %.
-  Set a fixed scale with e.g. `REMOTE_SCALE=1.5`, or keep the size fixed with `REMOTE_RESIZE=no`.
-  Changes apply on the next `brasa-remote session` start. On a Hyprland viewer, TigerVNC (an X11
+  `brasa-remote session size|scale|defaults` change it (they write `remote.conf` and apply at once to
+  a running session; whether it follows the viewer changes from the next start). By hand:
+  `REMOTE_SIZE=`, `REMOTE_SCALE=1.5`, `REMOTE_RESIZE=no`. On a Hyprland viewer, TigerVNC (an X11
   app) is only sharp with the XWayland setting below.
 - **Login**: the Linux user and password (PAM). Encrypted with RSA-AES (TigerVNC ≥ 1.13, RealVNC) or
   TLS / VeNCrypt. Keys live in `~/.config/wayvnc/` (mode 600). Remmina's VNC plugin offers neither and
@@ -516,6 +522,12 @@ brasa-remote on | off | status | setup | help
 - wayvnc for screen / mirror / take runs as a transient user service (`brasa-wayvnc`), so it survives
   closing the terminal or SSH session that started it. Logs: `journalctl --user -u brasa-wayvnc` or
   `-u brasa-remote-session`.
+- **Remote keyboard**: X11 viewers such as TigerVNC cannot grab the keyboard on Wayland, so the window
+  manager would keep Super and its shortcuts. While a VNC/RDP/VM viewer has the focus (TigerVNC,
+  FreeRDP, wlvncc, virt-viewer) Brasa switches to a "remote" key mode with no shortcuts: every key goes
+  to the remote machine. Focusing another window (with the mouse) brings the shortcuts back, and
+  `Ctrl+Super+Escape` leaves or re-enters the mode by hand, e.g. with the viewer in full screen.
+  Hyprland does it in `hyprland.lua`; sway with `brasa-wm remote-watch`, started by `brasa-autostart`.
 - **Clients**: TigerVNC Viewer (Windows, Linux, macOS) or RealVNC Viewer. In TigerVNC 1.16:
   `Ctrl+Alt` releases the keyboard grab, `Ctrl+Alt+G` grabs again, `Ctrl+Alt+M` opens the menu,
   `Ctrl+Alt+Enter` toggles full screen. `vncviewer 10.x.x.x:5900` (session) or `:5901` (local desktop).

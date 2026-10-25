@@ -56,6 +56,7 @@ SUPER+ALT+SHIFT	Right	wm movewsmon right	Move this workspace to the monitor on t
 # --- Session and system
 SUPER+SHIFT	e	exec ~/.local/bin/brasa-exit	Log out, lock, power off...
 SUPER	Escape	exec ~/.local/bin/brasa-lock	Lock screen
+CTRL+SUPER	Escape	wm remote-keys	Remote keyboard on/off: every key goes to the window (automatic in VNC/RDP viewers)
 SUPER+SHIFT	r	wm reload	Reload the window manager
 SUPER+CTRL	r	exec ~/.local/bin/brasa-reload	Reload bar, notifications and menus
 SUPER+ALT	space	wm layout-next	Switch keyboard layout

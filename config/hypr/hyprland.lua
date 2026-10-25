@@ -149,3 +149,24 @@ hl.bind("SUPER + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
 
 ---- Key bindings (dofile so that a reload picks up regenerated bindings)
 dofile(here .. "binds.lua")
+
+---- Remote keyboard: in a VNC/RDP/VM viewer every key, Super included, goes to the remote machine.
+-- X11 viewers such as TigerVNC cannot grab the keyboard on Wayland, so Hyprland switches to the "remote"
+-- submap (no bindings) while one of them has the focus. Ctrl+Super+Escape leaves or re-enters it by hand.
+local REMOTE_VIEWERS = {}   -- window classes (a set: Lua patterns have no "a|b")
+for _, c in ipairs({ "Vncviewer", "vncviewer", "wlvncc", "xfreerdp", "wlfreerdp", "sdl-freerdp", "sdl3-freerdp", "remote-viewer", "virt-viewer" }) do REMOTE_VIEWERS[c] = true end
+hl.define_submap("remote", function()
+    hl.bind("CTRL + SUPER + Escape", hl.dsp.exec_cmd("~/.local/bin/brasa-wm remote-keys"),
+            { description = "Remote keyboard off" })
+end)
+hl.on("window.active", function()
+    local w = hl.get_active_window()
+    local remote = w ~= nil and REMOTE_VIEWERS[w.class] == true
+    local current = hl.get_current_submap()
+    if remote and current ~= "remote" then
+        hl.dispatch(hl.dsp.submap("remote"))
+        hl.exec_cmd("~/.local/bin/brasa-osd input-keyboard-symbolic 'Remote keyboard on · Ctrl+Super+Esc to leave'")
+    elseif not remote and current == "remote" then
+        hl.dispatch(hl.dsp.submap("reset"))
+    end
+end)
