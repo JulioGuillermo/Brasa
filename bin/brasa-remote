@@ -65,6 +65,11 @@ also_on() {  # what else is running, for the notifications: "Also on: ..." or "N
   [ "$1" = session ] && running && l+=("$(mode_name "$(cat "$STATE/mode" 2>/dev/null)") · port $REMOTE_LOCAL_PORT")
   if [ ${#l[@]} -gt 0 ]; then echo "Also on: ${l[*]}"; else echo "Nothing else is on"; fi
 }
+working() {  # an immediate "in progress" notice (swaync has no spinner on its buttons); the result's say()
+  # replaces it, as both use the same synchronous hint
+  notify-send -a "Remote desktop" -i network-workgroup-symbolic -t 30000 \
+    -h string:x-canonical-private-synchronous:brasa-remote "$1" "Working…" 2>/dev/null
+}
 mode_name() {
   case $1 in session) echo "Remote session" ;; screen) echo "Virtual screen" ;;
              mirror) echo "Screen mirror" ;; take) echo "Take over" ;; *) echo "Remote desktop" ;; esac
@@ -175,6 +180,7 @@ busy() {  # one local mode at a time (they share port $REMOTE_LOCAL_PORT); the s
 start_vnc() {  # mode output [extra wayvnc args...] -- runs wayvnc as a transient user service, so it
   # survives closing the terminal or SSH session that started it; log: journalctl --user -u brasa-wayvnc
   local mode=$1 out=$2; shift 2
+  working "$(mode_name "$mode")"
   [ -f "$CONF_DIR/config" ] || setup || exit 1
   local kb; kb=$(layout)
   echo "$mode" > "$STATE/mode"; echo "$out" > "$STATE/output"
@@ -257,11 +263,11 @@ ssh_cmd() {
   # sudo in a terminal; without one (the control panel) systemctl asks through polkit's password dialog
   local sudo=sudo; { [ "$(id -u)" = 0 ] || [ ! -t 0 ]; } && sudo=
   case ${1:-status} in
-    on)     $sudo systemctl start "$u" && say "SSH ON" "$(ssh_info "$u")" ;;
-    off)    $sudo systemctl stop "$u" && say "SSH OFF" "Open connections stay; new ones are refused
+    on)     working SSH; $sudo systemctl start "$u" && say "SSH ON" "$(ssh_info "$u")" ;;
+    off)    working SSH; $sudo systemctl stop "$u" && say "SSH OFF" "Open connections stay; new ones are refused
 $(ssh_info "$u")" ;;
-    boot)   $sudo systemctl enable "$u" >/dev/null 2>&1 && say "SSH starts at boot" "$(ssh_info "$u")" ;;
-    noboot) $sudo systemctl disable "$u" >/dev/null 2>&1 && say "SSH does not start at boot" "$(ssh_info "$u")" ;;
+    boot)   working SSH; $sudo systemctl enable "$u" >/dev/null 2>&1 && say "SSH starts at boot" "$(ssh_info "$u")" ;;
+    noboot) working SSH; $sudo systemctl disable "$u" >/dev/null 2>&1 && say "SSH does not start at boot" "$(ssh_info "$u")" ;;
     status) echo "ssh: $(ssh_info "$u")" ;;
     *) usage; exit 1 ;;
   esac
@@ -351,6 +357,7 @@ session() {
       if session_running; then echo "The remote session is already running on $(where)"; return; fi
       [ -f "$CONF_DIR/config" ] || setup || exit 1
       command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; }
+      working "Remote session"
       session_unit
       systemctl --user start "$SESSION_UNIT"; sleep 3
       if session_running; then say "Remote session ON" "Port $REMOTE_PORT · $(where)
@@ -358,16 +365,17 @@ $(also_on session)"
       else say "Remote session failed to start" "journalctl --user -u $SESSION_UNIT"; exit 1; fi ;;
     stop)
       if ! session_running; then echo "The remote session is not running"; return; fi
+      working "Remote session"
       systemctl --user stop "$SESSION_UNIT" && say "Remote session OFF" "Port $REMOTE_PORT closed, its windows too
 $(also_on session)" ;;
     boot)
       session_unit; systemctl --user enable "$SESSION_UNIT" >/dev/null 2>&1
       # A user service starting at boot without anyone logged in needs "linger"
       loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER"
-      echo "The remote session will start at boot (also with nobody logged in)." ;;
+      say "Remote session starts at boot" "Also with nobody logged in · port $REMOTE_PORT" ;;
     noboot)
       systemctl --user disable "$SESSION_UNIT" >/dev/null 2>&1
-      echo "The remote session will no longer start at boot (linger left as it was)." ;;
+      say "Remote session does not start at boot" "Linger left as it was" ;;
     *) usage; exit 1 ;;
   esac
 }

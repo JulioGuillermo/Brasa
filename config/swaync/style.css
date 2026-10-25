@@ -59,7 +59,7 @@
   background: #0c1838;
   color: #c3cbe0;
   border-radius: 12px;
-  min-width: 78px; min-height: 58px;
+  min-width: 106px; min-height: 58px;
   padding: 4px 2px;
   font-family: "Hack Nerd Font Mono", monospace;   /* the icon is centred over the word with spaces */
   font-size: 12px;
@@ -100,6 +100,13 @@ window.floating-notifications, .floating-notifications, .floating-notifications.
   font-size: 13px;
   box-shadow: none;
   transition: all 200ms ease;
+}
+/* The menu buttons: one row of small tiles, icon above the word (like the grid) */
+.widget-menubar > .menu-button-bar > .widget-menubar-container button {
+  font-family: "Hack Nerd Font Mono", monospace;
+  font-size: 12px;
+  min-width: 60px; min-height: 52px;
+  padding: 4px 2px;
 }
 .widget-menubar > revealer * button {
   margin: 4px 3px 0;

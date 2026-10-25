@@ -143,6 +143,11 @@ HAS["power_profiles"] = bool(shutil.which("powerprofilesctl"))
 CLOSE = "swaync-client -cp >/dev/null"
 
 
+def tog(label, on, off, state):
+    return {"label": label, "type": "toggle", "command": f"sh -c 'test $SWAYNC_TOGGLE_STATE = true && {on} || {off}'",
+            "update-command": f"sh -c '{state}'"}
+
+
 def tile(icon, word):
     """A grid button: the icon above, one word below. GTK left-aligns the lines of a label, so the icon is
     pushed to the middle of the word with spaces (the tiles use a monospace font)."""
@@ -160,34 +165,37 @@ def choice(text, run, current):
 
 
 MENUS = {
-  "menu#layout": {"label": "\U000F056E  Layout", "position": "left", "actions": [
+  "menu#layout": {"label": tile("\U000F056E", "Layout"), "position": "left", "actions": [
       choice(f"{name:<10} {desc}", B + f"brasa-wm layout-set {name.lower()}",
              f"{B}brasa-wm layout-current | grep -qx {name.lower()}")
       for name, desc in (("Dwindle", "split the focused window"), ("Master", "one big + a column"),
                          ("Scrolling", "columns you scroll"))]},
 }
 if HAS["charge_limit"]:
-    MENUS["menu#battery"] = {"label": "\U000F1211  Battery", "position": "left", "actions": [
+    MENUS["menu#battery"] = {"label": tile("\U000F1211", "Battery"), "position": "left", "actions": [
         choice(f"Charge up to {n} %", B + f"brasa-battery {n}",
                f"grep -qx {n} /sys/class/power_supply/BAT*/charge_control_end_threshold")
         for n in (60, 80, 90, 100)]}
 if HAS["power_profiles"]:
-    MENUS["menu#power"] = {"label": "\U000F04C5  Power", "position": "left", "actions": [
+    MENUS["menu#power"] = {"label": tile("\U000F04C5", "Power"), "position": "left", "actions": [
         choice(label, B + f"brasa-power {p}", f"powerprofilesctl get | grep -qx {p}")
         for p, label in (("power-saver", "Power saver"), ("balanced", "Balanced"), ("performance", "Performance"))]}
+# What starts with the machine: lit entries are on, a click switches them (the panel stays open)
+MENUS["menu#boot"] = {"label": tile("\U000F14DE", "Startup"), "position": "left", "actions": [
+    {**tog(f"{'Remote session at boot':<38}", B + "brasa-remote session boot", B + "brasa-remote session noboot",
+           "systemctl --user -q is-enabled brasa-remote-session && echo true || echo false")},
+    {**tog(f"{'SSH server at boot':<38}", B + "brasa-remote ssh boot", B + "brasa-remote ssh noboot",
+           "{ systemctl -q is-enabled sshd || systemctl -q is-enabled ssh; } 2>/dev/null && echo true || echo false")}]}
 # Sharing this machine's own desktop (port 5901): one mode at a time
 MODE = "$XDG_RUNTIME_DIR/brasa-remote/mode"
-MENUS["menu#remote"] = {"label": "\U000F1483  Remote", "position": "left", "actions": [
+MENUS["menu#remote"] = {"label": tile("\U000F1483", "Remote"), "position": "left", "actions": [
     choice("Off       not shared", B + "brasa-remote off", "! systemctl --user -q is-active brasa-wayvnc"),
     *[choice(f"{name:<9} {desc}", f"{B}brasa-remote off; {B}brasa-remote {name.lower()}",
              f"systemctl --user -q is-active brasa-wayvnc && grep -qx {name.lower()} {MODE}")
       for name, desc in (("Mirror", "share this screen"), ("Screen", "add a virtual monitor"),
                          ("Take", "use it remotely, screens off"))]]}
+MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "menu#remote", "menu#boot") if k in MENUS}
 
-
-def tog(label, on, off, state):
-    return {"label": label, "type": "toggle", "command": f"sh -c 'test $SWAYNC_TOGGLE_STATE = true && {on} || {off}'",
-            "update-command": f"sh -c '{state}'"}
 
 swaync = {
   "$schema": "/etc/xdg/swaync/configSchema.json",
@@ -202,7 +210,7 @@ swaync = {
     "title": {"text": "Notifications", "clear-all-button": True, "button-text": "Clear"},
     "dnd": {"text": "Do not disturb"},
     # One grid: lit = on, a click turns it on or off
-    "buttons-grid": {"buttons-per-row": 4, "actions": [
+    "buttons-grid": {"buttons-per-row": 3, "actions": [
       tog(tile("\U000F05A9", "Wi-Fi"), "nmcli radio wifi on", "nmcli radio wifi off",
           "nmcli radio wifi | grep -qx enabled && echo true || echo false"),
       tog(tile("\U000F00AF", "Bluetooth"), "bluetoothctl power on", "bluetoothctl power off",
@@ -217,6 +225,7 @@ swaync = {
       tog(tile("\U000F0E51", "Effects"), B + "brasa-fx all", B + "brasa-fx all",
           "test -e $XDG_RUNTIME_DIR/brasa-fx/blur-off && echo false || echo true"),
       {"label": tile("\U000F033E", "Lock"), "command": f"sh -c '{CLOSE}; {B}brasa-lock'"},
+      {"label": tile("\U000F030C", "Keys"), "command": f"sh -c '{CLOSE}; {B}brasa-keys'"},
     ]},
     "menubar": MENUS,
     "volume": {"label": ICON["vol"][2]},

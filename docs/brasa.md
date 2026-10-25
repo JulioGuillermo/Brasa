@@ -547,6 +547,7 @@ choice is lit:
 | SSH | the SSH server; asks for the password through the system's dialog (polkit) |
 | Effects | blur, animations and shadows, like `Super+Shift+f` |
 | Lock | lock the screen |
+| Keys | the key bindings cheat sheet, like `Super+F1` |
 
 | Menu | Choices |
 |---|---|
@@ -554,8 +555,10 @@ choice is lit:
 | Battery | charge limit 60 / 80 / 90 / 100 % (laptops that support it, see below) |
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
 | Remote | sharing this machine's desktop on port 5901: off, mirror, screen, take |
+| Startup | what starts with the machine: the remote session, the SSH server (lit = on; the panel stays open) |
 
-Choosing in a menu closes the panel. The panel is generated for each machine by
+Choosing in a menu closes the panel (except Startup, whose entries are switches). swaync cannot show a
+spinner on a button, so remote and SSH changes show a "Working…" notice at once, replaced by the result. The panel is generated for each machine by
 `docs/gen-waybar-swaync.py`, so menus a machine cannot use are left out. swaync (0.12) has no tooltips
 for these buttons, hence the words under the icons; and it mangles double quotes inside commands, so the
 panel's commands avoid them.
