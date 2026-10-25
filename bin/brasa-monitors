@@ -15,6 +15,7 @@ Usage:
   brasa-monitors apply [OUTPUT]            apply saved layout + refresh (all monitors, or one)
   brasa-monitors apply --settle            the same, twice: after login, a reload or a hotplug Hyprland
                                            only takes the VRR setting on the second pass
+                                           (apply also tells X11 apps the main monitor's scale: Xft.dpi)
   brasa-monitors refresh OUTPUT CHOICE     set a refresh choice: dynamic | dynamic:<Hz> | <Hz> | max
   brasa-monitors watch                     re-apply whenever monitors are plugged or unplugged
 """
@@ -163,6 +164,21 @@ def apply(only=None):
                 "scale", str(st["scale"]), "transform", SWAY_TRANSFORMS[st["transform"]], "adaptive_sync", "on" if st["vrr"] else "off")
 
 
+def x11_dpi():
+    """Hyprland draws X11 apps unscaled (xwayland:force_zero_scaling), so tell them the scale of the main
+    monitor (the focused one) through Xft.dpi, as GNOME does: they draw themselves at that size, sharp.
+    Read by X11 apps when they start. Only one value for all of them, whatever monitor they are on."""
+    if not HYPR or not os.environ.get("DISPLAY") or not shutil.which("xrdb"):
+        return
+    outs = outputs()
+    main = next((o for o in outs if o["focused"]), outs[0] if outs else None)
+    if not main:
+        return
+    scale = float(main["scale"])
+    res = f"Xft.dpi: {round(96 * scale)}\nXcursor.size: {round(24 * scale)}\n"
+    subprocess.run(["xrdb", "-merge"], input=res, text=True, capture_output=True)
+
+
 def save():
     outs = outputs()
     os.makedirs(os.path.dirname(layout_path(outs)), exist_ok=True)
@@ -185,7 +201,7 @@ def watch():
     """Re-apply on hotplug (debounced): Hyprland's event socket, or sway's output events."""
     def settle():
         time.sleep(1.5)
-        apply(); time.sleep(0.5); apply()
+        apply(); time.sleep(0.5); apply(); x11_dpi()
     if HYPR:
         sock = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "hypr",
                             os.environ["HYPRLAND_INSTANCE_SIGNATURE"], ".socket2.sock")
@@ -214,9 +230,9 @@ if __name__ == "__main__":
     elif cmd == "save":
         print("saved:", ", ".join(o["name"] for o in save()))
     elif cmd == "apply" and sys.argv[2:] == ["--settle"]:
-        apply(); time.sleep(0.5); apply()
+        apply(); time.sleep(0.5); apply(); x11_dpi()
     elif cmd == "apply":
-        apply(sys.argv[2] if len(sys.argv) > 2 else None)
+        apply(sys.argv[2] if len(sys.argv) > 2 else None); x11_dpi()
     elif cmd == "refresh" and len(sys.argv) == 4:
         set_refresh(sys.argv[2], sys.argv[3])
     elif cmd == "choice" and len(sys.argv) == 3:  # used by brasa-refresh

@@ -501,7 +501,11 @@ brasa-remote on | off | status | setup | help
 - **Where it listens**: only on a VPN interface (ZeroTier `zt*`, WireGuard `wg*`, Tailscale, OpenVPN
   `tun*`...), never on every network. Settings in `~/.config/brasa/remote.conf`:
   `REMOTE_DEFAULT=` (mode for `on`), `REMOTE_ADDRESS=`, `REMOTE_PORT=` (session, 5900),
-  `REMOTE_LOCAL_PORT=` (local modes, 5901), `REMOTE_SIZE=`, `REMOTE_TAKE_WAIT=`.
+  `REMOTE_LOCAL_PORT=` (local modes, 5901), `REMOTE_SIZE=`, `REMOTE_SCALE=`, `REMOTE_TAKE_WAIT=`.
+- **Sharp view**: set `REMOTE_SIZE` to the viewer's screen in pixels and `REMOTE_SCALE` to its scale
+  (e.g. `2880x1800` and `1.333333` for a 14" laptop at 133 %), then run TigerVNC full screen
+  (`Ctrl+Alt+Enter`): one remote pixel per screen pixel. On a Hyprland viewer this needs the XWayland
+  setting below, since TigerVNC is an X11 app.
 - **Login**: the Linux user and password (PAM). Encrypted with RSA-AES (TigerVNC ≥ 1.13, RealVNC) or
   TLS / VeNCrypt. Keys live in `~/.config/wayvnc/` (mode 600). Remmina's VNC plugin offers neither and
   hangs at the handshake: use TigerVNC.
@@ -511,6 +515,17 @@ brasa-remote on | off | status | setup | help
 - **Clients**: TigerVNC Viewer (Windows, Linux, macOS) or RealVNC Viewer. In TigerVNC 1.16:
   `Ctrl+Alt` releases the keyboard grab, `Ctrl+Alt+G` grabs again, `Ctrl+Alt+M` opens the menu,
   `Ctrl+Alt+Enter` toggles full screen. `vncviewer 10.x.x.x:5900` (session) or `:5901` (local desktop).
+
+## X11 apps on a scaled screen
+
+TigerVNC and other X11 apps run through XWayland. With a fractional scale (133 %), a compositor
+normally draws them at 100 % and blows them up, which makes them blurry. On Hyprland, Brasa uses the
+same trick as GNOME instead: `xwayland:force_zero_scaling` lets them see the screen at its real
+resolution, and `brasa-monitors apply` tells them the main monitor's scale through `Xft.dpi` (and the
+cursor size through `Xcursor.size`), so the apps that honour it (GTK, Qt, FLTK 1.4, Electron...) draw
+themselves at the right size, sharp. Old X11 apps that ignore `Xft.dpi` look small but sharp. Apps read
+it when they start; with several monitors of different scales there is one value, the focused one's.
+sway/SwayFX have no such option: there X11 apps are still scaled up.
 
 ## Wallpaper
 

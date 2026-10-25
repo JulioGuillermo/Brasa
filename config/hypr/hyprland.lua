@@ -61,6 +61,11 @@ hl.config({
 
     dwindle = { preserve_split = true },
 
+    -- X11 apps (XWayland) see the screen at its real resolution instead of being drawn at 100 % and
+    -- blown up (blurry with a fractional scale). brasa-monitors tells them the scale through Xft.dpi,
+    -- so the ones that honour it (GTK, Qt, FLTK 1.4, Electron...) draw themselves at the right size, sharp.
+    xwayland = { force_zero_scaling = true },
+
     misc = {
         -- Variable refresh rate is set per monitor by brasa-monitors (each monitor's saved choice,
         -- dynamic by default when its EDID declares a VRR range), so the global default stays off.

@@ -205,6 +205,7 @@ nwg-bar           nwg-bar                 nwg-bar                     nwg-bar   
 swaybg            swaybg                  swaybg                      swaybg                    swaybg                    swaybg
 hyprlock          hyprlock                hyprlock                    hyprlock                  hyprlock                  hyprlock
 wlr-randr         wlr-randr               wlr-randr                   wlr-randr                 wlr-randr                 wlr-randr
+xrdb              xorg-xrdb               x11-xserver-utils           xrdb                      xrdb                      xrdb
 swayosd           swayosd                 swayosd                     swayosd                   swayosd                   swayosd
 wayvnc            wayvnc                  wayvnc                      wayvnc                    wayvnc                    wayvnc
 openssl           openssl                 openssl                     openssl                   openssl                   openssl

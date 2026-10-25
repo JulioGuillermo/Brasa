@@ -28,7 +28,8 @@
 #   help                         this help
 #
 # Settings, optional, in ~/.config/brasa/remote.conf:
-#   REMOTE_DEFAULT=session   REMOTE_SIZE=1920x1080   REMOTE_ADDRESS=<ip>
+#   REMOTE_DEFAULT=session   REMOTE_SIZE=1920x1080   REMOTE_SCALE=1   REMOTE_ADDRESS=<ip>
+#   (for a sharp full-screen view: REMOTE_SIZE = the viewer's screen in pixels, REMOTE_SCALE = its scale)
 #   REMOTE_PORT=5900 (session)   REMOTE_LOCAL_PORT=5901 (screen / mirror / take)   REMOTE_TAKE_WAIT=180
 #
 # Security: it listens only on a VPN interface (ZeroTier, WireGuard, Tailscale, OpenVPN...) or on
@@ -40,7 +41,7 @@ STATE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote
 UNIT=brasa-wayvnc                 # screen / mirror / take
 SESSION_UNIT=brasa-remote-session # session
 VIRTUAL=BRASA-REMOTE
-REMOTE_DEFAULT=session REMOTE_SIZE=1920x1080 REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
+REMOTE_DEFAULT=session REMOTE_SIZE=1920x1080 REMOTE_SCALE=1 REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
 [ -f ~/.config/brasa/remote.conf ] && . ~/.config/brasa/remote.conf
 mkdir -p "$STATE"
 say() {  # TITLE [BODY]: a notification for 5 s (a click closes it); each one replaces the previous
@@ -134,7 +135,7 @@ create_virtual() {  # size -> prints the virtual monitor's name
   else swaymsg -q create_output; name=$(swaymsg -t get_outputs -r | jq -r '[.[] | select(.name | startswith("HEADLESS"))] | last | .name'); fi
   sleep 0.5
   wlr-randr --output "$name" --custom-mode "${1}@60Hz" >/dev/null 2>&1
-  wlr-randr --output "$name" --scale 1 >/dev/null 2>&1   # the compositor guesses x2 for a "small" monitor
+  wlr-randr --output "$name" --scale "$REMOTE_SCALE" >/dev/null 2>&1   # else the compositor guesses one
   echo "$name"
 }
 remove_virtual() {
@@ -254,7 +255,7 @@ Description=Brasa remote session (headless sway + wayvnc)
 
 [Service]
 Environment=BRASA_REMOTE_SESSION=1 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
-Environment=XDG_CURRENT_DESKTOP=sway XDG_SESSION_TYPE=wayland REMOTE_SIZE=$REMOTE_SIZE
+Environment=XDG_CURRENT_DESKTOP=sway XDG_SESSION_TYPE=wayland REMOTE_SIZE=$REMOTE_SIZE REMOTE_SCALE=$REMOTE_SCALE
 # Never inherit the local session's compositor from the user manager: the remote session's scripts would
 # talk to the local Hyprland/sway (wrong data, and keys acting on the local screen)
 UnsetEnvironment=HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY SWAYSOCK DISPLAY I3SOCK
@@ -333,7 +334,7 @@ $(also_on local)"
     sleep 1
     out=$(swaymsg -t get_outputs -r | jq -r '.[0].name')
     wlr-randr --output "$out" --custom-mode "${REMOTE_SIZE}@60Hz" >/dev/null 2>&1
-    wlr-randr --output "$out" --scale 1 >/dev/null 2>&1
+    wlr-randr --output "$out" --scale "$REMOTE_SCALE" >/dev/null 2>&1
     kb=$(layout)
     exec wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r -L info -S "$STATE/session.sock" ;;
   _take-restore) take_restore ;;
