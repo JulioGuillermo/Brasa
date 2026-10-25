@@ -28,8 +28,12 @@
 #   help                         this help
 #
 # Settings, optional, in ~/.config/brasa/remote.conf:
-#   REMOTE_DEFAULT=session   REMOTE_SIZE=1920x1080   REMOTE_SCALE=1   REMOTE_ADDRESS=<ip>
-#   (for a sharp full-screen view: REMOTE_SIZE = the viewer's screen in pixels, REMOTE_SCALE = its scale)
+#   REMOTE_DEFAULT=session   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
+#   REMOTE_ADDRESS=<ip>
+#   Session size: it starts at REMOTE_SIZE and then takes the viewer's size (TigerVNC asks for its window
+#   size: full screen = one remote pixel per screen pixel) unless REMOTE_RESIZE=no. VNC tells the size
+#   but not the scale, so REMOTE_SCALE=auto picks it from the height (up to 1200 px: 1, 1500: 1.25,
+#   1900: 1.333, 2200: 1.5, more: 2); or set a fixed one, e.g. REMOTE_SCALE=1.5
 #   REMOTE_PORT=5900 (session)   REMOTE_LOCAL_PORT=5901 (screen / mirror / take)   REMOTE_TAKE_WAIT=180
 #
 # Security: it listens only on a VPN interface (ZeroTier, WireGuard, Tailscale, OpenVPN...) or on
@@ -41,7 +45,7 @@ STATE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote
 UNIT=brasa-wayvnc                 # screen / mirror / take
 SESSION_UNIT=brasa-remote-session # session
 VIRTUAL=BRASA-REMOTE
-REMOTE_DEFAULT=session REMOTE_SIZE=1920x1080 REMOTE_SCALE=1 REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
+REMOTE_DEFAULT=session REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
 [ -f ~/.config/brasa/remote.conf ] && . ~/.config/brasa/remote.conf
 mkdir -p "$STATE"
 say() {  # TITLE [BODY]: a notification for 5 s (a click closes it); each one replaces the previous
@@ -123,6 +127,17 @@ local_desktop() {  # over SSH, or from inside the remote session: point at the l
 
 hypr() { [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; }
 
+scale_for() {  # WxH -> the scale to use: REMOTE_SCALE, or with "auto" one picked from the height
+  [ "$REMOTE_SCALE" != auto ] && { echo "$REMOTE_SCALE"; return; }
+  local h=${1#*x}
+  if   [ "$h" -le 1200 ]; then echo 1
+  elif [ "$h" -le 1500 ]; then echo 1.25
+  elif [ "$h" -le 1900 ]; then echo 1.333333
+  elif [ "$h" -le 2200 ]; then echo 1.5
+  else echo 2; fi
+}
+resize_flag() { [ "$REMOTE_RESIZE" = no ] && echo -R; }
+
 layout() {  # first keyboard layout of the session, for wayvnc's key mapping
   if hypr; then hyprctl getoption input:kb_layout -j 2>/dev/null | jq -r '.str // empty' | cut -d, -f1
   else swaymsg -t get_inputs -r 2>/dev/null | jq -r '[.[] | select(.type == "keyboard")][0].xkb_layout_names[0] // empty' |
@@ -135,7 +150,7 @@ create_virtual() {  # size -> prints the virtual monitor's name
   else swaymsg -q create_output; name=$(swaymsg -t get_outputs -r | jq -r '[.[] | select(.name | startswith("HEADLESS"))] | last | .name'); fi
   sleep 0.5
   wlr-randr --output "$name" --custom-mode "${1}@60Hz" >/dev/null 2>&1
-  wlr-randr --output "$name" --scale "$REMOTE_SCALE" >/dev/null 2>&1   # else the compositor guesses one
+  wlr-randr --output "$name" --scale "$(scale_for "$1")" >/dev/null 2>&1   # else the compositor guesses one
   echo "$name"
 }
 remove_virtual() {
@@ -255,7 +270,7 @@ Description=Brasa remote session (headless sway + wayvnc)
 
 [Service]
 Environment=BRASA_REMOTE_SESSION=1 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
-Environment=XDG_CURRENT_DESKTOP=sway XDG_SESSION_TYPE=wayland REMOTE_SIZE=$REMOTE_SIZE REMOTE_SCALE=$REMOTE_SCALE
+Environment=XDG_CURRENT_DESKTOP=sway XDG_SESSION_TYPE=wayland
 # Never inherit the local session's compositor from the user manager: the remote session's scripts would
 # talk to the local Hyprland/sway (wrong data, and keys acting on the local screen)
 UnsetEnvironment=HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY SWAYSOCK DISPLAY I3SOCK
@@ -331,12 +346,22 @@ $(also_on local)"
     systemctl --user -q is-enabled $SESSION_UNIT 2>/dev/null || echo "remote session does not start at boot ('brasa-remote session boot')" ;;
   # ---- internal
   _session-vnc)   # inside the remote session: size the virtual output and serve it
+    # (settings are read from remote.conf here, so changing them only needs a session restart)
     sleep 1
     out=$(swaymsg -t get_outputs -r | jq -r '.[0].name')
     wlr-randr --output "$out" --custom-mode "${REMOTE_SIZE}@60Hz" >/dev/null 2>&1
-    wlr-randr --output "$out" --scale "$REMOTE_SCALE" >/dev/null 2>&1
+    wlr-randr --output "$out" --scale "$(scale_for "$REMOTE_SIZE")" >/dev/null 2>&1
+    # When the viewer resizes the session (wayvnc does it for the size it asks), follow with the scale
+    if [ "$REMOTE_SCALE" = auto ] && [ "$REMOTE_RESIZE" != no ]; then
+      ( last=""
+        swaymsg -m -t subscribe '["output"]' 2>/dev/null | while read -r _; do
+          size=$(swaymsg -t get_outputs -r | jq -r --arg o "$out" '.[] | select(.name == $o) | "\(.current_mode.width)x\(.current_mode.height)"')
+          [ -n "$size" ] && [ "$size" != "$last" ] || continue
+          last=$size; swaymsg -q output "$out" scale "$(scale_for "$size")"
+        done ) &
+    fi
     kb=$(layout)
-    exec wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r -L info -S "$STATE/session.sock" ;;
+    exec wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock" ;;
   _take-restore) take_restore ;;
   _take-watch)    # nobody connected to "take" in time: stop it (which restores everything)
     clients=$(wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null | grep -c '^[[:space:]]*[0-9]')

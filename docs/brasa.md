@@ -501,11 +501,15 @@ brasa-remote on | off | status | setup | help
 - **Where it listens**: only on a VPN interface (ZeroTier `zt*`, WireGuard `wg*`, Tailscale, OpenVPN
   `tun*`...), never on every network. Settings in `~/.config/brasa/remote.conf`:
   `REMOTE_DEFAULT=` (mode for `on`), `REMOTE_ADDRESS=`, `REMOTE_PORT=` (session, 5900),
-  `REMOTE_LOCAL_PORT=` (local modes, 5901), `REMOTE_SIZE=`, `REMOTE_SCALE=`, `REMOTE_TAKE_WAIT=`.
-- **Sharp view**: set `REMOTE_SIZE` to the viewer's screen in pixels and `REMOTE_SCALE` to its scale
-  (e.g. `2880x1800` and `1.333333` for a 14" laptop at 133 %), then run TigerVNC full screen
-  (`Ctrl+Alt+Enter`): one remote pixel per screen pixel. On a Hyprland viewer this needs the XWayland
-  setting below, since TigerVNC is an X11 app.
+  `REMOTE_LOCAL_PORT=` (local modes, 5901), `REMOTE_SIZE=`, `REMOTE_SCALE=`, `REMOTE_RESIZE=`,
+  `REMOTE_TAKE_WAIT=`.
+- **Size and scale**: the remote session starts at `REMOTE_SIZE` (1920x1080) and then takes the
+  viewer's size: TigerVNC asks for its window size, so in full screen (`Ctrl+Alt+Enter`) each remote
+  pixel is one screen pixel, sharp. VNC tells the size but not the scale, so `REMOTE_SCALE=auto` picks
+  it from the height: up to 1200 px 100 %, 1500 px 125 %, 1900 px 133 %, 2200 px 150 %, more 200 %.
+  Set a fixed scale with e.g. `REMOTE_SCALE=1.5`, or keep the size fixed with `REMOTE_RESIZE=no`.
+  Changes apply on the next `brasa-remote session` start. On a Hyprland viewer, TigerVNC (an X11
+  app) is only sharp with the XWayland setting below.
 - **Login**: the Linux user and password (PAM). Encrypted with RSA-AES (TigerVNC ≥ 1.13, RealVNC) or
   TLS / VeNCrypt. Keys live in `~/.config/wayvnc/` (mode 600). Remmina's VNC plugin offers neither and
   hangs at the handshake: use TigerVNC.
