@@ -76,6 +76,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `config/swaylock/` | swaylock fallback | `~/.config/swaylock` |
 | `config/foot/foot.ini` | Terminal: colors, transparency with blur, bell | `~/.config/foot` |
 | `greeter/` | Login screen: greetd, nwg-hello and the sway that runs it | `/etc/greetd`, `/etc/nwg-hello` (copied with sudo) |
+| `config/qt/brasa-colors.conf` | Brasa colors for Qt apps (qt5ct / qt6ct, Fusion style) | read from `~/.config/brasa` |
 | `config/gtk-3.0/gtk.css`, `config/gtk-4.0/gtk.css` | Brasa colors for GTK3 and GTK4/libadwaita apps | `~/.config/gtk-3.0/`, `~/.config/gtk-4.0/` |
 | `docs/gen-waybar-swaync.py` | Generator for waybar's `config.jsonc` and swaync's `config.json` | — |
 
@@ -105,6 +106,11 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
   style for GTK4 ones. A `GTK_THEME=` exported in `~/.profile`, `~/.zprofile`, `environment.d` or
   `/etc/environment` overrides all that in every GTK app (dialogs such as the polkit password prompt
   turn light when it names a theme that is not installed): the installer reports it.
+  Qt apps (OBS, Krita, Kdenlive, Flameshot...) get the same colors: `config/qt/brasa-colors.conf`, a
+  qt5ct / qt6ct color scheme, with the Fusion style (set in `~/.config/qt5ct/qt5ct.conf` and
+  `qt6ct.conf`, backed up first; fonts and icons are left as they were). `QT_QPA_PLATFORMTHEME=qt5ct`
+  turns it on: set by `hyprland.lua`, by the login screen (`env-vars` in `greeter/nwg-hello.json`, which
+  covers sway too) and by `~/.config/environment.d/90-brasa-qt.conf`. Qt 6 apps take it for qt6ct as well.
 - `--no-deps`: only links, installs no packages. Running it again is safe (it adds new links).
 - `--dry-run`: shows what it would do without doing it.
 - `--uninstall`: removes the links, restores the backups (`*.bak-brasa-DATE`) and, if the greeter was installed, switches back to the previous display manager. Packages stay.

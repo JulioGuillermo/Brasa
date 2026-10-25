@@ -14,6 +14,7 @@ pcall(dofile, state .. "monitors/hyprland.lua")
 hl.env("XCURSOR_THEME", "Future-cyan-cursors")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
+hl.env("QT_QPA_PLATFORMTHEME", "qt5ct")   -- Qt apps take Brasa's colors through qt5ct / qt6ct
 
 ---- Autostart
 hl.on("hyprland.start", function()

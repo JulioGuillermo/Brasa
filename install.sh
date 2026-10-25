@@ -232,6 +232,8 @@ wl-clipboard      wl-clipboard            wl-clipboard                wl-clipboa
 cliphist          cliphist                cliphist                    cliphist                  cliphist                  cliphist
 thunar            thunar                  thunar                      Thunar                    thunar                    thunar
 polkit-agent      polkit-gnome            mate-polkit|policykit-1-gnome polkit-gnome              polkit-gnome              polkit-gnome
+qt5ct             qt5ct                   qt5ct                       qt5ct                     qt5ct                     -
+qt6ct             qt6ct                   qt6ct                       qt6ct                     qt6ct                     -
 gtk-theme         adw-gtk-theme           adw-gtk3                    adw-gtk3-theme            adw-gtk3                  -
 portal-gtk        xdg-desktop-portal-gtk  xdg-desktop-portal-gtk      xdg-desktop-portal-gtk    xdg-desktop-portal-gtk    xdg-desktop-portal-gtk
 wtype             wtype                   wtype                       wtype                     wtype                     wtype
@@ -435,6 +437,39 @@ if [ $GTK = 1 ]; then
   [ -d /usr/share/themes/adw-gtk3-dark ] && ini_set ~/.config/gtk-3.0/settings.ini gtk-theme-name adw-gtk3-dark
   ini_set ~/.config/gtk-3.0/settings.ini gtk-application-prefer-dark-theme 1
   ini_set ~/.config/gtk-4.0/settings.ini gtk-application-prefer-dark-theme 1
+  # Qt apps: Brasa's colors with the Fusion style, through qt5ct / qt6ct (QT_QPA_PLATFORMTHEME=qt5ct is
+  # set by hyprland.lua, the login screen and environment.d; Qt 6 apps take it for qt6ct too)
+  for v in qt5ct qt6ct; do
+    f=~/.config/$v/$v.conf
+    [ -f "$f" ] && ! grep -q "brasa-colors.conf" "$f" && run cp -a "$f" "$f.bak-brasa-$STAMP"
+    [ $DRY = 1 ] && { info "[dry run] $f: Brasa colors, Fusion style"; continue; }
+    python3 - "$f" "$HERE/config/qt/brasa-colors.conf" <<'PY'
+import os, re, sys
+path, colors = sys.argv[1:]
+want = {"color_scheme_path": colors, "custom_palette": "true", "style": "Fusion"}
+lines = open(path).read().splitlines() if os.path.exists(path) else []
+out, section, done = [], None, set()
+for line in lines + ["[End]"]:
+    m = re.match(r"\[(.+)\]$", line.strip())
+    if m:
+        if section == "Appearance":
+            out += [f"{k}={v}" for k, v in want.items() if k not in done]; done |= set(want)
+        section = m.group(1)
+        if line != "[End]": out.append(line)
+        continue
+    key = line.split("=", 1)[0].strip()
+    if section == "Appearance" and key in want:
+        out.append(f"{key}={want[key]}"); done.add(key)
+    else:
+        out.append(line)
+if not done:
+    out = ["[Appearance]"] + [f"{k}={v}" for k, v in want.items()] + out
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, "w").write("\n".join(out) + "\n")
+PY
+  done
+  run mkdir -p ~/.config/environment.d
+  [ $DRY = 1 ] || echo "QT_QPA_PLATFORMTHEME=qt5ct" > ~/.config/environment.d/90-brasa-qt.conf
   # GTK_THEME overrides all of the above, in every GTK app
   for f in ~/.profile ~/.zprofile ~/.bash_profile ~/.pam_environment ~/.config/environment.d/*.conf /etc/environment; do
     [ -f "$f" ] && grep -qE "^[^#]*GTK_THEME=" "$f" &&
