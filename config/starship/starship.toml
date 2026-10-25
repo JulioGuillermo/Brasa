@@ -14,8 +14,8 @@ $username$hostname\
 ${custom.home}\
 $directory\
 [](fg:seg2 bg:seg3)\
-$git_branch$git_status\
-$golang$rust$c$python$nodejs$lua$docker_context\
+($git_branch$git_status\
+$golang$rust$c$python$nodejs$lua$docker_context[ ](bg:seg3))\
 [ ](fg:seg3)\
 $fill\
 [](fg:seg2)\
