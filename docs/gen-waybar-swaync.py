@@ -125,8 +125,10 @@ waybar = {
                   "on-click": "pavucontrol", "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"},
   "backlight": {"device": "intel_backlight", "format": ICON["bri"], "tooltip-format": "Brightness {percent}%",
                 "on-scroll-up": "brightnessctl -q s +5%", "on-scroll-down": "brightnessctl -q s 5%-"},
-  "sway/language": {"format": "{short}", "tooltip-format": "{long}", "on-click": "~/.local/bin/brasa-wm layout-next"},
-  "hyprland/language": {"format": "{short}", "on-click": "~/.local/bin/brasa-wm layout-next"},
+  "sway/language": {"format": "{short}", "tooltip-format": "{long}", "on-click": "~/.local/bin/brasa-wm layout-next",
+                    "on-click-right": "~/.local/bin/brasa-keyboard"},
+  "hyprland/language": {"format": "{short}", "on-click": "~/.local/bin/brasa-wm layout-next",
+                        "on-click-right": "~/.local/bin/brasa-keyboard"},
   "tray": {"icon-size": 16, "spacing": 8},
   "custom/notif": {"exec": "swaync-client -swb", "return-type": "json", "format": "{icon}",
                    "format-icons": {"notification": ICON["bell_new"], "none": ICON["bell"],
@@ -232,7 +234,7 @@ swaync = {
     "title": {"text": "Notifications", "clear-all-button": True, "button-text": "Clear"},
     "dnd": {"text": "Do not disturb"},
     # One grid: lit = on, a click turns it on or off
-    "buttons-grid": {"buttons-per-row": 3, "actions": [
+    "buttons-grid": {"buttons-per-row": 5, "actions": [
       tog(tile("\U000F05A9", "Wi-Fi"), "nmcli radio wifi on", "nmcli radio wifi off",
           "nmcli radio wifi | grep -qx enabled && echo true || echo false"),
       tog(tile("\U000F00AF", "Bluetooth"), "bluetoothctl power on", "bluetoothctl power off",
@@ -240,6 +242,7 @@ swaync = {
       tog(tile("\U000F0581", "Mute"), "wpctl set-mute @DEFAULT_AUDIO_SINK@ 1", "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0",
           "wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED && echo true || echo false"),
       {"label": tile("\U000F16BE", "Networks"), "command": "sh -c 'swaync-client -cp; nm-connection-editor'"},
+      {"label": tile("\U000F09F9", "Keyboard"), "command": f"sh -c '{CLOSE}; {B}brasa-keyboard'"},
       tog(tile("\U000F08B9", "Session"), B + "brasa-remote session", B + "brasa-remote session stop",
           "systemctl --user -q is-active brasa-remote-session && echo true || echo false"),
       tog(tile("\U000F08C0", "SSH"), B + "brasa-remote ssh on", B + "brasa-remote ssh off",
@@ -247,7 +250,7 @@ swaync = {
       tog(tile("\U000F0E51", "Effects"), B + "brasa-fx all", B + "brasa-fx all",
           "test -e $XDG_RUNTIME_DIR/brasa-fx/blur-off && echo false || echo true"),
       {"label": tile("\U000F033E", "Lock"), "command": f"sh -c '{CLOSE}; {B}brasa-lock'"},
-      {"label": tile("\U000F030C", "Keys"), "command": f"sh -c '{CLOSE}; {B}brasa-keys'"},
+      {"label": tile("\U000F0625", "Keys"), "command": f"sh -c '{CLOSE}; {B}brasa-keys'"},
     ]},
     "menubar": MENUS,
     "volume": {"label": ICON["vol"][2]},

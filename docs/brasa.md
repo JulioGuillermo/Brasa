@@ -54,6 +54,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-battery` | Battery charge limit (e.g. 80 %), kept across reboots; right click on the bar's battery | `~/.local/bin/` |
 | `bin/brasa-power` | Power profile (power-profiles-daemon) with an on-screen notice | `~/.local/bin/` |
 | `bin/brasa-run` | Runs a custom panel button's command and shows how it went | `~/.local/bin/` |
+| `bin/brasa-keyboard` | Keyboard layouts: pick, add, remove (searchable menu) | `~/.local/bin/` |
 | `bin/brasa-wallpaper` | Wallpapers of the desktop, lock and login screens, together or each on its own | `~/.local/bin/` |
 | `bin/brasa-drawer` | Full-screen app grid with rofi (`Super+d`, again to close) | `~/.local/bin/` |
 | `bin/brasa-radio` | Airplane mode (rfkill) | `~/.local/bin/` |
@@ -558,6 +559,7 @@ choice is lit:
 |---|---|
 | Wi-Fi · Bluetooth · Mute | on / off |
 | Networks | Wi-Fi and network settings (nm-connection-editor) |
+| Keyboard | keyboard layouts: pick one, add or remove (`brasa-keyboard`) |
 | Session | the remote session, `brasa-remote session` (port 5900) |
 | SSH | the SSH server; asks for the password through the system's dialog (polkit) |
 | Effects | blur, animations and shadows, like `Super+Shift+f` |
@@ -595,6 +597,20 @@ After editing, `Super+Ctrl+r` (`brasa-reload`) rebuilds the panel. Each command 
 Commands cannot contain quotes (swaync mangles them): anything more complex goes in a script. For
 actions that need root, the script can use `pkexec`, which asks for the password with a dialog (the
 polkit agent Brasa starts), e.g. `pkexec sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'`.
+
+## Keyboard layouts
+
+```
+brasa-keyboard                 a menu: your layouts (pick one to type with), Add…, Remove…
+brasa-keyboard list            your layouts, the active one marked
+brasa-keyboard add fr [oss]    add a layout (and variant); remove fr [oss]; use N
+```
+
+Also from the panel (Keyboard tile) and a right click on the bar's language indicator (a left click
+switches to the next layout, like `Super+Alt+Space`). "Add" searches every layout and variant the
+system knows (about 600). Your layouts live in `~/.config/brasa/keyboard.conf` (not in git); Hyprland
+loads them when it starts (`~/.local/state/brasa/keyboard.lua`), on sway `brasa-autostart` applies
+them. Without that file, the layouts in `hyprland.lua` / `sway/brasa.conf` are used.
 
 ## Battery charge limit
 

@@ -8,3 +8,4 @@ config/swaync/config.json
 # Your own settings (~/.config/brasa is a link to this folder)
 remote.conf
 panel.conf
+keyboard.conf

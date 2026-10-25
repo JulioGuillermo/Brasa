@@ -59,7 +59,7 @@
   background: #0c1838;
   color: #c3cbe0;
   border-radius: 12px;
-  min-width: 128px; min-height: 62px;
+  min-width: 80px; min-height: 62px;   /* five per row; they stretch to the menu row's width */
   padding: 4px 2px;
   font-family: "Hack Nerd Font Mono", monospace;   /* the icon is centred over the word with spaces */
   font-size: 12px;

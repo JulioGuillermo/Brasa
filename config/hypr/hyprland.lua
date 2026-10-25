@@ -123,6 +123,8 @@ end
 
 ---- Each workspace's window layout, chosen with Super+w (written by brasa-wm)
 pcall(dofile, state .. "workspace-layouts.lua")
+---- Your keyboard layouts, chosen with brasa-keyboard (the panel's Keyboard tile); else the ones above
+pcall(dofile, state .. "keyboard.lua")
 
 ---- Window rules
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })

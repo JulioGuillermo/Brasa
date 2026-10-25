@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Keyboard layouts: pick the one to type with, add or remove layouts, from a searchable menu (fuzzel).
+# Usage: brasa-keyboard                  the menu: your layouts (pick one to use it), Add…, Remove…
+#        brasa-keyboard list             your layouts, the active one marked
+#        brasa-keyboard add LAYOUT [VARIANT] | remove LAYOUT [VARIANT] | use N | apply
+# Saved in ~/.config/brasa/keyboard.conf (one "layout variant" per line). Hyprland loads it when it
+# starts (~/.local/state/brasa/keyboard.lua); on sway brasa-autostart runs "brasa-keyboard apply".
+set -u
+CONF=~/.config/brasa/keyboard.conf
+LUA=${XDG_STATE_HOME:-$HOME/.local/state}/brasa/keyboard.lua
+LST=/usr/share/X11/xkb/rules/evdev.lst
+hypr() { [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; }
+osd() { ~/.local/bin/brasa-osd input-keyboard-symbolic "$1" 2>/dev/null; echo "$1"; }
+
+LAYOUTS=() VARIANTS=()
+load() {
+  if [ ! -s "$CONF" ]; then   # first use: start from what the session has now
+    local l v
+    if hypr; then l=$(hyprctl getoption input:kb_layout -j | jq -r .str); v=$(hyprctl getoption input:kb_variant -j | jq -r .str)
+    else l=$(sed -n 's/^\s*xkb_layout\s\+//p' ~/.config/sway/brasa.conf | head -1); v=$(sed -n 's/^\s*xkb_variant\s\+//p' ~/.config/sway/brasa.conf | head -1); fi
+    local ls vs i; IFS=, read -ra ls <<< "$l"; IFS=, read -ra vs <<< "${v:-}"
+    mkdir -p "$(dirname "$CONF")"
+    for i in "${!ls[@]}"; do echo "${ls[$i]} ${vs[$i]:-}" | sed 's/ $//'; done > "$CONF"
+  fi
+  local a b
+  while read -r a b; do [ -n "$a" ] && { LAYOUTS+=("$a"); VARIANTS+=("${b:-}"); }; done < "$CONF"
+}
+save() { for i in "${!LAYOUTS[@]}"; do echo "${LAYOUTS[$i]} ${VARIANTS[$i]}" | sed 's/ $//'; done > "$CONF"; }
+joined() { local IFS=,; echo "$*"; }
+
+apply() {
+  local L V; L=$(joined "${LAYOUTS[@]}"); V=$(joined "${VARIANTS[@]}")
+  if hypr; then
+    hyprctl -q eval "hl.config({ input = { kb_layout = \"$L\", kb_variant = \"$V\" } })"
+    mkdir -p "$(dirname "$LUA")"
+    printf -- '-- Written by brasa-keyboard: your keyboard layouts\nhl.config({ input = { kb_layout = "%s", kb_variant = "%s" } })\n' "$L" "$V" > "$LUA"
+  else
+    swaymsg -q "input type:keyboard xkb_layout $L"; swaymsg -q "input type:keyboard xkb_variant ${V:-\"\"}"
+  fi
+}
+active() {  # index of the layout in use
+  if hypr; then hyprctl devices -j | jq -r '[.keyboards[] | select(.main)][0].active_layout_index // 0'
+  else swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "keyboard")][0].xkb_active_layout_index // 0'; fi
+}
+use() {
+  if hypr; then hyprctl -q switchxkblayout all "$1"; else swaymsg -q "input type:keyboard xkb_switch_layout $1"; fi
+  osd "Keyboard: $(name "${LAYOUTS[$1]}" "${VARIANTS[$1]}")"
+}
+name() {  # layout [variant] -> its description from xkb's list
+  if [ -n "${2:-}" ]; then awk -v l="$1" -v v="$2" '/^! variant/{s=1;next} /^!/{s=0} s && $1==v && $2==l":" {sub(/^ *[^ ]+ +[^ ]+ /,""); print; exit}' "$LST"
+  else awk -v l="$1" '/^! layout/{s=1;next} /^!/{s=0} s && $1==l {sub(/^ *[^ ]+ +/,""); print; exit}' "$LST"; fi
+}
+catalog() {  # every layout and variant: "Description  ·  layout [variant]"
+  awk '/^! layout/{s="l";next} /^! variant/{s="v";next} /^!/{s="";next}
+       s=="l" && NF {c=$1; $1=""; sub(/^ +/,""); print $0 "  ·  " c}
+       s=="v" && NF {v=$1; l=$2; sub(/:$/,"",l); $1=""; $2=""; sub(/^ +/,""); print $0 "  ·  " l " " v}' "$LST" | sort -f
+}
+menu() { fuzzel --dmenu --index --prompt "$1  " --width 60 --lines 14 2>/dev/null; }
+
+load
+case ${1:-menu} in
+  apply) apply ;;
+  list) a=$(active); for i in "${!LAYOUTS[@]}"; do printf '%s %s\n' "$([ "$i" = "$a" ] && echo '●' || echo ' ')" "$(name "${LAYOUTS[$i]}" "${VARIANTS[$i]}")"; done ;;
+  use) use "$2" ;;
+  add)
+    for i in "${!LAYOUTS[@]}"; do [ "${LAYOUTS[$i]}" = "$2" ] && [ "${VARIANTS[$i]}" = "${3:-}" ] && { echo "Already there"; exit 0; }; done
+    LAYOUTS+=("$2"); VARIANTS+=("${3:-}"); save; apply; osd "Keyboard added: $(name "$2" "${3:-}")" ;;
+  remove)
+    [ ${#LAYOUTS[@]} -gt 1 ] || { osd "Keep at least one keyboard layout"; exit 1; }
+    for i in "${!LAYOUTS[@]}"; do
+      if [ "${LAYOUTS[$i]}" = "$2" ] && [ "${VARIANTS[$i]}" = "${3:-}" ]; then
+        unset 'LAYOUTS[i]' 'VARIANTS[i]'; LAYOUTS=("${LAYOUTS[@]}"); VARIANTS=("${VARIANTS[@]}")
+        save; apply; osd "Keyboard removed: $(name "$2" "${3:-}")"; exit 0
+      fi
+    done; echo "Not in your layouts: $2 ${3:-}"; exit 1 ;;
+  menu)
+    a=$(active); n=${#LAYOUTS[@]}
+    pick=$({ for i in "${!LAYOUTS[@]}"; do printf '%s  %s\n' "$([ "$i" = "$a" ] && echo '●' || echo ' ')" "$(name "${LAYOUTS[$i]}" "${VARIANTS[$i]}")"; done
+             echo "＋  Add a layout…"; [ "$n" -gt 1 ] && echo "－  Remove a layout…"; } | menu "Keyboard") || exit 0
+    if [ "$pick" -lt "$n" ]; then use "$pick"
+    elif [ "$pick" = "$n" ]; then
+      line=$(catalog | fuzzel --dmenu --prompt "Add  " --width 70 --lines 16 2>/dev/null) || exit 0
+      exec "$0" add ${line##*  ·  }
+    else
+      i=$({ for i in "${!LAYOUTS[@]}"; do name "${LAYOUTS[$i]}" "${VARIANTS[$i]}"; done; } | menu "Remove") || exit 0
+      exec "$0" remove "${LAYOUTS[$i]}" "${VARIANTS[$i]}"
+    fi ;;
+  *) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac
