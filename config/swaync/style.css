@@ -1,4 +1,5 @@
 /* Brasa · Redline for swaync (GTK4) */
+@import url("menus.css");   /* generated: the menu buttons' width */
 * { font-family: "Hack Nerd Font Propo", "Hack Nerd Font", sans-serif; font-size: 13px; }
 
 /* The list's rows and groups never paint GTK's grey selection */
@@ -107,7 +108,7 @@ window.floating-notifications, .floating-notifications, .floating-notifications.
 .widget-menubar > .menu-button-bar > .widget-menubar-container button {
   font-family: "Hack Nerd Font Mono", monospace;
   font-size: 12px;
-  min-width: 67px; min-height: 56px;   /* six of them span the grid's width */
+  min-height: 56px;   /* the width depends on how many menus this machine has: menus.css */
   padding: 4px 4px;
   margin: 0 3px;
 }
