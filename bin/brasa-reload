@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Reload Brasa's programs without touching the window manager (Super+Ctrl+r).
+python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/null 2>&1   # bar + panel (panel.conf)
 pkill -SIGUSR2 -x waybar || setsid -f waybar >/dev/null 2>&1                    # bar: config and style
 swaync-client -R -sw >/dev/null 2>&1; swaync-client -rs -sw >/dev/null 2>&1   # notifications
 pkill -x rofi; pkill -x nwg-bar; pkill -x fuzzel                          # menus read their config when opened

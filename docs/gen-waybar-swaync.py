@@ -194,14 +194,36 @@ MENUS["menu#remote"] = {"label": tile("\U000F1483", "Remote"), "position": "left
              f"systemctl --user -q is-active brasa-wayvnc && grep -qx {name.lower()} {MODE}")
       for name, desc in (("Mirror", "share this screen"), ("Screen", "add a virtual monitor"),
                          ("Take", "use it remotely, screens off"))]]}
-MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "menu#remote", "menu#boot") if k in MENUS}
+# Your own buttons, from ~/.config/brasa/panel.conf (see the comments in that file / docs/brasa.md):
+#   icon | name | command                              a button
+#   icon | name | on command | off command | test      a switch, lit while the test succeeds
+CUSTOM = os.path.expanduser("~/.config/brasa/panel.conf")
+custom = []
+for line in (open(CUSTOM, encoding="utf-8") if os.path.exists(CUSTOM) else []):
+    f = [x.strip() for x in line.split("|")]
+    if not line.strip() or line.lstrip().startswith("#"):
+        continue
+    if len(f) not in (3, 5) or any(q in line for q in "\"'"):
+        print(f"panel.conf: skipped (needs 3 or 5 fields and no quotes): {line.strip()}", file=sys.stderr)
+        continue
+    icon, name, *cmds = f
+    run = lambda c: f"{B}brasa-run {name.replace(' ', '_')} {c}"
+    text = f"{icon}  {name}"
+    if len(cmds) == 1:
+        custom.append({"label": f"{text:<38}", "command": f"sh -c '{CLOSE}; {run(cmds[0])}'"})
+    else:
+        custom.append(tog(f"{text:<38}", run(cmds[0]), run(cmds[1]), f"{cmds[2]} && echo true || echo false"))
+if custom:
+    MENUS["menu#custom"] = {"label": tile("\U000F09AC", "Custom"), "position": "left", "actions": custom}
+MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "menu#remote", "menu#boot", "menu#custom")
+         if k in MENUS}
 
 
 swaync = {
   "$schema": "/etc/xdg/swaync/configSchema.json",
   "positionX": "right", "positionY": "top", "layer": "overlay", "cssPriority": "user",
   "control-center-margin-top": 8, "control-center-margin-right": 8, "control-center-margin-bottom": 8,
-  "control-center-width": 380, "notification-window-width": 380,
+  "control-center-width": 460, "notification-window-width": 400,
   "timeout": 6, "timeout-low": 4, "timeout-critical": 0, "fit-to-screen": True,
   "notification-icon-size": 48, "image-visibility": "when-available", "transition-time": 200,
   "scripts": {"sound": {"exec": "sh -c '$HOME/.config/swaync/sound.sh'", "app-name": ".*", "run-on": "receive"}},

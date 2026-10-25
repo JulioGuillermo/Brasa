@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Runs a custom panel button's command (~/.config/brasa/panel.conf) and says how it went: "Working…" at
+# once, then its last line of output, or the error. Usage: brasa-run Name_with_underscores command [args...]
+name=${1//_/ }; shift
+note() { notify-send -a Brasa -i "$1" -t "$2" -h string:x-canonical-private-synchronous:brasa-run "$3" "$4" 2>/dev/null; }
+note system-run-symbolic 30000 "$name" "Working…"
+out=$("$@" 2>&1); rc=$?
+last=$(printf '%s\n' "$out" | grep -v '^\s*$' | tail -1)
+if [ $rc = 0 ]; then note emblem-ok-symbolic 5000 "$name" "${last:-Done}"
+elif [ $rc = 126 ] || [ $rc = 127 ] && [ "${1:-}" = pkexec ]; then note dialog-error-symbolic 5000 "$name" "Not authorized"
+else note dialog-error-symbolic 8000 "$name failed" "${last:-exit code $rc}"; fi
+printf '%s\n' "$out"; exit $rc

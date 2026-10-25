@@ -53,6 +53,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-here` | Is a program running in this graphical session? (the local and the remote session each run their own bar, lock...) | `~/.local/bin/` |
 | `bin/brasa-battery` | Battery charge limit (e.g. 80 %), kept across reboots; right click on the bar's battery | `~/.local/bin/` |
 | `bin/brasa-power` | Power profile (power-profiles-daemon) with an on-screen notice | `~/.local/bin/` |
+| `bin/brasa-run` | Runs a custom panel button's command and shows how it went | `~/.local/bin/` |
 | `bin/brasa-wallpaper` | Wallpapers of the desktop, lock and login screens, together or each on its own | `~/.local/bin/` |
 | `bin/brasa-drawer` | Full-screen app grid with rofi (`Super+d`, again to close) | `~/.local/bin/` |
 | `bin/brasa-radio` | Airplane mode (rfkill) | `~/.local/bin/` |
@@ -556,12 +557,30 @@ choice is lit:
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
 | Remote | sharing this machine's desktop on port 5901: off, mirror, screen, take |
 | Startup | what starts with the machine: the remote session, the SSH server (lit = on; the panel stays open) |
+| Custom | your own buttons, from `~/.config/brasa/panel.conf` (only when that file has some) |
 
 Choosing in a menu closes the panel (except Startup, whose entries are switches). swaync cannot show a
 spinner on a button, so remote and SSH changes show a "Working…" notice at once, replaced by the result. The panel is generated for each machine by
 `docs/gen-waybar-swaync.py`, so menus a machine cannot use are left out. swaync (0.12) has no tooltips
 for these buttons, hence the words under the icons; and it mangles double quotes inside commands, so the
 panel's commands avoid them.
+
+### Your own buttons (Custom)
+
+`~/.config/brasa/panel.conf` (yours, not in git), one button per line:
+
+```
+# icon | name | command                                   a button
+# icon | name | on command | off command | state test     a switch, lit while the test succeeds
+󰃢 | Free RAM  | ~/.local/bin/free-ram
+󰢮 | GPU awake | ~/.local/bin/gpu-awake on | ~/.local/bin/gpu-awake off | systemctl -q is-active gpu-forcewake
+```
+
+After editing, `Super+Ctrl+r` (`brasa-reload`) rebuilds the panel. Each command runs through
+`brasa-run`, which shows "Working…" at once and then the command's last line of output (or the error).
+Commands cannot contain quotes (swaync mangles them): anything more complex goes in a script. For
+actions that need root, the script can use `pkexec`, which asks for the password with a dialog (the
+polkit agent Brasa starts), e.g. `pkexec sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'`.
 
 ## Battery charge limit
 

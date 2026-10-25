@@ -59,7 +59,7 @@
   background: #0c1838;
   color: #c3cbe0;
   border-radius: 12px;
-  min-width: 106px; min-height: 58px;
+  min-width: 128px; min-height: 62px;
   padding: 4px 2px;
   font-family: "Hack Nerd Font Mono", monospace;   /* the icon is centred over the word with spaces */
   font-size: 12px;
@@ -89,7 +89,9 @@ window.floating-notifications, .floating-notifications, .floating-notifications.
 
 /* Quick settings: the menus (Layout / Battery / Power). Entries use a monospace font and are padded to
    one width, so their text lines up on the left; the current choice is lit like an active toggle. */
-.widget-menubar { margin: 2px 10px 8px; }
+.widget-menubar { margin: 2px 2px 8px 3px; }   /* its six buttons line up with the grid above */
+.widget-menubar > .menu-button-bar > .start { margin-left: 0; }
+.widget-menubar > .menu-button-bar > .end { margin-right: 0; }
 .widget-menubar > .menu-button-bar > .widget-menubar-container button,
 .widget-menubar > revealer * button {
   background: #0c1838;
@@ -105,8 +107,9 @@ window.floating-notifications, .floating-notifications, .floating-notifications.
 .widget-menubar > .menu-button-bar > .widget-menubar-container button {
   font-family: "Hack Nerd Font Mono", monospace;
   font-size: 12px;
-  min-width: 60px; min-height: 52px;
-  padding: 4px 2px;
+  min-width: 67px; min-height: 56px;   /* six of them span the grid's width */
+  padding: 4px 4px;
+  margin: 0 3px;
 }
 .widget-menubar > revealer * button {
   margin: 4px 3px 0;
