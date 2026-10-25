@@ -254,7 +254,8 @@ ssh_info() {  # one line: running or not, at boot or not, port
 }
 ssh_cmd() {
   local u; u=$(ssh_unit)
-  local sudo=sudo; [ "$(id -u)" = 0 ] && sudo=
+  # sudo in a terminal; without one (the control panel) systemctl asks through polkit's password dialog
+  local sudo=sudo; { [ "$(id -u)" = 0 ] || [ ! -t 0 ]; } && sudo=
   case ${1:-status} in
     on)     $sudo systemctl start "$u" && say "SSH ON" "$(ssh_info "$u")" ;;
     off)    $sudo systemctl stop "$u" && say "SSH OFF" "Open connections stay; new ones are refused

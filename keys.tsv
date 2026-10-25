@@ -28,7 +28,7 @@ SUPER	q	wm close	Close window
 SUPER+SHIFT	q	wm kill	Kill the app (kill -9)
 SUPER	f	wm fullscreen	Fullscreen
 SUPER	space	wm float	Toggle floating / tiled
-SUPER	w	wm layout-cycle	Window layout: dwindle, master, scrolling (sway: tiles / tabs)
+SUPER	w	wm layout-cycle	This workspace's window layout: dwindle, master, scrolling (sway: tiles / tabs)
 SUPER	Left	wm focus left	Focus left
 SUPER	Right	wm focus right	Focus right
 SUPER	Up	wm focus up	Focus up

@@ -214,6 +214,7 @@ swaylock          swaylock                swaylock                    swaylock  
 swayidle          swayidle                swayidle                    swayidle                  swayidle                  swayidle
 nm-applet         network-manager-applet  network-manager-gnome       network-manager-applet    NetworkManager-applet     network-manager-applet
 blueman           blueman                 blueman                     blueman                   blueman                   blueman
+bluetoothctl      bluez-utils             bluez                       bluez                     bluez                     bluez
 brightnessctl     brightnessctl           brightnessctl               brightnessctl             brightnessctl             brightnessctl
 playerctl         playerctl               playerctl                   playerctl                 playerctl                 playerctl
 wireplumber       wireplumber             wireplumber                 wireplumber               wireplumber               wireplumber

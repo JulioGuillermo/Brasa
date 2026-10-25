@@ -51,6 +51,8 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-kbd` | Keyboard backlight, for any `*kbd_backlight*` LED | `~/.local/bin/` |
 | `bin/brasa-display` | Displays and monitors (wdisplays) | `~/.local/bin/` |
 | `bin/brasa-here` | Is a program running in this graphical session? (the local and the remote session each run their own bar, lock...) | `~/.local/bin/` |
+| `bin/brasa-battery` | Battery charge limit (e.g. 80 %), kept across reboots; right click on the bar's battery | `~/.local/bin/` |
+| `bin/brasa-power` | Power profile (power-profiles-daemon) with an on-screen notice | `~/.local/bin/` |
 | `bin/brasa-wallpaper` | Wallpapers of the desktop, lock and login screens, together or each on its own | `~/.local/bin/` |
 | `bin/brasa-drawer` | Full-screen app grid with rofi (`Super+d`, again to close) | `~/.local/bin/` |
 | `bin/brasa-radio` | Airplane mode (rfkill) | `~/.local/bin/` |
@@ -170,7 +172,7 @@ The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter
 | `Super+Shift+q` | Kill the focused window's app (`kill -9` to its PID, nothing else) |
 | `Super+f` | Fullscreen |
 | `Super+Space` | Floating / tiled |
-| `Super+w` | Window layout. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like columns on a strip you scroll through), remembered across logins. sway: tiles ↔ tabs |
+| `Super+w` | Window layout of the focused workspace. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like columns on a strip you scroll through); each workspace remembers its own. sway: tiles ↔ tabs |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |
@@ -531,6 +533,47 @@ brasa-remote on | off | status | setup | help
 - **Clients**: TigerVNC Viewer (Windows, Linux, macOS) or RealVNC Viewer. In TigerVNC 1.16:
   `Ctrl+Alt` releases the keyboard grab, `Ctrl+Alt+G` grabs again, `Ctrl+Alt+M` opens the menu,
   `Ctrl+Alt+Enter` toggles full screen. `vncviewer 10.x.x.x:5900` (session) or `:5901` (local desktop).
+
+## Quick settings (notification panel)
+
+The panel (`Super+n` or the bell) has one grid of tiles, lit while on, and a row of menus whose current
+choice is lit:
+
+| Tile | Click |
+|---|---|
+| Wi-Fi · Bluetooth · Mute | on / off |
+| Networks | Wi-Fi and network settings (nm-connection-editor) |
+| Session | the remote session, `brasa-remote session` (port 5900) |
+| SSH | the SSH server; asks for the password through the system's dialog (polkit) |
+| Effects | blur, animations and shadows, like `Super+Shift+f` |
+| Lock | lock the screen |
+
+| Menu | Choices |
+|---|---|
+| Layout | the focused workspace's window layout: dwindle, master, scrolling (like `Super+w`) |
+| Battery | charge limit 60 / 80 / 90 / 100 % (laptops that support it, see below) |
+| Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
+| Remote | sharing this machine's desktop on port 5901: off, mirror, screen, take |
+
+Choosing in a menu closes the panel. The panel is generated for each machine by
+`docs/gen-waybar-swaync.py`, so menus a machine cannot use are left out. swaync (0.12) has no tooltips
+for these buttons, hence the words under the icons; and it mangles double quotes inside commands, so the
+panel's commands avoid them.
+
+## Battery charge limit
+
+```
+brasa-battery          show the current limit
+brasa-battery 80       charge up to 80 % (20-100)
+brasa-battery menu     choose 60 / 80 / 90 / 100 % (also: right click on the bar's battery)
+```
+
+Charging stops at the limit, which keeps a battery healthier when the laptop lives on the charger.
+It needs a kernel driver that offers `charge_control_end_threshold` (ASUS, Lenovo, Dell, Huawei,
+Samsung, Framework, System76...). The first change asks for sudo once: it installs
+`/etc/udev/rules.d/90-brasa-battery.rules`, which applies the saved limit (`/etc/brasa/battery-limit`)
+at every boot and lets your user change it without sudo afterwards. GNOME's "Preserve battery health"
+sets the same value through UPower; the last one to change it wins.
 
 ## X11 apps on a scaled screen
 

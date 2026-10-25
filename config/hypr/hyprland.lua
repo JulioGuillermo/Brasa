@@ -7,7 +7,8 @@
 local here = os.getenv("HOME") .. "/.config/hypr/"
 hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1.333333 })
 hl.monitor({ output = "",      mode = "preferred", position = "auto", scale = "auto" })
-pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/brasa/monitors/hyprland.lua")
+local state = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/brasa/"
+pcall(dofile, state .. "monitors/hyprland.lua")
 
 ---- Environment
 hl.env("XCURSOR_THEME", "Future-cyan-cursors")
@@ -60,7 +61,7 @@ hl.config({
 
     animations = { enabled = true },
 
-    dwindle = { preserve_split = true },
+    dwindle = { preserve_split = true },   -- the default layout; each workspace can have its own (Super+w)
 
     -- X11 apps (XWayland) see the screen at its real resolution instead of being drawn at 100 % and
     -- blown up (blurry with a fractional scale). brasa-monitors tells them the scale through Xft.dpi,
@@ -118,6 +119,9 @@ hl.animation({ leaf = "workspaces",    enabled = true, speed = 1.94, bezier = "a
 for _, ns in ipairs({ "waybar", "swaync-control-center", "swaync-notification-window", "launcher", "rofi", "nwg-bar", "swayosd" }) do
     hl.layer_rule({ match = { namespace = "^" .. ns .. "$" }, blur = true, ignore_alpha = 0.2 })
 end
+
+---- Each workspace's window layout, chosen with Super+w (written by brasa-wm)
+pcall(dofile, state .. "workspace-layouts.lua")
 
 ---- Window rules
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })

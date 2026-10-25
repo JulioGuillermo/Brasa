@@ -54,16 +54,21 @@
 .widget-dnd > switch slider { background: #ffffff; border-radius: 99px; }
 
 .widget-buttons-grid { margin: 6px 6px; padding: 4px; }
+/* One grid of tiles: icon above, a word below; lit (red) when on */
 .widget-buttons-grid > flowbox > flowboxchild > button {
   background: #0c1838;
   color: #c3cbe0;
   border-radius: 12px;
-  min-width: 70px; min-height: 42px;
-  font-size: 18px;
+  min-width: 78px; min-height: 58px;
+  padding: 4px 2px;
+  font-family: "Hack Nerd Font Mono", monospace;   /* the icon is centred over the word with spaces */
+  font-size: 12px;
   transition: all 200ms ease;
 }
+.widget-buttons-grid > flowbox > flowboxchild > button label { line-height: 1.5; }
 .widget-buttons-grid > flowbox > flowboxchild > button:hover { background: rgba(255, 0, 0, 0.15); color: #ff3030; }
-.widget-buttons-grid > flowbox > flowboxchild > button.toggle:checked {
+.widget-buttons-grid > flowbox > flowboxchild > button.toggle:checked,
+.widget-buttons-grid > flowbox > flowboxchild > button.active {
   background: rgba(255, 0, 0, 0.22);
   color: #ff0000;
 }
@@ -81,3 +86,28 @@ scale slider { background: #ffffff; border-radius: 99px; min-width: 14px; min-he
 /* The popup window is larger than the cards: keep it fully transparent */
 window.floating-notifications, .floating-notifications, .floating-notifications.background,
 .notification-window, .blank-window { background: transparent; box-shadow: none; }
+
+/* Quick settings: the menus (Layout / Battery / Power). Entries use a monospace font and are padded to
+   one width, so their text lines up on the left; the current choice is lit like an active toggle. */
+.widget-menubar { margin: 2px 10px 8px; }
+.widget-menubar > .menu-button-bar > .widget-menubar-container button,
+.widget-menubar > revealer * button {
+  background: #0c1838;
+  color: #c3cbe0;
+  border-radius: 12px;
+  padding: 6px 12px;
+  margin: 0 3px;
+  font-size: 13px;
+  box-shadow: none;
+  transition: all 200ms ease;
+}
+.widget-menubar > revealer * button {
+  margin: 4px 3px 0;
+  padding: 7px 14px;
+  font-family: "Hack Nerd Font Mono", monospace;
+  font-size: 12px;
+}
+.widget-menubar > .menu-button-bar > .widget-menubar-container button:hover,
+.widget-menubar > revealer * button:hover { background: rgba(255, 0, 0, 0.15); color: #ff3030; }
+.widget-menubar > revealer * button.toggle:checked,
+.widget-menubar > revealer * button.active { background: rgba(255, 0, 0, 0.22); color: #ff0000; }

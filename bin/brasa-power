@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Power profile (power-profiles-daemon): brasa-power [power-saver|balanced|performance]; no argument: show it
+case ${1:-} in
+  "") powerprofilesctl get ;;
+  power-saver|balanced|performance)
+    powerprofilesctl set "$1" || exit 1
+    case $1 in power-saver) n="Power saver" ;; balanced) n="Balanced" ;; performance) n="Performance" ;; esac
+    ~/.local/bin/brasa-osd "power-profile-$1-symbolic" "Power: $n" ;;
+  *) echo "usage: brasa-power [power-saver|balanced|performance]" >&2; exit 1 ;;
+esac
