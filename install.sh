@@ -389,7 +389,9 @@ say "Brasa in $HERE"
 if [ "$GREETER" = ask ]; then
   GREETER=0
   dm=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
-  if [ -t 0 ] && [ "$dm" != greetd ]; then
+  if [ "$dm" = greetd ] && [ -f /etc/nwg-hello/brasa-sway-config ]; then
+    GREETER=1   # already Brasa's: keep it up to date
+  elif [ -t 0 ] && [ "$dm" != greetd ]; then
     read -r -p "Also use the Brasa login screen (greetd + nwg-hello)${dm:+ instead of $dm}? It applies from the next boot. [y/N] " a
     [[ $a == [yY]* ]] && GREETER=1
   fi

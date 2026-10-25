@@ -94,7 +94,7 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
 ```
 
 - `--wm`: which window manager to install (both by default).
-- `--greeter` / `--no-greeter`: install greetd + nwg-hello as the login screen instead of the current display manager, or skip it (see [Login screen](#login-screen)). **Without either option the installer asks.**
+- `--greeter` / `--no-greeter`: install greetd + nwg-hello as the login screen instead of the current display manager, or skip it (see [Login screen](#login-screen)). **Without either option the installer asks**, or, when the Brasa login screen is already in use, updates it.
 - `--zsh` / `--no-zsh`: set up zsh with Brasa's config (see [Shell](#shell-zsh-and-starship)) or skip it.
   **Without either option the installer asks.**
 - `--no-prompt`: skips starship.
