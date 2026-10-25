@@ -25,9 +25,9 @@ STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.loc
 HYPR = bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"))
 SWAY_TRANSFORMS = ["normal", "90", "180", "270", "flipped", "flipped-90", "flipped-180", "flipped-270"]
 # Settings are applied with wlr-randr (the standard wlr-output-management protocol), the same on
-# Hyprland and sway: live, one monitor at a time, without reloading. Hyprland gives what a client sets
-# this way priority over its config rules (wdisplays uses the same protocol), so runtime hl.monitor()
-# rules would be ignored once wdisplays has been used; wlr-randr is not.
+# Hyprland and sway: live, one monitor at a time, without reloading; it also wins over what wdisplays
+# set. On Hyprland they are loaded as monitor rules too (hypr_rules), because Hyprland re-applies its
+# rules on every live config change and would otherwise reset the mode and VRR.
 
 
 def run(*cmd):
@@ -57,7 +57,8 @@ def outputs():
         for m in json.loads(run("hyprctl", "monitors", "-j") or "[]"):
             rates = sorted({round(float(r.split("@")[1].rstrip("Hz"))) for r in m.get("availableModes", [])
                             if r.startswith(f"{m['width']}x{m['height']}@")}, reverse=True)
-            res.append(dict(name=m["name"], make=m.get("make", ""), model=m.get("model", ""), serial=m.get("serial", ""),
+            res.append(dict(name=m["name"], desc=m.get("description", ""),
+                            make=m.get("make", ""), model=m.get("model", ""), serial=m.get("serial", ""),
                             x=m["x"], y=m["y"], width=m["width"], height=m["height"], scale=m["scale"],
                             transform=m.get("transform", 0), rate=round(m["refreshRate"]), vrr=bool(m.get("vrr")),
                             rates=rates, focused=m.get("focused", False)))
@@ -135,25 +136,18 @@ def apply(only=None):
     except (OSError, ValueError, KeyError):
         pass
     modes = exact_modes()
-    todo = []
+    every = []
     for o in outs:
-        if only and o["name"] != only:
-            continue
         st = settings(o, saved.get(o["key"]))
+        st["desc"] = o.get("desc", "")
         # The exact refresh value of the wanted mode (e.g. 60.001), so the protocol matches it
         st["hz"] = next((f"{r:.3f}" for w, h, r in modes.get(st["name"], [])
                          if w == st["w"] and h == st["h"] and round(r) == st["rate"]), str(st["rate"]))
-        todo.append(st)
+        every.append(st)
+    todo = [st for st in every if not only or st["name"] == only]
+    if HYPR:
+        hypr_rules(every, todo)
     if shutil.which("wlr-randr"):
-        if HYPR:
-            # Hyprland keeps the adaptive-sync wish but only acts on it when it re-checks VRR (a change of
-            # misc:vrr), and that re-check also re-applies its config rules, resetting the mode. So: first
-            # every monitor's VRR wish, then one nudge, then each monitor's mode and layout.
-            for st in todo:
-                run("wlr-randr", "--output", st["name"], "--adaptive-sync", "enabled" if st["vrr"] else "disabled")
-            run("hyprctl", "-q", "eval", "hl.config({ misc = { vrr = 1 } })")
-            run("hyprctl", "-q", "eval", "hl.config({ misc = { vrr = 0 } })")
-            time.sleep(0.3)
         for st in todo:
             run("wlr-randr", "--output", st["name"], "--mode", f'{st["w"]}x{st["h"]}@{st["hz"]}Hz', "--pos", f'{st["x"]},{st["y"]}',
                 "--scale", str(st["scale"]), "--transform", SWAY_TRANSFORMS[st["transform"]],
@@ -162,6 +156,29 @@ def apply(only=None):
         for st in todo:
             run("swaymsg", "-q", "output", st["name"], "mode", f'{st["w"]}x{st["h"]}@{st["hz"]}Hz', "pos", str(st["x"]), str(st["y"]),
                 "scale", str(st["scale"]), "transform", SWAY_TRANSFORMS[st["transform"]], "adaptive_sync", "on" if st["vrr"] else "off")
+
+
+def hypr_rule(st):
+    out = f'desc:{st["desc"]}' if st.get("desc") else st["name"]
+    return (f'hl.monitor({{ output = {json.dumps(out)}, mode = "{st["w"]}x{st["h"]}@{st["hz"]}", '
+            f'position = "{st["x"]}x{st["y"]}", scale = {st["scale"]}, transform = {st["transform"]}, '
+            f'vrr = {1 if st["vrr"] else 0} }})')
+
+
+def hypr_rules(every, todo):
+    """Hyprland re-applies its monitor rules on every live config change (effects, window layout...), so
+    they must say what was chosen here, or each change would reset the mode and VRR (and flash). Written
+    to a file hyprland.lua loads (for the next start or reload) and loaded live. Each rule goes twice:
+    Hyprland takes a new VRR value on the following pass."""
+    path = os.path.join(STATE, "hyprland.lua")
+    os.makedirs(STATE, exist_ok=True)
+    with open(path, "w") as f:
+        f.write("-- Written by brasa-monitors: each monitor's saved mode, position, scale and VRR.\n")
+        f.write("".join(hypr_rule(st) + "\n" for st in every))
+    for _ in range(2):
+        for st in todo:
+            run("hyprctl", "-q", "eval", hypr_rule(st))
+        time.sleep(0.3)
 
 
 def x11_dpi():

@@ -43,7 +43,7 @@ for mods, key, action, desc, opts in rows():
     flags = (" --locked" if "locked" in opts else "") + (" --release" if "release" in opts else "")
     if kind == "exec":
         cmd = "exec " + rest
-    elif verb in ("kill", "touchpad", "remote-keys"):
+    elif verb in ("kill", "touchpad", "remote-keys", "layout-cycle"):
         cmd = f"exec ~/.local/bin/brasa-wm {verb}"
     else:
         cmd = SWAY_WM[verb].format(arg)

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Window actions that work the same in sway/SwayFX and Hyprland. Usage: brasa-wm <verb> [arg]
 verb=$1 arg=$2
+LAYOUT_STATE=${XDG_STATE_HOME:-$HOME/.local/state}/brasa/layout   # Hyprland's last chosen window layout
 if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
   d() { hyprctl -q dispatch "$1"; }
   case $verb in
@@ -17,7 +18,19 @@ if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
     layout-next) hyprctl -q switchxkblayout all next
                  ~/.local/bin/brasa-osd input-keyboard-symbolic "$(hyprctl devices -j | jq -r '[.keyboards[] | select(.main)][0].active_keymap')" ;;
     reload)      ~/.local/bin/brasa-gen >/dev/null; hyprctl -q reload; sleep 0.5   # the reload finishes asynchronously
-                 ~/.local/bin/brasa-monitors apply --settle; ~/.local/bin/brasa-fx restore ;;
+                 # effects and layout first: they change the config, which resets the monitors
+                 ~/.local/bin/brasa-fx restore; "$0" layout-restore; sleep 0.3
+                 ~/.local/bin/brasa-monitors apply --settle ;;
+    layout-cycle) # dwindle (each window splits the focused one) -> master (one big + a column) ->
+                 # scrolling (niri-like: columns on an endless strip you scroll through)
+                 cur=$(hyprctl getoption general:layout -j | jq -r .str)
+                 case $cur in dwindle) next=master ;; master) next=scrolling ;; *) next=dwindle ;; esac
+                 hyprctl -q eval "hl.config({ general = { layout = \"$next\" } })"
+                 mkdir -p "$(dirname "$LAYOUT_STATE")"; echo "$next" > "$LAYOUT_STATE"
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Layout: $next" ;;
+    layout-restore) # after login or a reload (the config sets dwindle)
+                 next=$(cat "$LAYOUT_STATE" 2>/dev/null)
+                 case $next in master|scrolling) hyprctl -q eval "hl.config({ general = { layout = \"$next\" } })" ;; esac ;;
     dpms)        d "hl.dsp.dpms({ action = \"$arg\" })" ;;
     remote-keys) if [ "$(hyprctl submap | head -1)" = remote ]; then d 'hl.dsp.submap("reset")'; msg=off
                  else d 'hl.dsp.submap("remote")'; msg="on · Ctrl+Super+Esc to leave"; fi
@@ -46,6 +59,12 @@ else
     layout-next) swaymsg -q input type:keyboard xkb_switch_layout next
                  ~/.local/bin/brasa-osd input-keyboard-symbolic "$(swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "keyboard")][0].xkb_active_layout_name')" ;;
     reload)      ~/.local/bin/brasa-gen >/dev/null; swaymsg -q reload; ~/.local/bin/brasa-monitors apply --settle ;;
+    layout-cycle) # sway has no scrolling layout: the focused container switches between tiles and tabs
+                 swaymsg -q layout toggle split tabbed
+                 # the layout of the container holding the focused window
+                 l=$(swaymsg -t get_tree | jq -r '.. | objects | select(any(.nodes[]?; .focused == true)) | .layout' | head -1)
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Layout: $([ "$l" = tabbed ] && echo tabs || echo tiles)" ;;
+    layout-restore) ;;
     dpms)        swaymsg -q output '*' power "$arg" ;;
     remote-keys) if [ "$(swaymsg -t get_binding_state -r | jq -r .name)" = remote ]; then swaymsg -q mode default; msg=off
                  else swaymsg -q mode remote; msg="on · Ctrl+Super+Esc to leave"; fi

@@ -4,6 +4,7 @@
 [ -n "${BRASA_REMOTE_SESSION:-}" ] || \
   dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SWAYSOCK HYPRLAND_INSTANCE_SIGNATURE 2>/dev/null
 ~/.local/bin/brasa-fx reset
+~/.local/bin/brasa-wm layout-restore          # Hyprland: the window layout chosen with Super+w
 ~/.local/bin/brasa-monitors apply --settle   # saved layout + refresh rate of every monitor
 # Start a program unless this session already runs it. Only this session's processes count: the remote
 # session (brasa-remote session) and the local one each have their own bar, notifications, lock...

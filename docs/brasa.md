@@ -170,6 +170,7 @@ The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter
 | `Super+Shift+q` | Kill the focused window's app (`kill -9` to its PID, nothing else) |
 | `Super+f` | Fullscreen |
 | `Super+Space` | Floating / tiled |
+| `Super+w` | Window layout. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like columns on a strip you scroll through), remembered across logins. sway: tiles ↔ tabs |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |
@@ -265,13 +266,12 @@ make + model + serial, not by its port, so it is recognized on any port or dock.
   unplugged (`brasa-monitors watch`, listening to Hyprland's or sway's output events).
 
 **How it applies them.** Through `wlr-randr`, i.e. the standard wlr-output-management protocol, on both
-compositors: live, one monitor at a time, no reload. On Hyprland this is the only reliable way: once
-any client (wdisplays included) has configured a monitor through that protocol, Hyprland gives it
-priority over its config rules, and rules evaluated at runtime with `hl.monitor()` pile up instead of
-replacing each other. Hyprland also only acts on the adaptive-sync wish when it re-checks VRR, which
-`brasa-monitors` triggers by nudging `misc:vrr`; since that nudge re-applies the config rules, it sets
-VRR first and the mode after. After a login, a reload or a hotplug it applies everything twice
-(`apply --settle`), because Hyprland only takes the VRR setting on the second pass.
+compositors: live, one monitor at a time, no reload; it also wins over whatever wdisplays set. On
+Hyprland the same settings are loaded as monitor rules too (`hl.monitor()`, with the monitor's
+description, so they follow it across ports) and written to `~/.local/state/brasa/monitors/hyprland.lua`,
+which `hyprland.lua` loads. Hyprland re-applies its monitor rules on every live config change (effects,
+window layout, a reload): with the saved values in them, nothing changes and the screen does not flash.
+Each rule is loaded twice, because Hyprland takes a new VRR value on the following pass.
 
 `brasa-monitors list` shows what it sees (names, ids, rates, VRR range).
 

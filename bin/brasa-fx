@@ -39,6 +39,6 @@ case $1 in
     v=$(flip "$1"); apply "$1" "$v"
     say "$(name "$1") $([ $v = true ] && echo on || echo off)" ;;
   reset) rm -f "$st"/*-off ;;
-  restore) for fx in blur anim shadow; do on $fx || apply $fx false; done ;;  # after a compositor reload
+  restore) for fx in blur anim shadow; do on $fx || apply $fx false; done ;;  # after a reload, before monitors
   *) echo "usage: brasa-fx blur|anim|shadow|all|reset|restore" >&2; exit 1 ;;
 esac
