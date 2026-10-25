@@ -221,24 +221,13 @@ MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "men
          if k in MENUS}
 
 
-swaync = {
-  "$schema": "/etc/xdg/swaync/configSchema.json",
-  "positionX": "right", "positionY": "top", "layer": "overlay", "cssPriority": "user",
-  "control-center-margin-top": 8, "control-center-margin-right": 8, "control-center-margin-bottom": 8,
-  "control-center-width": 460, "notification-window-width": 400,
-  "timeout": 6, "timeout-low": 4, "timeout-critical": 0, "fit-to-screen": True,
-  "notification-icon-size": 48, "image-visibility": "when-available", "transition-time": 200,
-  "scripts": {"sound": {"exec": "sh -c '$HOME/.config/swaync/sound.sh'", "app-name": ".*", "run-on": "receive"}},
-  "widgets": ["title", "dnd", "buttons-grid", "menubar", "volume", "backlight", "mpris", "notifications"],
-  "widget-config": {
-    "title": {"text": "Notifications", "clear-all-button": True, "button-text": "Clear"},
-    "dnd": {"text": "Do not disturb"},
-    # One grid: lit = on, a click turns it on or off
-    "buttons-grid": {"buttons-per-row": 5, "actions": [
+# One grid: lit = on, a click turns it on or off. Only what this machine has (no Bluetooth tile without
+# Bluetooth); as many columns as fill every row (10 tiles: 5x2, 9: 3x3, 8: 4x2)
+TILES = [
       tog(tile("\U000F05A9", "Wi-Fi"), "nmcli radio wifi on", "nmcli radio wifi off",
           "nmcli radio wifi | grep -qx enabled && echo true || echo false"),
-      tog(tile("\U000F00AF", "Bluetooth"), "bluetoothctl power on", "bluetoothctl power off",
-          "bluetoothctl show | grep -q Powered:.yes && echo true || echo false"),
+      *([tog(tile("\U000F00AF", "Bluetooth"), "bluetoothctl power on", "bluetoothctl power off",
+             "bluetoothctl show | grep -q Powered:.yes && echo true || echo false")] if HAS["bluetooth"] else []),
       tog(tile("\U000F0581", "Mute"), "wpctl set-mute @DEFAULT_AUDIO_SINK@ 1", "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0",
           "wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED && echo true || echo false"),
       {"label": tile("\U000F16BE", "Networks"), "command": "sh -c 'swaync-client -cp; nm-connection-editor'"},
@@ -251,7 +240,23 @@ swaync = {
           "test -e $XDG_RUNTIME_DIR/brasa-fx/blur-off && echo false || echo true"),
       {"label": tile("\U000F033E", "Lock"), "command": f"sh -c '{CLOSE}; {B}brasa-lock'"},
       {"label": tile("\U000F0625", "Keys"), "command": f"sh -c '{CLOSE}; {B}brasa-keys'"},
-    ]},
+    
+]
+COLUMNS = next((c for c in (5, 3, 4) if len(TILES) % c == 0), 5)
+
+swaync = {
+  "$schema": "/etc/xdg/swaync/configSchema.json",
+  "positionX": "right", "positionY": "top", "layer": "overlay", "cssPriority": "user",
+  "control-center-margin-top": 8, "control-center-margin-right": 8, "control-center-margin-bottom": 8,
+  "control-center-width": 460, "notification-window-width": 400,
+  "timeout": 6, "timeout-low": 4, "timeout-critical": 0, "fit-to-screen": True,
+  "notification-icon-size": 48, "image-visibility": "when-available", "transition-time": 200,
+  "scripts": {"sound": {"exec": "sh -c '$HOME/.config/swaync/sound.sh'", "app-name": ".*", "run-on": "receive"}},
+  "widgets": ["title", "dnd", "buttons-grid", "menubar", "volume", "backlight", "mpris", "notifications"],
+  "widget-config": {
+    "title": {"text": "Notifications", "clear-all-button": True, "button-text": "Clear"},
+    "dnd": {"text": "Do not disturb"},
+    "buttons-grid": {"buttons-per-row": COLUMNS, "actions": TILES},
     "menubar": MENUS,
     "volume": {"label": ICON["vol"][2]},
     "backlight": {"label": ICON["bri"], "device": "intel_backlight"},
