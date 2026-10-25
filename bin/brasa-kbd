@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Keyboard backlight: brasa-kbd up|down|toggle. Works on any laptop with a *kbd_backlight* LED.
+dev=$(ls /sys/class/leds 2>/dev/null | grep -m1 -i kbd_backlight) || { ~/.local/bin/brasa-osd keyboard-brightness-symbolic "No keyboard light"; exit 0; }
+case $1 in
+  up)     brightnessctl -q -d "$dev" set +1 ;;
+  down)   brightnessctl -q -d "$dev" set 1- ;;
+  toggle) [ "$(brightnessctl -d "$dev" get)" -gt 0 ] && brightnessctl -q -d "$dev" set 0 || brightnessctl -q -d "$dev" set 100% ;;
+esac
+~/.local/bin/brasa-osd keyboard-brightness-symbolic "Keyboard light" "$(brightnessctl -d "$dev" get):$(brightnessctl -d "$dev" max)"

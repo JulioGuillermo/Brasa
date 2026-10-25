@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Emoji picker (Super+. and the emoji key): search by name or keyword, types it and copies it.
+data=~/.config/brasa/data/emoji.tsv
+recent=${XDG_CACHE_HOME:-~/.cache}/brasa/emoji-recent
+mkdir -p "$(dirname "$recent")"; touch "$recent"
+# Recently used first, then everything
+list=$( { while read -r e; do grep -m1 "^$e	" "$data"; done < "$recent"; cat "$data"; } |
+        awk -F'\t' '!seen[$1]++ { printf "%s  %s   %s\n", $1, $2, $3 }')
+pick=$(fuzzel --dmenu --width 64 --lines 14 --prompt "󰞅  " <<<"$list") || exit 0
+emo=${pick%%  *}
+printf '%s' "$emo" | wl-copy
+{ echo "$emo"; grep -v -x -F "$emo" "$recent"; } | head -30 > "$recent.tmp" && mv "$recent.tmp" "$recent"
+command -v wtype >/dev/null && wtype "$emo"

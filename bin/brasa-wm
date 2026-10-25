@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Window actions that work the same in sway/SwayFX and Hyprland. Usage: brasa-wm <verb> [arg]
+verb=$1 arg=$2
+if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+  d() { hyprctl -q dispatch "$1"; }
+  case $verb in
+    close)       d 'hl.dsp.window.close()' ;;
+    kill)        d 'hl.dsp.window.kill()' ;;
+    fullscreen)  d 'hl.dsp.window.fullscreen({ action = "toggle" })' ;;
+    float)       d 'hl.dsp.window.float({ action = "toggle" })' ;;
+    focus)       d "hl.dsp.focus({ direction = \"$arg\" })" ;;
+    move)        d "hl.dsp.window.move({ direction = \"$arg\" })" ;;
+    ws)          d "hl.dsp.focus({ workspace = $arg })" ;;
+    movews)      d "hl.dsp.window.move({ workspace = $arg })" ;;
+    focusmon)    d "hl.dsp.focus({ monitor = \"$arg\" })" ;;
+    movewsmon)   d "hl.dsp.workspace.move({ monitor = \"$arg\" })" ;;
+    layout-next) hyprctl -q switchxkblayout all next
+                 ~/.local/bin/brasa-osd input-keyboard-symbolic "$(hyprctl devices -j | jq -r '[.keyboards[] | select(.main)][0].active_keymap')" ;;
+    reload)      ~/.local/bin/brasa-gen >/dev/null; hyprctl -q reload; sleep 0.5   # the reload finishes asynchronously
+                 ~/.local/bin/brasa-monitors apply --settle; ~/.local/bin/brasa-fx restore ;;
+    dpms)        d "hl.dsp.dpms({ action = \"$arg\" })" ;;
+    exit)        command -v hyprshutdown >/dev/null && hyprshutdown || d 'hl.dsp.exit()' ;;
+    touchpad)    st=${XDG_RUNTIME_DIR:-/tmp}/brasa-touchpad-off
+                 tp=$(hyprctl devices -j | jq -r '[.mice[] | select(.name | test("touchpad"; "i"))][0].name')
+                 if [ -e "$st" ]; then on=true; rm -f "$st"; else on=false; touch "$st"; fi
+                 hyprctl -q eval "hl.device({ name = \"$tp\", enabled = $on })"
+                 ~/.local/bin/brasa-osd input-touchpad-symbolic "Touchpad $([ $on = true ] && echo on || echo off)" ;;
+  esac
+else
+  case $verb in
+    close)       swaymsg -q kill ;;
+    kill)        pid=$(swaymsg -t get_tree | jq '.. | select(.focused? == true) | .pid' | head -1)
+                 # Only the focused window's process, never a pkill by name
+                 [ -n "$pid" ] && [ "$pid" != null ] && kill -9 "$pid" ;;
+    fullscreen)  swaymsg -q fullscreen toggle ;;
+    float)       swaymsg -q floating toggle ;;
+    focus)       swaymsg -q focus "$arg" ;;
+    move)        swaymsg -q move "$arg" ;;
+    ws)          swaymsg -q workspace number "$arg" ;;
+    movews)      swaymsg -q move container to workspace number "$arg" ;;
+    focusmon)    swaymsg -q focus output "$arg" ;;
+    movewsmon)   swaymsg -q move workspace to output "$arg" ;;
+    layout-next) swaymsg -q input type:keyboard xkb_switch_layout next
+                 ~/.local/bin/brasa-osd input-keyboard-symbolic "$(swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "keyboard")][0].xkb_active_layout_name')" ;;
+    reload)      ~/.local/bin/brasa-gen >/dev/null; swaymsg -q reload; ~/.local/bin/brasa-monitors apply --settle ;;
+    dpms)        swaymsg -q output '*' power "$arg" ;;
+    exit)        swaymsg -q exit ;;
+    touchpad)    swaymsg -q input type:touchpad events toggle enabled disabled
+                 st=$(swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "touchpad")][0].libinput.send_events')
+                 ~/.local/bin/brasa-osd input-touchpad-symbolic "Touchpad $([ "$st" = disabled ] && echo off || echo on)" ;;
+  esac
+fi

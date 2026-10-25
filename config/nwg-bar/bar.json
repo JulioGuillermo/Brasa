@@ -1,0 +1,8 @@
+[
+  { "label": "Lock",      "exec": "brasa-session lock",     "icon": "system-lock-screen" },
+  { "label": "Log out",   "exec": "brasa-session logout",   "icon": "system-log-out" },
+  { "label": "Suspend",   "exec": "brasa-session suspend",  "icon": "system-suspend" },
+  { "label": "Reboot",    "exec": "brasa-session reboot",   "icon": "system-reboot" },
+  { "label": "Power off", "exec": "brasa-session poweroff", "icon": "system-shutdown" },
+  { "label": "Cancel",    "exec": "true",                   "icon": "window-close" }
+]

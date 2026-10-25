@@ -1,0 +1,190 @@
+# Brasa · Redline for starship: the bar's night-blue blocks joined by triangles, red icons, white text.
+#
+#  line 1, left:   os user (@host only over SSH) · directory (red house ❯ path, inside $HOME) · git · language · docker
+#  line 1, right:  duration of the last command · ✓/✕ with its exit code · time
+#  line 2:         jobs · sudo · ❯ (red; amber when the last command failed)
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+[ $os](bg:seg1)\
+$username$hostname\
+[ ](bg:seg1)\
+[](fg:seg1 bg:seg2)\
+${custom.home}\
+$directory\
+[](fg:seg2 bg:seg3)\
+$git_branch$git_status\
+$golang$rust$c$python$nodejs$lua$docker_context\
+[ ](fg:seg3)\
+$fill\
+[](fg:seg2)\
+$cmd_duration\
+$status\
+$time
+$jobs$sudo$character"""
+
+add_newline = true
+scan_timeout = 10
+follow_symlinks = true
+palette = "brasa"
+
+[palettes.brasa]
+seg1 = "#15264f"
+seg2 = "#0f1c3f"
+seg3 = "#0a1430"
+accent = "#ff0000"
+text = "#ffffff"
+sub = "#c3cbe0"
+dim = "#5a6a90"
+cool = "#99ccff"
+amber = "#ffaa33"
+orange = "#ff7a3d"
+
+[fill]
+symbol = " "
+
+[os]
+disabled = false
+style = "bold fg:accent bg:seg1"
+format = "[$symbol]($style)"
+
+[os.symbols]
+Arch = " "
+Manjaro = " "
+Alpine = " "
+Debian = " "
+Ubuntu = " "
+Fedora = " "
+openSUSE = " "
+Linux = " "
+Macos = " "
+
+[username]
+show_always = true
+style_user = "fg:text bg:seg1"
+style_root = "bold fg:accent bg:seg1"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = true
+style = "fg:cool bg:seg1"
+format = "[@$hostname]($style)"
+
+[directory.substitutions]
+"⌂/" = "❯ "
+"⌂" = ""
+
+[directory]
+style = "bold fg:text bg:seg2"
+read_only = " 󰌾"
+read_only_style = "fg:accent bg:seg2"
+home_symbol = "⌂"     # marker, replaced below: "~/a/b" -> "❯ a/b", "~" -> ""
+truncation_length = 4
+truncation_symbol = "…/"
+truncate_to_repo = false
+before_repo_root_style = "fg:sub bg:seg2"
+repo_root_style = "bold fg:accent bg:seg2"
+format = "[( $path) ]($style)[$read_only]($read_only_style)"
+repo_root_format = "[ $before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path ]($style)[$read_only]($read_only_style)"
+
+# Red house when inside $HOME (the path then follows after "❯")
+[custom.home]
+when = 'case "$PWD/" in "$HOME"/*) exit 0 ;; *) exit 1 ;; esac'
+command = "printf ''"
+shell = ["sh"]
+style = "bold fg:accent bg:seg2"
+format = "[ $output]($style)"
+
+[git_branch]
+symbol = ""
+style = "fg:cool bg:seg3"
+format = "[ [$symbol](fg:accent bg:seg3) $branch(:$remote_branch)]($style)"
+
+[git_status]
+style = "fg:amber bg:seg3"
+format = "[( $all_status$ahead_behind)]($style)"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+conflicted = "="
+modified = "!${count}"
+staged = "+${count}"
+untracked = "?${count}"
+deleted = "✘${count}"
+stashed = "≡"
+
+[golang]
+symbol = ""
+style = "fg:sub bg:seg3"
+format = "[ [$symbol](fg:accent bg:seg3)]($style)"
+
+[rust]
+symbol = ""
+style = "fg:sub bg:seg3"
+format = "[ [$symbol](fg:accent bg:seg3)]($style)"
+
+[c]
+symbol = ""
+style = "fg:sub bg:seg3"
+detect_extensions = ["c", "h", "cpp", "hpp", "cc"]
+format = "[ [$symbol](fg:accent bg:seg3)]($style)"
+
+[python]
+symbol = ""
+style = "fg:sub bg:seg3"
+format = "[ [$symbol](fg:accent bg:seg3)( $virtualenv)]($style)"
+
+[nodejs]
+symbol = ""
+style = "fg:sub bg:seg3"
+format = "[ [$symbol](fg:accent bg:seg3)]($style)"
+
+[lua]
+symbol = ""
+style = "fg:sub bg:seg3"
+format = "[ [$symbol](fg:accent bg:seg3)]($style)"
+
+[docker_context]
+symbol = ""
+style = "fg:sub bg:seg3"
+format = "[ [$symbol](fg:accent bg:seg3) $context]($style)"
+
+[cmd_duration]
+min_time = 0                    # always: how long the last command took
+show_milliseconds = true
+style = "fg:amber bg:seg2"
+format = "[ 󱦟 $duration]($style)"
+
+[time]
+disabled = false
+time_format = "%T"
+style = "bold fg:text bg:seg1"
+format = "[](fg:seg1 bg:seg2)[ [](fg:accent bg:seg1) $time ]($style)"
+
+[jobs]
+symbol = " "
+style = "bold fg:cool"
+number_threshold = 1
+format = "[$symbol$number ]($style)"
+
+[sudo]
+disabled = false
+symbol = " "
+style = "bold fg:amber"
+format = "[$symbol]($style)"
+
+[status]
+disabled = false
+success_symbol = ""        # ✓ the last command succeeded
+symbol = ""                # ✕ it failed: ERROR, NOTFOUND, USAGE... or the exit code
+format = "[ $symbol( $common_meaning)( $maybe_int) ]($style)"   # nothing after ✓; the error name or code after ✕
+style = "bold fg:amber bg:seg2"
+success_style = "bold fg:cool bg:seg2"
+map_symbol = false
+recognize_signal_code = false
+
+[character]
+success_symbol = "[❯](bold fg:accent)"
+error_symbol = "[❯](bold fg:amber)"
+vimcmd_symbol = "[❮](bold fg:cool)"

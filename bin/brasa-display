@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Displays (Super+P and the display key): arrange, mirror or turn off monitors with wdisplays.
+# When it closes, the layout is saved for this set of monitors and restored whenever they are
+# plugged in again (brasa-monitors).
+pgrep -x wdisplays >/dev/null && exit 0
+command -v wdisplays >/dev/null || { ~/.local/bin/brasa-osd video-display-symbolic "Install wdisplays to configure monitors"; exit 0; }
+wdisplays
+~/.local/bin/brasa-monitors save >/dev/null && \
+  ~/.local/bin/brasa-osd video-display-symbolic "Monitor layout saved for this setup"

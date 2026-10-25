@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Brasa login screen: greetd + nwg-hello, with a blurred copy of the wallpaper.
+# Usage: brasa-greeter install [--yes] | uninstall | test | bg
+#   install    copies the greeter files to /etc and /usr/share, switches the display manager to greetd
+#              after asking (--yes skips the question); it applies on the next boot and the
+#              current session is not touched
+#   uninstall  switches back to the previous display manager and restores the backed-up files
+#   test       shows the greeter in a window (nested sway) without logging anyone in
+#   bg         only regenerates the blurred background
+set -u
+B=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+SUDO=sudo; command -v sudo >/dev/null || SUDO=doas
+STATE=/etc/greetd/.brasa-previous-dm
+STAMP=$(date +%Y%m%d-%H%M%S)
+say() { printf '\e[1;31m▶\e[0m %s\n' "$*"; }
+
+make_bg() {  # blurred, slightly darkened wallpaper for the greeter
+  local src=~/.local/share/backgrounds/brasa.png out=$1
+  [ -f "$src" ] || src=$B/wallpaper.png
+  if command -v magick >/dev/null; then
+    magick "$src" -resize '2880x1800^' -gravity center -extent 2880x1800 -blur 0x18 -fill '#00040f' -colorize 30% -quality 92 "$out"
+  elif command -v ffmpeg >/dev/null; then
+    ffmpeg -loglevel error -y -i "$src" -vf "scale=2880:1800:force_original_aspect_ratio=increase,crop=2880:1800,gblur=sigma=18,eq=brightness=-0.12" -q:v 3 "$out"
+  else
+    cp "$src" "$out"
+  fi
+}
+
+put() {  # source destination: back up a file that is not ours, then install
+  # Without systemd (elogind, e.g. Alpine) the power commands live in loginctl
+  if [ ! -d /run/systemd/system ] && grep -q "systemctl" "$1"; then
+    local t; t=$(mktemp); sed 's/systemctl \(suspend\|reboot\|poweroff\)/loginctl \1/g' "$1" > "$t"
+    set -- "$t" "$2"
+  fi
+  if [ -f "$2" ] && ! cmp -s "$1" "$2"; then $SUDO cp -a "$2" "$2.bak-brasa-$STAMP"; fi
+  $SUDO install -Dm644 "$1" "$2"
+}
+
+case ${1:-} in
+  bg)
+    t=$(mktemp --suffix .jpg); make_bg "$t" && $SUDO install -Dm644 "$t" /usr/share/nwg-hello/brasa-bg.jpg; rm -f "$t"
+    say "Greeter background updated" ;;
+  install)
+    command -v greetd >/dev/null && command -v nwg-hello >/dev/null || { echo "Install greetd and nwg-hello first (./install.sh --greeter)" >&2; exit 1; }
+    cur=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
+    if [ "${2:-}" != --yes ]; then
+      read -r -p "Make greetd + nwg-hello the login screen${cur:+ instead of $cur} (from the next boot)? [y/N] " a
+      [[ $a == [yY]* ]] || { echo "Nothing changed."; exit 0; }
+    fi
+    "$0" bg
+    put "$B/greeter/brasa.glade"     /etc/nwg-hello/brasa.glade
+    put "$B/greeter/nwg-hello.json"  /etc/nwg-hello/nwg-hello.json
+    put "$B/greeter/nwg-hello.css"   /etc/nwg-hello/nwg-hello.css
+    put "$B/greeter/sway-config"     /etc/nwg-hello/brasa-sway-config
+    put "$B/greeter/greetd.conf"     /etc/greetd/greetd.conf
+    # Remember the current display manager to be able to go back
+    if [ -n "$cur" ] && [ "$cur" != greetd ] && [ "$cur" != display-manager ]; then
+      echo "$cur" | $SUDO tee "$STATE" >/dev/null
+      $SUDO systemctl disable "$cur.service"
+    fi
+    $SUDO systemctl enable greetd.service
+    say "greetd + nwg-hello enabled${cur:+ (instead of $cur)}: it shows up on the next boot."
+    echo "  Going back: ~/brasa/bin/brasa-greeter uninstall   (also works from a TTY: Ctrl+Alt+F3)" ;;
+  uninstall)
+    prev=$(cat "$STATE" 2>/dev/null || echo gdm)
+    $SUDO systemctl disable greetd.service
+    $SUDO systemctl enable "$prev.service"
+    for f in /etc/greetd/greetd.conf /etc/nwg-hello/nwg-hello.json /etc/nwg-hello/nwg-hello.css /etc/nwg-hello/brasa.glade; do
+      bak=$(ls "$f".bak-brasa-* 2>/dev/null | sort | tail -1)
+      if [ -n "$bak" ]; then $SUDO mv "$bak" "$f"; else $SUDO rm -f "$f"; fi
+    done
+    $SUDO rm -f /etc/nwg-hello/brasa-sway-config "$STATE"
+    say "Back to $prev on the next boot." ;;
+  test)
+    # Try the look before switching: nested sway running nwg-hello in test mode (-t).
+    # nwg-hello only loads templates from /etc/nwg-hello, so the card template is copied there
+    # (harmless: it is unused until nwg-hello.json names it).
+    cmp -s "$B/greeter/brasa.glade" /etc/nwg-hello/brasa.glade || $SUDO install -Dm644 "$B/greeter/brasa.glade" /etc/nwg-hello/brasa.glade
+    t=$(mktemp -d); make_bg "$t/bg.jpg"
+    sed "s|/usr/share/nwg-hello/brasa-bg.jpg|$t/bg.jpg|" "$B/greeter/nwg-hello.css" > "$t/nwg-hello.css"
+    printf 'output * bg %s fill #00040f\ndefault_border none\nexec "nwg-hello -t -c %s -s %s; swaymsg exit"\n' "$t/bg.jpg" "$B/greeter/nwg-hello.json" "$t/nwg-hello.css" > "$t/sway"
+    dbus-run-session sway -c "$t/sway"; rm -rf "$t" ;;
+  *) sed -n 2,11p "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

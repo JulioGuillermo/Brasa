@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""Monitors for Brasa, the same on Hyprland and sway/SwayFX.
+
+Each monitor is identified by make + model + serial (not by its port, which changes with docks).
+  - Layout (position, scale, rotation, resolution) is saved per *set* of connected monitors:
+    ~/.local/state/brasa/monitors/layouts/<set>.json
+  - Refresh rate (dynamic VRR with a cap, or fixed) is saved per monitor:
+    ~/.local/state/brasa/monitors/refresh/<monitor>
+Both are applied together, one monitor at a time, so changing one never touches the others.
+
+Usage:
+  brasa-monitors help                      this help
+  brasa-monitors list                      connected monitors as JSON
+  brasa-monitors save                      remember the current layout for this set of monitors
+  brasa-monitors apply [OUTPUT]            apply saved layout + refresh (all monitors, or one)
+  brasa-monitors apply --settle            the same, twice: after login, a reload or a hotplug Hyprland
+                                           only takes the VRR setting on the second pass
+  brasa-monitors refresh OUTPUT CHOICE     set a refresh choice: dynamic | dynamic:<Hz> | <Hz> | max
+  brasa-monitors watch                     re-apply whenever monitors are plugged or unplugged
+"""
+import glob, hashlib, json, os, re, shutil, socket, subprocess, sys, time
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "brasa", "monitors")
+HYPR = bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"))
+SWAY_TRANSFORMS = ["normal", "90", "180", "270", "flipped", "flipped-90", "flipped-180", "flipped-270"]
+# Settings are applied with wlr-randr (the standard wlr-output-management protocol), the same on
+# Hyprland and sway: live, one monitor at a time, without reloading. Hyprland gives what a client sets
+# this way priority over its config rules (wdisplays uses the same protocol), so runtime hl.monitor()
+# rules would be ignored once wdisplays has been used; wlr-randr is not.
+
+
+def run(*cmd):
+    return subprocess.run(cmd, capture_output=True, text=True).stdout
+
+
+def key(o):
+    """Stable id of a physical monitor."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", f"{o['make']} {o['model']} {o['serial']}".strip()) or o["name"]
+
+
+def vrr_min(name):
+    """Lowest variable rate from the EDID range descriptor, or None."""
+    for path in glob.glob(f"/sys/class/drm/card*-{name}/edid"):
+        d = open(path, "rb").read()
+        for off in (54, 72, 90, 108):
+            b = d[off:off + 18]
+            if len(b) == 18 and b[0] == 0 and b[1] == 0 and b[3] == 0xFD and b[5] < b[6]:
+                return b[5]
+    return None
+
+
+def outputs():
+    """Connected, enabled monitors, normalized for both compositors."""
+    res = []
+    if HYPR:
+        for m in json.loads(run("hyprctl", "monitors", "-j") or "[]"):
+            rates = sorted({round(float(r.split("@")[1].rstrip("Hz"))) for r in m.get("availableModes", [])
+                            if r.startswith(f"{m['width']}x{m['height']}@")}, reverse=True)
+            res.append(dict(name=m["name"], make=m.get("make", ""), model=m.get("model", ""), serial=m.get("serial", ""),
+                            x=m["x"], y=m["y"], width=m["width"], height=m["height"], scale=m["scale"],
+                            transform=m.get("transform", 0), rate=round(m["refreshRate"]), vrr=bool(m.get("vrr")),
+                            rates=rates, focused=m.get("focused", False)))
+    else:
+        for o in json.loads(run("swaymsg", "-t", "get_outputs", "-r") or "[]"):
+            if not o.get("active"):
+                continue
+            cm = o["current_mode"]
+            rates = sorted({round(m["refresh"] / 1000) for m in o.get("modes", [])
+                            if m["width"] == cm["width"] and m["height"] == cm["height"]}, reverse=True)
+            t = o.get("transform", "normal")
+            res.append(dict(name=o["name"], make=o.get("make", ""), model=o.get("model", ""), serial=o.get("serial", ""),
+                            x=o["rect"]["x"], y=o["rect"]["y"], width=cm["width"], height=cm["height"], scale=o["scale"],
+                            transform=SWAY_TRANSFORMS.index(t) if t in SWAY_TRANSFORMS else 0,
+                            rate=round(cm["refresh"] / 1000), vrr=o.get("adaptive_sync_status") == "enabled",
+                            rates=rates, focused=o.get("focused", False)))
+    for o in res:
+        o["key"] = key(o)
+        o["vrr_min"] = vrr_min(o["name"])
+    return res
+
+
+def set_key(outs):
+    return hashlib.sha1("|".join(sorted(o["key"] for o in outs)).encode()).hexdigest()[:12]
+
+
+def layout_path(outs):
+    return os.path.join(STATE, "layouts", set_key(outs) + ".json")
+
+
+def refresh_path(o):
+    return os.path.join(STATE, "refresh", o["key"])
+
+
+def refresh_choice(o):
+    """Saved refresh choice of a monitor; by default dynamic when its EDID declares a VRR range."""
+    try:
+        return open(refresh_path(o)).read().strip()
+    except OSError:
+        return "dynamic" if o["vrr_min"] else "max"
+
+
+def resolve(o, choice):
+    """(rate, vrr) for a choice, using only rates the monitor offers."""
+    top = o["rates"][0] if o["rates"] else o["rate"]
+    dyn = choice.startswith("dynamic")
+    want = choice.split(":", 1)[1] if ":" in choice else ("max" if dyn else choice)
+    rate = top if want == "max" or not want.isdigit() or int(want) not in o["rates"] else int(want)
+    return rate, dyn
+
+
+def settings(o, lay=None):
+    """Everything to apply to one monitor: its saved layout (or current one) and its refresh choice."""
+    lay = lay or {}
+    rate, vrr = resolve(o, refresh_choice(o))
+    return dict(name=o["name"], x=lay.get("x", o["x"]), y=lay.get("y", o["y"]),
+                w=lay.get("width", o["width"]), h=lay.get("height", o["height"]),
+                scale=lay.get("scale", o["scale"]), transform=lay.get("transform", o["transform"]), rate=rate, vrr=vrr)
+
+
+def exact_modes():
+    """{output: [(width, height, refresh_hz_float), ...]} as the protocol reports them."""
+    try:
+        return {o["name"]: [(m["width"], m["height"], m["refresh"]) for m in o.get("modes", [])]
+                for o in json.loads(run("wlr-randr", "--json") or "[]")}
+    except ValueError:
+        return {}
+
+
+def apply(only=None):
+    outs = outputs()
+    saved = {}
+    try:
+        saved = {l["key"]: l for l in json.load(open(layout_path(outs)))["outputs"]}
+    except (OSError, ValueError, KeyError):
+        pass
+    modes = exact_modes()
+    todo = []
+    for o in outs:
+        if only and o["name"] != only:
+            continue
+        st = settings(o, saved.get(o["key"]))
+        # The exact refresh value of the wanted mode (e.g. 60.001), so the protocol matches it
+        st["hz"] = next((f"{r:.3f}" for w, h, r in modes.get(st["name"], [])
+                         if w == st["w"] and h == st["h"] and round(r) == st["rate"]), str(st["rate"]))
+        todo.append(st)
+    if shutil.which("wlr-randr"):
+        if HYPR:
+            # Hyprland keeps the adaptive-sync wish but only acts on it when it re-checks VRR (a change of
+            # misc:vrr), and that re-check also re-applies its config rules, resetting the mode. So: first
+            # every monitor's VRR wish, then one nudge, then each monitor's mode and layout.
+            for st in todo:
+                run("wlr-randr", "--output", st["name"], "--adaptive-sync", "enabled" if st["vrr"] else "disabled")
+            run("hyprctl", "-q", "eval", "hl.config({ misc = { vrr = 1 } })")
+            run("hyprctl", "-q", "eval", "hl.config({ misc = { vrr = 0 } })")
+            time.sleep(0.3)
+        for st in todo:
+            run("wlr-randr", "--output", st["name"], "--mode", f'{st["w"]}x{st["h"]}@{st["hz"]}Hz', "--pos", f'{st["x"]},{st["y"]}',
+                "--scale", str(st["scale"]), "--transform", SWAY_TRANSFORMS[st["transform"]],
+                "--adaptive-sync", "enabled" if st["vrr"] else "disabled")
+    elif not HYPR:
+        for st in todo:
+            run("swaymsg", "-q", "output", st["name"], "mode", f'{st["w"]}x{st["h"]}@{st["hz"]}Hz', "pos", str(st["x"]), str(st["y"]),
+                "scale", str(st["scale"]), "transform", SWAY_TRANSFORMS[st["transform"]], "adaptive_sync", "on" if st["vrr"] else "off")
+
+
+def save():
+    outs = outputs()
+    os.makedirs(os.path.dirname(layout_path(outs)), exist_ok=True)
+    keep = ("key", "name", "make", "model", "serial", "x", "y", "width", "height", "scale", "transform")
+    json.dump({"saved": time.strftime("%F %T"), "outputs": [{k: o[k] for k in keep} for o in outs]},
+              open(layout_path(outs), "w"), indent=2)
+    return outs
+
+
+def set_refresh(name, choice):
+    o = next((o for o in outputs() if o["name"] == name), None)
+    if not o:
+        sys.exit(f"brasa-monitors: no monitor called {name}")
+    os.makedirs(os.path.dirname(refresh_path(o)), exist_ok=True)
+    open(refresh_path(o), "w").write(choice + "\n")
+    apply(name)
+
+
+def watch():
+    """Re-apply on hotplug (debounced): Hyprland's event socket, or sway's output events."""
+    def settle():
+        time.sleep(1.5)
+        apply(); time.sleep(0.5); apply()
+    if HYPR:
+        sock = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "hypr",
+                            os.environ["HYPRLAND_INSTANCE_SIGNATURE"], ".socket2.sock")
+        s = socket.socket(socket.AF_UNIX); s.connect(sock)
+        buf = b""
+        while True:
+            data = s.recv(4096)
+            if not data:
+                return
+            buf += data
+            *lines, buf = buf.split(b"\n")
+            if any(l.startswith((b"monitoradded", b"monitorremoved")) for l in lines):
+                settle()
+    else:
+        p = subprocess.Popen(["swaymsg", "-m", "-t", "subscribe", '["output"]'], stdout=subprocess.PIPE, text=True)
+        for _ in p.stdout:
+            settle()
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
+    if cmd in ("help", "-h", "--help"):
+        print(__doc__.strip())
+    elif cmd == "list":
+        print(json.dumps(outputs(), indent=2))
+    elif cmd == "save":
+        print("saved:", ", ".join(o["name"] for o in save()))
+    elif cmd == "apply" and sys.argv[2:] == ["--settle"]:
+        apply(); time.sleep(0.5); apply()
+    elif cmd == "apply":
+        apply(sys.argv[2] if len(sys.argv) > 2 else None)
+    elif cmd == "refresh" and len(sys.argv) == 4:
+        set_refresh(sys.argv[2], sys.argv[3])
+    elif cmd == "choice" and len(sys.argv) == 3:  # used by brasa-refresh
+        o = next((o for o in outputs() if o["name"] == sys.argv[2]), None)
+        print(refresh_choice(o) if o else "")
+    elif cmd == "watch":
+        watch()
+    else:
+        sys.exit(__doc__)

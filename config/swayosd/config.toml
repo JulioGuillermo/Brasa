@@ -1,0 +1,11 @@
+# Brasa · SwayOSD: on-screen indicators for volume, brightness, keyboard light, locks and Brasa toggles.
+[server]
+# Height of the OSD (0 = top, 1 = bottom)
+top_margin = 0.85
+max_volume = 100
+min_brightness = 5
+show_percentage = true
+playerctl_format = "{artist} - {title}"
+# Show the OSD when the firmware changes the keyboard light by itself (e.g. the Zenbook's Fn key)
+keyboard_backlight = true
+duration = 1200

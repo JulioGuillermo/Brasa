@@ -1,0 +1,103 @@
+# Brasa key bindings: one source for sway/SwayFX, Hyprland and the cheat sheet (Super+F1).
+# After editing: Super+Shift+r (runs brasa-gen and reloads the window manager).
+# TAB-separated columns: modifiers  key  action  description  [options]
+#   modifiers: SUPER, SHIFT, CTRL, ALT joined with +, or "-" for none.
+#   key: xkb name (d, Return, space, Left, F1, Print, XF86AudioMute...); "1..9" repeats the line with {n}.
+#   action: "wm <verb> [arg]" (close, kill, fullscreen, float, focus DIR, move DIR, ws N, movews N,
+#           focusmon DIR, movewsmon DIR, layout-next, reload, touchpad) or "exec <shell command>".
+#   options: locked (also works on the lock screen), repeat (repeats while held),
+#            release (runs on key release and lets the key through, for Caps Lock / Num Lock).
+#
+# --- Apps
+SUPER	d	exec brasa-drawer	App launcher (grid)
+SUPER	r	exec fuzzel	Quick launcher
+SUPER	Return	exec foot	Terminal (foot)
+SUPER	t	exec foot	Terminal (foot)
+SUPER+SHIFT	Return	exec ghostty	Terminal (Ghostty)
+SUPER+SHIFT	t	exec ghostty	Terminal (Ghostty)
+SUPER	e	exec thunar	Files (Thunar)
+SUPER+SHIFT	n	exec nautilus	Files (Nautilus)
+SUPER	z	exec gtk-launch zen	Browser (Zen)
+SUPER	n	exec swaync-client -t -sw	Notifications
+SUPER	F1	exec ~/.local/bin/brasa-keys	Key bindings cheat sheet
+SUPER	period	exec ~/.local/bin/brasa-emoji	Emoji picker
+SUPER	p	exec ~/.local/bin/brasa-display	Displays and monitors
+SUPER+ALT	r	exec ~/.local/bin/brasa-refresh menu	Screen refresh rate (dynamic / fixed)
+# --- Windows
+SUPER	q	wm close	Close window
+SUPER+SHIFT	q	wm kill	Kill the app (kill -9)
+SUPER	f	wm fullscreen	Fullscreen
+SUPER	space	wm float	Toggle floating / tiled
+SUPER	Left	wm focus left	Focus left
+SUPER	Right	wm focus right	Focus right
+SUPER	Up	wm focus up	Focus up
+SUPER	Down	wm focus down	Focus down
+SUPER	h	wm focus left	Focus left
+SUPER	l	wm focus right	Focus right
+SUPER	k	wm focus up	Focus up
+SUPER	j	wm focus down	Focus down
+SUPER+SHIFT	Left	wm move left	Move window left
+SUPER+SHIFT	Right	wm move right	Move window right
+SUPER+SHIFT	Up	wm move up	Move window up
+SUPER+SHIFT	Down	wm move down	Move window down
+SUPER+SHIFT	h	wm move left	Move window left
+SUPER+SHIFT	l	wm move right	Move window right
+SUPER+SHIFT	k	wm move up	Move window up
+SUPER+SHIFT	j	wm move down	Move window down
+# --- Workspaces
+SUPER	1..9	wm ws {n}	Go to workspace {n}
+SUPER+SHIFT	1..9	wm movews {n}	Move window to workspace {n}
+SUPER	0	wm ws 10	Go to workspace 10
+SUPER+SHIFT	0	wm movews 10	Move window to workspace 10
+SUPER+ALT	Left	wm focusmon left	Focus the monitor on the left
+SUPER+ALT	Right	wm focusmon right	Focus the monitor on the right
+SUPER+ALT+SHIFT	Left	wm movewsmon left	Move this workspace to the monitor on the left
+SUPER+ALT+SHIFT	Right	wm movewsmon right	Move this workspace to the monitor on the right
+# --- Session and system
+SUPER+SHIFT	e	exec ~/.local/bin/brasa-exit	Log out, lock, power off...
+SUPER	Escape	exec ~/.local/bin/brasa-lock	Lock screen
+SUPER+SHIFT	r	wm reload	Reload the window manager
+SUPER+CTRL	r	exec ~/.local/bin/brasa-reload	Reload bar, notifications and menus
+SUPER+ALT	space	wm layout-next	Switch keyboard layout
+SUPER+SHIFT	b	exec ~/.local/bin/brasa-fx blur	Blur on/off
+SUPER+SHIFT	a	exec ~/.local/bin/brasa-fx anim	Animations on/off
+SUPER+SHIFT	f	exec ~/.local/bin/brasa-fx all	All effects on/off
+-	Print	exec ~/.local/bin/brasa-shot area	Screenshot of an area
+SUPER+SHIFT	s	exec ~/.local/bin/brasa-shot area	Screenshot of an area
+SHIFT	Print	exec ~/.local/bin/brasa-shot full	Screenshot of the screen
+# --- Music and volume
+CTRL+SUPER	space	exec swayosd-client --playerctl play-pause	Play / pause
+CTRL+SUPER	Left	exec swayosd-client --playerctl prev	Previous track
+CTRL+SUPER	Right	exec swayosd-client --playerctl next	Next track
+CTRL+SUPER	Up	exec swayosd-client --output-volume raise	Volume up	repeat
+CTRL+SUPER	Down	exec swayosd-client --output-volume lower	Volume down	repeat
+# --- Standard special keys (any keyboard or laptop that has them)
+-	XF86AudioRaiseVolume	exec swayosd-client --output-volume raise	Volume up (key)	locked,repeat
+-	XF86AudioLowerVolume	exec swayosd-client --output-volume lower	Volume down (key)	locked,repeat
+-	XF86AudioMute	exec swayosd-client --output-volume mute-toggle	Mute (key)	locked
+-	XF86AudioMicMute	exec swayosd-client --input-volume mute-toggle	Mute microphone (key)	locked
+-	XF86MonBrightnessUp	exec swayosd-client --brightness raise	Brightness up (key)	locked,repeat
+-	XF86MonBrightnessDown	exec swayosd-client --brightness lower	Brightness down (key)	locked,repeat
+-	XF86AudioPlay	exec swayosd-client --playerctl play-pause	Play / pause (key)	locked
+-	XF86AudioPause	exec swayosd-client --playerctl play-pause	Play / pause (key)	locked
+-	XF86AudioNext	exec swayosd-client --playerctl next	Next track (key)	locked
+-	XF86AudioPrev	exec swayosd-client --playerctl prev	Previous track (key)	locked
+-	XF86AudioStop	exec swayosd-client --playerctl stop	Stop music (key)	locked
+-	XF86KbdBrightnessUp	exec ~/.local/bin/brasa-kbd up	Keyboard light up (key)	locked,repeat
+-	XF86KbdBrightnessDown	exec ~/.local/bin/brasa-kbd down	Keyboard light down (key)	locked,repeat
+-	XF86KbdLightOnOff	exec ~/.local/bin/brasa-kbd toggle	Keyboard light on/off (key)	locked
+-	XF86Display	exec ~/.local/bin/brasa-display	Displays (key)
+-	XF86WebCam	exec ~/.local/bin/brasa-cam	Who is using the camera? (key)
+-	XF86RFKill	exec ~/.local/bin/brasa-radio	Airplane mode (key)
+-	XF86WLAN	exec ~/.local/bin/brasa-radio	Airplane mode (key)
+-	XF86TouchpadToggle	wm touchpad	Touchpad on/off (key)
+-	XF86Launch1	exec foot -e btop	System monitor (MyASUS / Launch1 key)
+-	XF86Calculator	exec gnome-calculator	Calculator (key)
+-	XF86Search	exec fuzzel	Search apps (key)
+-	XF86Explorer	exec thunar	Files (key)
+-	XF86HomePage	exec xdg-open about:home	Browser (key)
+-	XF86Mail	exec xdg-open mailto:	Mail (key)
+-	XF86Sleep	exec ~/.local/bin/brasa-session suspend	Suspend (key)
+-	XF86PowerOff	exec ~/.local/bin/brasa-exit	Log out / power off (key)
+-	Caps_Lock	exec swayosd-client --caps-lock	Caps Lock indicator	release
+-	Num_Lock	exec swayosd-client --num-lock	Num Lock indicator	release

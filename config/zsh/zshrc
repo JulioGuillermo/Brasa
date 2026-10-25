@@ -1,0 +1,122 @@
+# Brasa · zsh. Installed by ~/brasa/install.sh (the previous zsh config was moved to ~/zsh_backup/<date>/).
+# Your own settings go in ~/.config/zsh/ so this file can be updated without touching them:
+#   path.zsh     PATH and environment variables
+#   aliases.zsh  aliases
+#   tools.zsh    tool set-ups and functions (nvm, rbenv, gcloud, completions...)
+#   history      the command history
+
+ZDOTCONF="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
+# Brasa's commands (brasa-remote, brasa-monitors...) are linked into ~/.local/bin
+[[ ":$PATH:" == *":$HOME/.local/bin:"* ]] || export PATH="$HOME/.local/bin:$PATH"
+[ -f "$ZDOTCONF/path.zsh" ] && source "$ZDOTCONF/path.zsh"
+
+# ---------------------------------------------------------------- plugins (zap)
+# zap: https://github.com/zap-zsh/zap (the installer puts it in ~/.local/share/zap)
+[ -f "${XDG_DATA_HOME:-$HOME/.local/share}/zap/zap.zsh" ] && source "${XDG_DATA_HOME:-$HOME/.local/share}/zap/zap.zsh"
+if typeset -f plug >/dev/null; then
+  plug "zsh-users/zsh-autosuggestions"
+  plug "zap-zsh/supercharge"
+  plug "zsh-users/zsh-syntax-highlighting"
+  plug "Aloxaf/fzf-tab"
+fi
+
+# ---------------------------------------------------------------- completion
+autoload -Uz compinit
+compinit
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' menu no
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
+
+# ---------------------------------------------------------------- history
+HISTFILE="$ZDOTCONF/history"
+HISTSIZE=100000
+SAVEHIST=$HISTSIZE
+HISTDUP=erase
+setopt appendhistory sharehistory hist_ignore_space hist_ignore_all_dups hist_ignore_dups \
+       hist_save_no_dups hist_find_no_dups
+
+# ---------------------------------------------------------------- keys (emacs mode)
+bindkey -e
+bindkey '^p' history-search-backward
+bindkey '^n' history-search-forward
+bindkey "\e[3~" delete-char
+if [ "$TERM" = "screen" ] && [ -n "$TMUX" ]; then
+  bindkey "^[[1~" beginning-of-line
+  bindkey "^[[4~" end-of-line
+else
+  bindkey "^[[H" beginning-of-line
+  bindkey "^[[F" end-of-line
+fi
+
+alias grep='grep --color=auto'
+alias ls='ls --color=auto'
+
+# ---------------------------------------------------------------- colors (Brasa · Redline)
+# Suggestions in dimmed slate blue; syntax highlighting in the theme's colors. Inside Zed (which themes
+# the terminal itself) only named colors are used, so they follow Zed's theme.
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#5a6a90"
+typeset -gA ZSH_HIGHLIGHT_STYLES
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern)
+if [ "$TERM_PROGRAM" = "zed" ]; then
+  ZSH_HIGHLIGHT_STYLES[default]=fg=default
+  ZSH_HIGHLIGHT_STYLES[unknown-token]=fg=red,bold
+  ZSH_HIGHLIGHT_STYLES[reserved-word]=fg=cyan,bold
+  ZSH_HIGHLIGHT_STYLES[precommand]=fg=green,underline
+  ZSH_HIGHLIGHT_STYLES[arg0]=fg=green
+  ZSH_HIGHLIGHT_STYLES[commandseparator]=fg=blue,bold
+  ZSH_HIGHLIGHT_STYLES[path]=fg=blue,underline
+  ZSH_HIGHLIGHT_STYLES[single-hyphen-option]=fg=yellow
+  ZSH_HIGHLIGHT_STYLES[double-hyphen-option]=fg=yellow
+  ZSH_HIGHLIGHT_STYLES[single-quoted-argument]=fg=yellow
+  ZSH_HIGHLIGHT_STYLES[double-quoted-argument]=fg=yellow
+  ZSH_HIGHLIGHT_STYLES[comment]=fg=white,italic
+else
+  ZSH_HIGHLIGHT_STYLES[default]=fg=#ffffff
+  ZSH_HIGHLIGHT_STYLES[unknown-token]=fg=#ff0000,bold
+  ZSH_HIGHLIGHT_STYLES[reserved-word]=fg=#ff3030,bold
+  ZSH_HIGHLIGHT_STYLES[suffix-alias]=fg=#99ccff,underline
+  ZSH_HIGHLIGHT_STYLES[global-alias]=fg=#ff7a3d
+  ZSH_HIGHLIGHT_STYLES[precommand]=fg=#99ccff,underline
+  ZSH_HIGHLIGHT_STYLES[arg0]=fg=#99ccff,bold
+  ZSH_HIGHLIGHT_STYLES[commandseparator]=fg=#ff3030,bold
+  ZSH_HIGHLIGHT_STYLES[autodirectory]=fg=#c3cbe0,underline
+  ZSH_HIGHLIGHT_STYLES[path]=fg=#c3cbe0,underline
+  ZSH_HIGHLIGHT_STYLES[path_pathseparator]=fg=#ff3030,underline
+  ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]=
+  ZSH_HIGHLIGHT_STYLES[globbing]=fg=#ff7a3d,bold
+  ZSH_HIGHLIGHT_STYLES[history-expansion]=fg=#ff7a3d,bold
+  ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter]=fg=#ff3030
+  ZSH_HIGHLIGHT_STYLES[process-substitution-delimiter]=fg=#ff3030
+  ZSH_HIGHLIGHT_STYLES[single-hyphen-option]=fg=#ffaa33
+  ZSH_HIGHLIGHT_STYLES[double-hyphen-option]=fg=#ff7a3d
+  ZSH_HIGHLIGHT_STYLES[back-quoted-argument-delimiter]=fg=#ff3030,bold
+  ZSH_HIGHLIGHT_STYLES[single-quoted-argument]=fg=#ffd78a
+  ZSH_HIGHLIGHT_STYLES[double-quoted-argument]=fg=#ffcc66
+  ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]=fg=#ffbb00
+  ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]=fg=#ff7a3d
+  ZSH_HIGHLIGHT_STYLES[rc-quote]=fg=#ff7a3d
+  ZSH_HIGHLIGHT_STYLES[assign]=fg=#ffffff
+  ZSH_HIGHLIGHT_STYLES[redirection]=fg=#ff3030
+  ZSH_HIGHLIGHT_STYLES[comment]=fg=#5a6a90,italic
+  ZSH_HIGHLIGHT_STYLES[named-fd]=fg=#ffffff
+  ZSH_HIGHLIGHT_STYLES[numeric-fd]=fg=#99ccff
+  ZSH_HIGHLIGHT_STYLES[bracket-error]=fg=#ff0000,bold
+  ZSH_HIGHLIGHT_STYLES[bracket-level-1]=fg=#99ccff,bold
+  ZSH_HIGHLIGHT_STYLES[bracket-level-2]=fg=#ffaa33,bold
+  ZSH_HIGHLIGHT_STYLES[bracket-level-3]=fg=#ff3030,bold
+  ZSH_HIGHLIGHT_STYLES[bracket-level-4]=fg=#c3cbe0,bold
+  ZSH_HIGHLIGHT_STYLES[bracket-level-5]=fg=#ff7a3d,bold
+  ZSH_HIGHLIGHT_STYLES[cursor-matchingbracket]=standout
+fi
+
+# fzf colors to match (Ctrl+R history, Ctrl+T files, Alt+C directories)
+export FZF_DEFAULT_OPTS="--color=bg+:#0c1838,bg:-1,spinner:#ff0000,hl:#ff3030,fg:#c3cbe0,header:#99ccff,info:#5a6a90,pointer:#ff0000,marker:#ffaa33,fg+:#ffffff,prompt:#ff0000,hl+:#ff3030,border:#2c3a5e --border=rounded --layout=reverse"
+command -v fzf >/dev/null && eval "$(fzf --zsh 2>/dev/null)"
+
+# ---------------------------------------------------------------- your files
+[ -f "$ZDOTCONF/aliases.zsh" ] && source "$ZDOTCONF/aliases.zsh"
+[ -f "$ZDOTCONF/tools.zsh" ] && source "$ZDOTCONF/tools.zsh"
+
+# ---------------------------------------------------------------- prompt (last, after tools)
+command -v starship >/dev/null && eval "$(starship init zsh)"

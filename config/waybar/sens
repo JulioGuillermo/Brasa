@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Sensors for the Brasa bar (no root needed). Usage: sens temp|fan|volt -> waybar JSON.
+# Generic: CPU temperature from coretemp (Intel), k10temp/zenpower (AMD), cpu_thermal (ARM) or acpitz;
+# every fan any hwmon driver exposes; the first battery. Missing hardware prints nothing (block hidden).
+ic() { printf "<span color='#ff0000'>%s</span>" "$1"; }
+hw() { for h in /sys/class/hwmon/hwmon*; do [ "$(cat $h/name)" = "$1" ] && { echo $h; return; }; done; }
+out() { printf '{"text":"%s","tooltip":"%s","class":"%s"}\n' "$1" "$2" "$3"; }
+lvl() { # value warm_threshold hot_threshold critical_threshold
+  if [ "$1" -ge "$4" ]; then echo crit; elif [ "$1" -ge "$3" ]; then echo hot
+  elif [ "$1" -ge "$2" ]; then echo warm; else echo cool; fi; }
+
+case $1 in
+temp)
+  for n in coretemp k10temp zenpower cpu_thermal acpitz; do c=$(hw $n); [ -n "$c" ] && break; done
+  [ -z "$c" ] && { out "" "" ""; exit 0; }
+  # Package / Tctl / first sensor
+  f=$c/temp1_input
+  for l in $c/temp*_label; do case $(cat "$l" 2>/dev/null) in "Package id 0"|Tctl|Tdie) f=${l%_label}_input; break ;; esac; done
+  t=$(( $(cat $f) / 1000 ))
+  tip="CPU ${t}°C"
+  for n in nvme amdgpu iwlwifi_1; do h=$(hw $n); [ -n "$h" ] && [ -r $h/temp1_input ] && tip+="\\n$n $(( $(cat $h/temp1_input) / 1000 ))°C"; done
+  out "$(ic '') ${t}°" "$tip" "$(lvl $t 65 80 90)" ;;
+fan)
+  # Every fan of every hwmon driver (asus, thinkpad, dell_smm, nct6775, it87, amdgpu...), first two shown
+  vals=() tip="" m=0
+  # Vendor drivers first; the generic acpi_fan usually reads 0
+  for f in $(ls /sys/class/hwmon/hwmon*/fan*_input 2>/dev/null | while read -r x; do
+               [ "$(cat "$(dirname "$x")/name")" = acpi_fan ] && echo "1 $x" || echo "0 $x"; done | sort | cut -d" " -f2); do
+    [ -r "$f" ] || continue
+    v=$(cat "$f" 2>/dev/null) || continue
+    name=$(cat "$(dirname "$f")/name"); lab=$(cat "${f%_input}_label" 2>/dev/null || basename "${f%_input}")
+    vals+=("$v"); tip+="$name $lab: $v rpm\\n"; [ "$v" -gt "$m" ] && m=$v
+  done
+  [ ${#vals[@]} -eq 0 ] && { out "" "" ""; exit 0; }
+  out "$(ic '󰈐') ${vals[*]:0:2}<small>rpm</small>" "${tip%\\n}" "$(lvl $m 3000 4500 5500)" ;;
+volt)
+  b=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1)
+  [ -z "$b" ] || [ ! -r "$b/voltage_now" ] && { out "" "" ""; exit 0; }
+  v=$(cat $b/voltage_now)
+  printf -v vs "%d.%d" $(( v / 1000000 )) $(( v / 100000 % 10 ))
+  out "${vs}<small>V</small>" "Battery: $(cat $b/status), ${vs} V\\nCycles: $(cat $b/cycle_count 2>/dev/null || echo ?)" "cool" ;;
+esac

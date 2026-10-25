@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Airplane mode (airplane key / rfkill): blocks or unblocks every radio.
+if rfkill list | grep -q "Soft blocked: no"; then rfkill block all; msg="on"; else rfkill unblock all; msg="off"; fi
+~/.local/bin/brasa-osd airplane-mode-symbolic "Airplane mode $msg"

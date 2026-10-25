@@ -1,0 +1,30 @@
+/* Brasa · Redline for nwg-bar: centered exit dialog */
+window {
+  background-color: rgba(0, 4, 15, 0.55);
+  font-family: "Hack Nerd Font Propo", sans-serif;
+}
+#outer-box { margin: 0; }
+#inner-box {
+  background-color: rgba(0, 6, 24, 0.94);
+  border: 1px solid rgba(255, 0, 0, 0.55);
+  border-radius: 20px;
+  padding: 18px 22px;
+  box-shadow: 0 0 30px rgba(255, 0, 0, 0.18);
+}
+button, image { background: none; border: none; box-shadow: none; }
+button {
+  color: #c3cbe0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin: 4px;
+  font-size: 13px;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+button:hover, button:focus {
+  background-color: #0c1838;
+  color: #ffffff;
+  box-shadow: inset 0 -2px #ff0000;
+}
+
+/* Focus ring: the GTK theme draws its own (green/blue) outline; use Brasa's red instead */
+*:focus, button:focus, entry:focus { outline: 1px solid rgba(255, 0, 0, 0.8); outline-offset: -1px; }

@@ -1,0 +1,31 @@
+# Brasa · Redline for swaylock
+image=~/.local/share/backgrounds/brasa.png
+scaling=fill
+color=00040f
+font=Hack Nerd Font Propo
+font-size=22
+indicator-radius=90
+indicator-thickness=8
+show-failed-attempts
+ignore-empty-password
+inside-color=00040fcc
+inside-clear-color=00040fcc
+inside-ver-color=0c1838cc
+inside-wrong-color=4a0008cc
+ring-color=0c1838ff
+ring-clear-color=99ccffff
+ring-ver-color=99ccffff
+ring-wrong-color=ff0000ff
+key-hl-color=ff0000ff
+bs-hl-color=ffaa33ff
+line-color=00000000
+line-clear-color=00000000
+line-ver-color=00000000
+line-wrong-color=00000000
+separator-color=00000000
+text-color=ffffffff
+text-clear-color=99ccffff
+text-ver-color=99ccffff
+text-wrong-color=ff0000ff
+layout-bg-color=00040fcc
+layout-text-color=c3cbe0ff

@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+# Remote desktop over VNC (wayvnc) for Brasa, the same on Hyprland and sway/SwayFX.
+#
+# Everything is off by default. Two independent servers, which can run at the same time:
+#   port 5900  session   your remote desktop
+#   port 5901  screen / mirror / take   the local desktop (whoever is logged in on the machine)
+# All of it works over SSH too: the local modes find the running Hyprland or sway by themselves.
+#
+# Modes
+#   session [stop|boot|noboot]   an independent remote-only session (sway without a physical screen),
+#                                persistent: closing the viewer leaves it running with its windows.
+#                                boot/noboot: start it automatically when the machine boots (or not)
+#   screen [WxH]                 a virtual second monitor in the current session (default 1920x1080)
+#   mirror                       share the physical screen as it is (the focused monitor)
+#   take [WxH]                   take over the current session: physical screens off, local keyboard
+#                                and mouse ignored, everything on a virtual monitor. When the last viewer
+#                                disconnects (or nobody connects within REMOTE_TAKE_WAIT seconds) it all
+#                                comes back and the session is locked
+#
+#   ssh [on|off|boot|noboot]     the SSH server: on / off now, start at boot or not (asks for sudo).
+#                                Turning it off keeps open connections; only new ones are refused
+#
+# Commands
+#   on                           the default mode (REMOTE_DEFAULT, "session" unless changed)
+#   off                          stop screen / mirror / take (the session keeps running)
+#   status                       what is running, where to connect, who is connected
+#   setup                        (re)create keys and config; done automatically the first time
+#   help                         this help
+#
+# Settings, optional, in ~/.config/brasa/remote.conf:
+#   REMOTE_DEFAULT=session   REMOTE_SIZE=1920x1080   REMOTE_ADDRESS=<ip>
+#   REMOTE_PORT=5900 (session)   REMOTE_LOCAL_PORT=5901 (screen / mirror / take)   REMOTE_TAKE_WAIT=180
+#
+# Security: it listens only on a VPN interface (ZeroTier, WireGuard, Tailscale, OpenVPN...) or on
+# REMOTE_ADDRESS, never on every network. You log in with your Linux user and password (PAM),
+# encrypted with RSA-AES (TigerVNC, RealVNC) or TLS.
+set -u
+CONF_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc
+STATE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote
+UNIT=brasa-wayvnc                 # screen / mirror / take
+SESSION_UNIT=brasa-remote-session # session
+VIRTUAL=BRASA-REMOTE
+REMOTE_DEFAULT=session REMOTE_SIZE=1920x1080 REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
+[ -f ~/.config/brasa/remote.conf ] && . ~/.config/brasa/remote.conf
+mkdir -p "$STATE"
+say() {  # TITLE [BODY]: a notification for 5 s (a click closes it); each one replaces the previous
+  notify-send -a "Remote desktop" -i network-workgroup-symbolic -t 5000 \
+    -h string:x-canonical-private-synchronous:brasa-remote "$1" "${2:-}" 2>/dev/null
+  echo "$1${2:+ · $2}"
+}
+also_on() {  # what else is running, for the notifications: "Also on: ..." or "Nothing else is on"
+  local l=()
+  [ "$1" != session ] && session_running && l+=("Remote session · port $REMOTE_PORT")
+  [ "$1" = session ] && running && l+=("$(mode_name "$(cat "$STATE/mode" 2>/dev/null)") · port $REMOTE_LOCAL_PORT")
+  if [ ${#l[@]} -gt 0 ]; then echo "Also on: ${l[*]}"; else echo "Nothing else is on"; fi
+}
+mode_name() {
+  case $1 in session) echo "Remote session" ;; screen) echo "Virtual screen" ;;
+             mirror) echo "Screen mirror" ;; take) echo "Take over" ;; *) echo "Remote desktop" ;; esac
+}
+usage() { sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; }
+
+vpn_address() {  # first IPv4 of a VPN interface
+  ip -o -4 addr show 2>/dev/null | awk '$2 ~ /^(zt|wg|tailscale|tun|tap|ppp|nordlynx)/ { split($4, a, "/"); print a[1]; exit }'
+}
+
+setup() {
+  local addr=${REMOTE_ADDRESS:-$(vpn_address)}
+  if [ -z "$addr" ]; then
+    echo "No VPN interface found. Put REMOTE_ADDRESS=<ip> in ~/.config/brasa/remote.conf to choose where to listen." >&2
+    return 1
+  fi
+  mkdir -p "$CONF_DIR"; chmod 700 "$CONF_DIR"
+  # TLS certificate (self-signed) and RSA key for RSA-AES, only created once
+  [ -f "$CONF_DIR/tls_key.pem" ] || openssl req -x509 -newkey rsa:3072 -nodes -days 3650 -subj "/CN=$(hostname)" \
+      -keyout "$CONF_DIR/tls_key.pem" -out "$CONF_DIR/tls_cert.pem" 2>/dev/null
+  # RSA-AES needs the traditional PKCS#1 format ("BEGIN RSA PRIVATE KEY"), not PKCS#8
+  [ -f "$CONF_DIR/rsa_key.pem" ] || openssl genrsa -traditional -out "$CONF_DIR/rsa_key.pem" 3072 2>/dev/null
+  chmod 600 "$CONF_DIR"/*.pem
+  cat > "$CONF_DIR/config" <<EOF
+# Written by brasa-remote: listen on the VPN only, log in with the Linux user and password (PAM).
+use_relative_paths=true
+address=$addr
+port=$REMOTE_PORT
+enable_auth=true
+enable_pam=true
+username=$USER
+certificate_file=tls_cert.pem
+private_key_file=tls_key.pem
+rsa_private_key_file=rsa_key.pem
+EOF
+  chmod 600 "$CONF_DIR/config"
+  echo "wayvnc set up: $addr:$REMOTE_PORT, user $USER (your Linux password)"
+}
+address() { sed -n 's/^address=//p' "$CONF_DIR/config"; }
+where() { echo "$(address):$(sed -n 's/^port=//p' "$CONF_DIR/config")"; }  # the session
+where_local() { echo "$(address):$REMOTE_LOCAL_PORT"; }
+
+local_desktop() {  # over SSH, or from inside the remote session: point at the local Hyprland / sway
+  [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${BRASA_REMOTE_SESSION:-}" ] && return 0
+  export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+  unset HYPRLAND_INSTANCE_SIGNATURE SWAYSOCK WAYLAND_DISPLAY BRASA_REMOTE_SESSION
+  local p env
+  # Hyprland lists its instances with their Wayland socket
+  if command -v hyprctl >/dev/null; then
+    env=$(hyprctl instances -j 2>/dev/null | jq -r 'sort_by(.time) | last // empty | "\(.instance) \(.wl_socket)"')
+    if [ -n "$env" ]; then
+      export HYPRLAND_INSTANCE_SIGNATURE=${env% *} WAYLAND_DISPLAY=${env#* }; return 0
+    fi
+  fi
+  # sway: take the variables from a process of the local session (its bar), not the remote one
+  for p in $(pgrep -u "$(id -u)" -x waybar) $(pgrep -u "$(id -u)" -x swaync); do
+    env=$(tr '\0' '\n' < /proc/$p/environ 2>/dev/null) || continue
+    grep -q '^BRASA_REMOTE_SESSION=' <<< "$env" && continue
+    grep -q '^SWAYSOCK=' <<< "$env" || continue
+    export SWAYSOCK=$(sed -n 's/^SWAYSOCK=//p' <<< "$env") WAYLAND_DISPLAY=$(sed -n 's/^WAYLAND_DISPLAY=//p' <<< "$env")
+    [ -S "$SWAYSOCK" ] && return 0
+  done
+  echo "No local desktop running (nobody logged in?). 'brasa-remote session' works without one." >&2
+  exit 1
+}
+
+hypr() { [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; }
+
+layout() {  # first keyboard layout of the session, for wayvnc's key mapping
+  if hypr; then hyprctl getoption input:kb_layout -j 2>/dev/null | jq -r '.str // empty' | cut -d, -f1
+  else swaymsg -t get_inputs -r 2>/dev/null | jq -r '[.[] | select(.type == "keyboard")][0].xkb_layout_names[0] // empty' |
+         sed 's/ .*//; s/^Spanish$/es/; s/^English$/us/'; fi
+}
+
+create_virtual() {  # size -> prints the virtual monitor's name
+  local name
+  if hypr; then hyprctl -q output create headless "$VIRTUAL"; name=$VIRTUAL
+  else swaymsg -q create_output; name=$(swaymsg -t get_outputs -r | jq -r '[.[] | select(.name | startswith("HEADLESS"))] | last | .name'); fi
+  sleep 0.5
+  wlr-randr --output "$name" --custom-mode "${1}@60Hz" >/dev/null 2>&1
+  wlr-randr --output "$name" --scale 1 >/dev/null 2>&1   # the compositor guesses x2 for a "small" monitor
+  echo "$name"
+}
+remove_virtual() {
+  local name; name=$(cat "$STATE/virtual" 2>/dev/null) || return 0
+  if hypr; then hyprctl -q output remove "$name"; else swaymsg -q output "$name" unplug; fi
+  rm -f "$STATE/virtual"
+}
+
+running() { systemctl --user -q is-active "$UNIT" 2>/dev/null; }
+session_running() { systemctl --user -q is-active "$SESSION_UNIT" 2>/dev/null; }
+busy() {  # one local mode at a time (they share port $REMOTE_LOCAL_PORT); the session is separate
+  if running; then echo "Already on: $(cat "$STATE/mode" 2>/dev/null) on $(where_local). 'brasa-remote off' first."; return 0; fi
+  return 1
+}
+
+start_vnc() {  # mode output [extra wayvnc args...] -- runs wayvnc as a transient user service, so it
+  # survives closing the terminal or SSH session that started it; log: journalctl --user -u brasa-wayvnc
+  local mode=$1 out=$2; shift 2
+  [ -f "$CONF_DIR/config" ] || setup || exit 1
+  local kb; kb=$(layout)
+  echo "$mode" > "$STATE/mode"; echo "$out" > "$STATE/output"
+  systemctl --user reset-failed "$UNIT" 2>/dev/null
+  systemd-run --user --quiet --unit="$UNIT" --collect \
+    --setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" --setenv=XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+    ${HYPRLAND_INSTANCE_SIGNATURE:+--setenv=HYPRLAND_INSTANCE_SIGNATURE="$HYPRLAND_INSTANCE_SIGNATURE"} \
+    ${SWAYSOCK:+--setenv=SWAYSOCK="$SWAYSOCK"} \
+    ${STOP_POST:+-p ExecStopPost="$STOP_POST"} \
+    wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r -L info -S "$STATE/wayvnc.sock" "$@" \
+      "$(address)" "$REMOTE_LOCAL_PORT"
+  sleep 1.5
+  if ! running; then
+    say "$(mode_name "$mode") failed to start" "journalctl --user -u $UNIT"
+    [ "$mode" = take ] || { remove_virtual; rm -f "$STATE/mode" "$STATE/output"; }
+    exit 1
+  fi
+  say "$(mode_name "$mode") ON" "Port $REMOTE_LOCAL_PORT · $(where_local)
+$(also_on local)"
+}
+
+# ---------------------------------------------------------------- take: hand the session over, safely
+take_devices() {  # local keyboards, mice and touch devices (taken before wayvnc adds its virtual ones)
+  if hypr; then hyprctl devices -j | jq -r '(.keyboards[], .mice[], (.touch // [])[], (.tablets // [])[]) | .name' | sort -u
+  else swaymsg -t get_inputs -r | jq -r '.[] | select(.type | test("keyboard|pointer|touch|tablet")) | .identifier' | sort -u; fi
+}
+set_devices() {  # on|off  (the list saved in $STATE/take-devices)
+  local d on=$1
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    if hypr; then hyprctl -q eval "hl.device({ name = \"$d\", enabled = $([ "$on" = on ] && echo true || echo false) })"
+    else swaymsg -q input "$d" events "$([ "$on" = on ] && echo enabled || echo disabled)"; fi
+  done < "$STATE/take-devices"
+}
+take_restore() {  # runs when the take service stops, whatever the reason
+  [ -f "$STATE/take-outputs" ] || return 0
+  local o
+  while IFS= read -r o; do [ -n "$o" ] && wlr-randr --output "$o" --on >/dev/null 2>&1; done < "$STATE/take-outputs"
+  [ -f "$STATE/take-devices" ] && set_devices on
+  sleep 0.5
+  ~/.local/bin/brasa-monitors apply --settle >/dev/null 2>&1
+  remove_virtual
+  systemctl --user stop brasa-take-watch.timer 2>/dev/null
+  rm -f "$STATE/take-outputs" "$STATE/take-devices" "$STATE/mode" "$STATE/output"
+  say "Take over OFF" "Port $REMOTE_LOCAL_PORT closed; screens, keyboard and mouse are back, session locked
+$(also_on local)"
+  ~/.local/bin/brasa-lock
+}
+take() {
+  busy && exit 0
+  [ -f "$CONF_DIR/config" ] || setup || exit 1
+  ~/.local/bin/brasa-monitors list | jq -r '.[].name' > "$STATE/take-outputs"
+  take_devices > "$STATE/take-devices"
+  local v; v=$(create_virtual "${1:-$REMOTE_SIZE}"); echo "$v" > "$STATE/virtual"
+  # Physical screens off: their workspaces move to the virtual monitor
+  local o; while IFS= read -r o; do wlr-randr --output "$o" --off >/dev/null 2>&1; done < "$STATE/take-outputs"
+  set_devices off
+  # wayvnc exits when the last viewer leaves (-e); stopping the service restores everything
+  STOP_POST="$HOME/.local/bin/brasa-remote _take-restore" start_vnc take "$v" -e
+  # Nobody connected in time? Give everything back
+  systemd-run --user --quiet --unit=brasa-take-watch --collect --on-active="${REMOTE_TAKE_WAIT}s" \
+    --setenv=XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" "$HOME/.local/bin/brasa-remote" _take-watch
+}
+
+# ---------------------------------------------------------------- ssh: the system's SSH server
+ssh_unit() {  # sshd.service (Arch, Fedora, openSUSE) or ssh.service (Debian, Ubuntu)
+  local u; for u in sshd ssh; do
+    systemctl list-unit-files "$u.service" --no-legend 2>/dev/null | grep -q . && { echo "$u"; return; }
+  done
+  echo "No SSH server installed (openssh)." >&2; exit 1
+}
+ssh_info() {  # one line: running or not, at boot or not, port
+  local u=$1 port
+  port=$(sshd -T 2>/dev/null | awk '$1 == "port" { print $2; exit }'); port=${port:-22}
+  echo "$(systemctl -q is-active "$u" && echo on || echo off), $(systemctl -q is-enabled "$u" 2>/dev/null &&
+    echo starts at boot || echo does not start at boot) · port $port"
+}
+ssh_cmd() {
+  local u; u=$(ssh_unit)
+  local sudo=sudo; [ "$(id -u)" = 0 ] && sudo=
+  case ${1:-status} in
+    on)     $sudo systemctl start "$u" && say "SSH ON" "$(ssh_info "$u")" ;;
+    off)    $sudo systemctl stop "$u" && say "SSH OFF" "Open connections stay; new ones are refused
+$(ssh_info "$u")" ;;
+    boot)   $sudo systemctl enable "$u" >/dev/null 2>&1 && say "SSH starts at boot" "$(ssh_info "$u")" ;;
+    noboot) $sudo systemctl disable "$u" >/dev/null 2>&1 && say "SSH does not start at boot" "$(ssh_info "$u")" ;;
+    status) echo "ssh: $(ssh_info "$u")" ;;
+    *) usage; exit 1 ;;
+  esac
+}
+
+# ---------------------------------------------------------------- session: independent, persistent
+session_unit() {
+  mkdir -p ~/.config/systemd/user
+  cat > ~/.config/systemd/user/$SESSION_UNIT.service <<EOF
+# Written by brasa-remote: an independent remote-only session (sway without a physical screen + wayvnc)
+[Unit]
+Description=Brasa remote session (headless sway + wayvnc)
+
+[Service]
+Environment=BRASA_REMOTE_SESSION=1 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
+Environment=XDG_CURRENT_DESKTOP=sway XDG_SESSION_TYPE=wayland REMOTE_SIZE=$REMOTE_SIZE
+# Never inherit the local session's compositor from the user manager: the remote session's scripts would
+# talk to the local Hyprland/sway (wrong data, and keys acting on the local screen)
+UnsetEnvironment=HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY SWAYSOCK DISPLAY I3SOCK
+ExecStart=/usr/bin/dbus-run-session -- sway -c %h/.config/sway/remote.conf
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+  systemctl --user daemon-reload
+}
+session() {
+  case ${1:-start} in
+    start)
+      if session_running; then echo "The remote session is already running on $(where)"; return; fi
+      [ -f "$CONF_DIR/config" ] || setup || exit 1
+      command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; }
+      session_unit
+      systemctl --user start "$SESSION_UNIT"; sleep 3
+      if session_running; then say "Remote session ON" "Port $REMOTE_PORT · $(where)
+$(also_on session)"
+      else say "Remote session failed to start" "journalctl --user -u $SESSION_UNIT"; exit 1; fi ;;
+    stop)
+      if ! session_running; then echo "The remote session is not running"; return; fi
+      systemctl --user stop "$SESSION_UNIT" && say "Remote session OFF" "Port $REMOTE_PORT closed, its windows too
+$(also_on session)" ;;
+    boot)
+      session_unit; systemctl --user enable "$SESSION_UNIT" >/dev/null 2>&1
+      # A user service starting at boot without anyone logged in needs "linger"
+      loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER"
+      echo "The remote session will start at boot (also with nobody logged in)." ;;
+    noboot)
+      systemctl --user disable "$SESSION_UNIT" >/dev/null 2>&1
+      echo "The remote session will no longer start at boot (linger left as it was)." ;;
+    *) usage; exit 1 ;;
+  esac
+}
+
+case ${1:-help} in
+  help|-h|--help) usage ;;
+  setup) setup ;;
+  on) shift; exec "$0" "$REMOTE_DEFAULT" "$@" ;;
+  session) shift; session "$@" ;;
+  ssh) shift; ssh_cmd "$@" ;;
+  screen)
+    local_desktop; busy && exit 0
+    v=$(create_virtual "${2:-$REMOTE_SIZE}"); echo "$v" > "$STATE/virtual"
+    start_vnc screen "$v" ;;
+  mirror)
+    local_desktop; busy && exit 0
+    start_vnc mirror "$(~/.local/bin/brasa-monitors list | jq -r '[.[] | select(.focused)][0].name // .[0].name')" ;;
+  take) shift; local_desktop; take "$@" ;;
+  off)
+    was=$(cat "$STATE/mode" 2>/dev/null)
+    running && local_desktop
+    if running; then systemctl --user stop "$UNIT"; fi   # take restores itself (ExecStopPost)
+    [ "$(cat "$STATE/mode" 2>/dev/null)" = take ] || { remove_virtual; rm -f "$STATE/mode" "$STATE/output"; }
+    if [ -n "$was" ]; then [ "$was" = take ] || say "$(mode_name "$was") OFF" "Port $REMOTE_LOCAL_PORT closed
+$(also_on local)"
+    else echo "No screen / mirror / take was on"; fi
+    session_running && echo "(the remote session keeps running on $(where); 'brasa-remote session stop' ends it)"
+    true ;;
+  status)
+    if running; then echo "local desktop: $(cat "$STATE/mode") on $(cat "$STATE/output") at $(where_local)"
+      wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null
+    fi
+    if session_running; then echo "remote session: running at $(where)$(systemctl --user -q is-enabled $SESSION_UNIT 2>/dev/null && echo ', starts at boot')"
+      wayvncctl -S "$STATE/session.sock" client-list 2>/dev/null
+    fi
+    running || session_running || echo "off (all modes)"
+    ssh_cmd status
+    systemctl --user -q is-enabled $SESSION_UNIT 2>/dev/null || echo "remote session does not start at boot ('brasa-remote session boot')" ;;
+  # ---- internal
+  _session-vnc)   # inside the remote session: size the virtual output and serve it
+    sleep 1
+    out=$(swaymsg -t get_outputs -r | jq -r '.[0].name')
+    wlr-randr --output "$out" --custom-mode "${REMOTE_SIZE}@60Hz" >/dev/null 2>&1
+    wlr-randr --output "$out" --scale 1 >/dev/null 2>&1
+    kb=$(layout)
+    exec wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r -L info -S "$STATE/session.sock" ;;
+  _take-restore) take_restore ;;
+  _take-watch)    # nobody connected to "take" in time: stop it (which restores everything)
+    clients=$(wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null | grep -c '^[[:space:]]*[0-9]')
+    [ "${clients:-0}" -gt 0 ] || systemctl --user stop "$UNIT" ;;
+  *) usage; exit 1 ;;
+esac

@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Screen refresh rate, per monitor: dynamic (VRR, follows the content up to a cap) or fixed.
+# Nothing is hard-coded: the rates come from the modes the monitor offers and the lowest variable
+# rate from its EDID. Each monitor keeps its own choice (brasa-monitors stores and applies it).
+# Usage: brasa-refresh [--output NAME] menu | cycle | dynamic[:<Hz>] | <Hz> | max
+#        brasa-refresh apply            re-apply every monitor's saved choice (login, reload)
+# Without --output it acts on the monitor under the mouse (Hyprland) or the focused one (sway), so
+# clicking the Hz block of a bar changes that bar's monitor.
+M=~/.local/bin/brasa-monitors
+out=""
+[ "${1:-}" = --output ] && { out=$2; shift 2; }
+cmd=${1:-menu}
+
+[ "$cmd" = apply ] && exec "$M" apply
+
+mons=$("$M" list)
+if [ -z "$out" ]; then
+  if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+    # Monitor under the cursor (layout coordinates are logical: size / scale)
+    read -r cx cy < <(hyprctl cursorpos | tr -d ,)
+    out=$(hyprctl monitors -j | jq -r --argjson x "$cx" --argjson y "$cy" '
+      [.[] | select($x >= .x and $x < .x + .width / .scale and $y >= .y and $y < .y + .height / .scale)][0].name // empty')
+  fi
+  [ -n "$out" ] || out=$(jq -r '[.[] | select(.focused)][0].name // .[0].name' <<<"$mons")
+fi
+mon=$(jq -c --arg n "$out" '.[] | select(.name == $n)' <<<"$mons")
+[ -n "$mon" ] || { echo "brasa-refresh: no monitor $out" >&2; exit 1; }
+rates=$(jq -r '.rates[]' <<<"$mon"); max=$(head -1 <<<"$rates")
+vmin=$(jq -r '.vrr_min // empty' <<<"$mon")
+range() { echo "${vmin:+$vmin–}$1 Hz"; }
+say() { ~/.local/bin/brasa-osd video-display-symbolic "$out: $1"; }
+
+choose() {
+  "$M" refresh "$out" "$1"
+  case $1 in
+    dynamic)   say "dynamic $(range "$max")" ;;
+    dynamic:*) say "dynamic $(range "${1#dynamic:}")" ;;
+    max)       say "fixed $max Hz" ;;
+    *)         say "fixed $1 Hz" ;;
+  esac
+}
+
+# Every option for this monitor: dynamic with each cap above the VRR minimum, then each fixed rate
+options() {
+  for r in $rates; do [ -z "$vmin" ] || [ "$r" -gt "$vmin" ] && echo "dynamic:$r"; done
+  for r in $rates; do echo "$r"; done
+}
+label() { case $1 in dynamic:*) echo "Dynamic (VRR) $(range "${1#dynamic:}")" ;; *) echo "Fixed $1 Hz" ;; esac; }
+current() {
+  local c; c=$("$M" choice "$out")
+  case $c in dynamic) echo "dynamic:$max" ;; max) echo "$max" ;; *) echo "$c" ;; esac
+}
+
+case $cmd in
+  dynamic|dynamic:*|max|[0-9]*) choose "$cmd" ;;
+  cycle)
+    cur=$(current); mapfile -t opts < <(options); next=${opts[0]}
+    for i in "${!opts[@]}"; do [ "${opts[$i]}" = "$cur" ] && next=${opts[$(( (i + 1) % ${#opts[@]} ))]}; done
+    choose "$next" ;;
+  menu)
+    mapfile -t opts < <(options)
+    pick=$(for o in "${opts[@]}"; do label "$o"; done |
+           fuzzel --dmenu --index --width 36 --lines ${#opts[@]} --prompt "󰍹  " --placeholder "$out · now: $(label "$(current)")") || exit 0
+    choose "${opts[$pick]}" ;;
+  *) sed -n 5,8p "$0" | sed 's/^# \{0,1\}//' >&2; exit 1 ;;
+esac

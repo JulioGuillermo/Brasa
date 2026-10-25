@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# Real refresh rate of the monitor this bar is on (waybar passes it in WAYBAR_OUTPUT_NAME), so every
+# monitor's bar shows its own. It counts the vblanks that monitor's CRTC actually produced (VRR
+# included) through the DRM wait-vblank ioctl on /dev/dri/card* (no root): every 3 s, one syscall that
+# takes microseconds and never wakes the GPU. It keeps the vblank interrupt on, but so does the clock
+# with seconds (every redraw does), so it adds practically nothing.
+# The monitor's CRTC is found from its connector (/sys/class/drm/cardN-<output>/connector_id ->
+# connector -> encoder -> CRTC index), and looked up again if the monitor is re-plugged.
+# Middle click switches to the compositor's mode only, like GNOME ("≤120Hz VRR"), remembered in
+# ~/.local/state/brasa/hz-mode-only.
+import ctypes, fcntl, glob, json, os, shutil, struct, subprocess, time
+
+WAIT_VBLANK = 0xC018643A    # _IOWR('d', 0x3a, union drm_wait_vblank)
+GETRESOURCES = 0xC04064A0   # _IOWR('d', 0xA0, struct drm_mode_card_res)
+GETENCODER = 0xC01464A6     # _IOWR('d', 0xA6, struct drm_mode_get_encoder)
+GETCONNECTOR = 0xC05064A7   # _IOWR('d', 0xA7, struct drm_mode_get_connector)
+ICON = "<span color='#ff0000'>\U000F0379</span>"
+MODE_ONLY = os.path.expanduser("~/.local/state/brasa/hz-mode-only")
+OUTPUT = os.environ.get("WAYBAR_OUTPUT_NAME", "")
+PERIOD = 3
+
+
+def crtc_of(output):
+    """(open card fd, CRTC index) driving `output`, or (None, None)."""
+    for path in sorted(glob.glob(f"/sys/class/drm/card*-{output}/connector_id")) if output else []:
+        card = "/dev/dri/" + os.path.basename(os.path.dirname(path)).split("-")[0]
+        try:
+            fd = os.open(card, os.O_RDWR)
+            conn_id = int(open(path).read())
+            # Connector -> current encoder
+            # struct drm_mode_get_connector: encoder_id at byte 44, connector_id at 48
+            buf = bytearray(80); struct.pack_into("I", buf, 48, conn_id)
+            fcntl.ioctl(fd, GETCONNECTOR, buf)
+            enc_id = struct.unpack_from("I", buf, 44)[0]
+            # Encoder -> CRTC id
+            buf = bytearray(20); struct.pack_into("I", buf, 0, enc_id)
+            fcntl.ioctl(fd, GETENCODER, buf)
+            crtc_id = struct.unpack_from("I", buf, 8)[0]
+            # CRTC id -> index in the card's CRTC list (the "pipe" vblank queries use):
+            # first ask how many CRTCs there are, then fetch their ids
+            buf = bytearray(64)
+            fcntl.ioctl(fd, GETRESOURCES, buf)
+            n = struct.unpack_from("I", buf, 36)[0]
+            arr = (ctypes.c_uint32 * n)()
+            buf = bytearray(64)
+            struct.pack_into("Q", buf, 8, ctypes.addressof(arr))
+            struct.pack_into("I", buf, 36, n)
+            fcntl.ioctl(fd, GETRESOURCES, buf)
+            if crtc_id in list(arr):
+                return fd, list(arr).index(crtc_id)
+            os.close(fd)
+        except OSError:
+            pass
+    if output:
+        return None, None  # this bar's monitor is not driven right now: show the mode, never another screen
+    # No output name (waybar older than 0.9.x): the first card that answers, first CRTC
+    for card in sorted(glob.glob("/dev/dri/card*")):
+        try:
+            fd = os.open(card, os.O_RDWR)
+            vblank(fd, 0)
+            return fd, 0
+        except OSError:
+            pass
+    return None, None
+
+
+def vblank(fd, pipe):
+    """Current vblank sequence and timestamp of CRTC `pipe`."""
+    kind = 1 | (pipe << 1 if pipe else 0)  # DRM_VBLANK_RELATIVE | high-CRTC index
+    buf = bytearray(struct.pack("IIqq", kind, 0, 0, 0))
+    fcntl.ioctl(fd, WAIT_VBLANK, buf)
+    _, seq, sec, usec = struct.unpack("IIqq", bytes(buf))
+    return seq, sec + usec / 1e6
+
+
+def mode():
+    """(maximum rate, VRR on) of this bar's monitor, as the compositor reports it."""
+    try:
+        if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+            ms = json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
+            m = next((m for m in ms if m["name"] == OUTPUT), None) or next(m for m in ms if m.get("focused"))
+            return round(m["refreshRate"]), bool(m.get("vrr"))
+        if shutil.which("swaymsg"):
+            os_ = json.loads(subprocess.check_output(["swaymsg", "-t", "get_outputs", "-r"]))
+            o = next((o for o in os_ if o["name"] == OUTPUT), None) or next(o for o in os_ if o.get("focused"))
+            return round(o["current_mode"]["refresh"] / 1000), o.get("adaptive_sync_status") == "enabled"
+    except (StopIteration, subprocess.CalledProcessError, OSError, ValueError, KeyError):
+        pass
+    return 0, False
+
+
+def show(real=None):
+    top, vrr = mode()
+    if real is not None:
+        text = f"{ICON} {round(real)}<small>Hz</small>"
+    else:
+        text = f"{ICON} {'≤' if vrr else ''}{top}<small>Hz</small>"
+    text += " <small>VRR</small>" if vrr else ""
+    tip = (f"{OUTPUT}\n" if OUTPUT else "") + \
+          (f"Real: {real:.1f} Hz (frames shown in the last {PERIOD} s)\n" if real is not None else "") + \
+          f"Mode: {'up to ' if vrr else ''}{top} Hz, {'variable (VRR)' if vrr else 'fixed'}\n" + \
+          "Click: choose · Right click: next · Middle click: " + \
+          ("show the real rate" if os.path.exists(MODE_ONLY) else "show the mode only")
+    print(json.dumps({"text": text, "tooltip": tip, "class": "cool"}, ensure_ascii=False), flush=True)
+
+
+fd, pipe = crtc_of(OUTPUT)
+show()  # the mode right away; the real rate follows
+prev = None
+while True:
+    time.sleep(PERIOD)
+    if os.path.exists(MODE_ONLY):
+        prev = None; show(); continue
+    try:
+        if fd is None:
+            raise OSError
+        cur = vblank(fd, pipe)
+    except OSError:
+        # Monitor re-plugged or moved to another CRTC: look it up again
+        if fd is not None:
+            os.close(fd)
+        fd, pipe = crtc_of(OUTPUT); prev = None; show(); continue
+    show((cur[0] - prev[0]) / (cur[1] - prev[1]) if prev and cur[1] > prev[1] else None)
+    prev = cur

@@ -1,0 +1,15 @@
+# Brasa greeter: sway only runs nwg-hello and exits when it finishes (greetd starts it as user "greeter").
+output * bg /usr/share/nwg-hello/brasa-bg.jpg fill #00040f
+output eDP-1 scale 1.333333
+input type:keyboard {
+    xkb_layout es,us
+    xkb_variant ,altgr-intl
+}
+input type:touchpad tap enabled
+input type:touch map_to_output eDP-1
+seat seat0 xcursor_theme Future-cyan-cursors 24
+default_border none
+
+bindsym Mod4+Shift+e exec swaynag -t warning -m 'Power' -b 'Power off' 'systemctl poweroff' -b 'Reboot' 'systemctl reboot'
+
+exec "nwg-hello; swaymsg exit"

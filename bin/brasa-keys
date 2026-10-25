@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Key bindings cheat sheet (Super+F1): searchable list; Enter runs the chosen binding.
+tsv=~/.config/brasa/keys.tsv
+mapfile -t acts < <(python3 - "$tsv" <<'PY'
+import sys
+for line in open(sys.argv[1], encoding="utf-8"):
+    if not line.strip() or line.startswith("#"): continue
+    mods, key, action, desc, *_ = line.rstrip("\n").split("\t")
+    if key == "1..9": key = "1…9"; desc = desc.replace("{n}", "N (0 = 10)"); action = ""
+    if key == "0" and "workspace 10" in desc: continue  # folded into the 1…9 line
+    if key.startswith("XF86") or key in ("Caps_Lock", "Num_Lock"): continue
+    combo = " + ".join([m.capitalize() for m in mods.split("+") if m != "-"] + [key])
+    print(f"{combo:<26}{desc}\t{action}")
+PY
+)
+pick=$(printf '%s\n' "${acts[@]%%$'\t'*}" | fuzzel --dmenu --index --width 60 --lines 22 --prompt "󰌌  ") || exit 0
+action=${acts[$pick]#*$'\t'}
+case $action in
+  exec\ *) setsid -f sh -c "${action#exec }" >/dev/null 2>&1 ;;
+  wm\ *)   ~/.local/bin/brasa-wm ${action#wm } ;;
+esac

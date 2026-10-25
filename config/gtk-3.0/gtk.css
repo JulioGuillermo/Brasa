@@ -1,0 +1,28 @@
+/* Brasa on top of adw-gtk3-dark (installed by default; ./install.sh --no-gtk skips it). Only changes colors:
+   red accent and night-blue backgrounds, for Thunar, nwg-bar, dialogs, etc. */
+@define-color accent_color #ff3030;
+@define-color accent_bg_color #c00000;
+@define-color accent_fg_color #ffffff;
+@define-color window_bg_color #00040f;
+@define-color window_fg_color #ffffff;
+@define-color view_bg_color #040b1f;
+@define-color view_fg_color #ffffff;
+@define-color headerbar_bg_color #08122b;
+@define-color headerbar_fg_color #ffffff;
+@define-color headerbar_backdrop_color #00040f;
+@define-color sidebar_bg_color #08122b;
+@define-color sidebar_fg_color #c3cbe0;
+@define-color sidebar_backdrop_color #040b1f;
+@define-color card_bg_color #0c1838;
+@define-color card_fg_color #ffffff;
+@define-color popover_bg_color #08122b;
+@define-color popover_fg_color #ffffff;
+@define-color dialog_bg_color #08122b;
+@define-color dialog_fg_color #ffffff;
+@define-color borders rgba(90, 106, 144, 0.35);
+@define-color theme_selected_bg_color #c00000;
+@define-color theme_selected_fg_color #ffffff;
+@define-color success_color #99ccff;
+
+/* Focus rings in red instead of the theme's color */
+*:focus { outline-color: rgba(255, 0, 0, 0.8); }

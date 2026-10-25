@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Try Brasa inside GNOME: sway nested in a window, with Alt instead of Super.
+# Own session bus so swaync does not clash with GNOME's notifications.
+exec dbus-run-session sway -c ~/.config/brasa/config/sway/test.conf

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Reload Brasa's programs without touching the window manager (Super+Ctrl+r).
+pkill -SIGUSR2 -x waybar || setsid -f waybar >/dev/null 2>&1                    # bar: config and style
+swaync-client -R -sw >/dev/null 2>&1; swaync-client -rs -sw >/dev/null 2>&1   # notifications
+pkill -x rofi; pkill -x nwg-bar; pkill -x fuzzel                          # menus read their config when opened
+notify-send -a brasa-reload -u low -t 1500 "Programs reloaded" "Bar, notifications and menus"

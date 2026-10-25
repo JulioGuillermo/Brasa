@@ -1,0 +1,124 @@
+/* Brasa · Redline: near-black night blue, pure red accent, white and light blue (#99ccff),
+   segments joined by triangles (powerline) like mo's status bar. */
+@define-color base   rgba(0, 4, 15, 0.86);  /* #00040f */
+@define-color seg1   #0c1838;
+@define-color seg2   #08122b;
+@define-color seg3   #040b1f;
+@define-color text   #ffffff;
+@define-color sub    #c3cbe0;
+@define-color dim    #5a6a90;
+@define-color faint  #2c3a5e;
+@define-color accent #ff0000;
+@define-color steel  #99ccff;
+@define-color amber  #ffaa33;
+@define-color orange #ff7a3d;
+
+/* Left block colors and their triangles depend on the hardware: generated into segments.css */
+@import url("segments.css");
+
+* {
+  font-family: "Hack Nerd Font Propo", "Hack Nerd Font", monospace;
+  font-size: 12.5px;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+window#waybar {
+  background: @base;
+  border-radius: 14px;
+  color: @text;
+}
+
+tooltip {
+  background: rgba(0, 6, 24, 0.97);
+  border: 1px solid #b00000;
+  border-radius: 10px;
+}
+tooltip label { color: @text; padding: 4px 6px; }
+
+/* Segments */
+#clock                                    { background: @seg1; }
+#g-ctl, #workspaces, #g-net              { background: @seg2; }
+#tray, #custom-notif                      { background: @seg3; }
+#g-cpu { border-radius: 13px 0 0 13px; padding-left: 10px; }
+#custom-notif { border-radius: 0 13px 13px 0; padding-right: 12px; font-size: 14px; }
+
+#cpu, #custom-temp, #custom-fan, #memory, #network, #battery, #custom-volt, #custom-hz,
+#bluetooth, #wireplumber, #backlight {
+  padding: 0 5px;
+  transition: color 400ms ease, text-shadow 400ms ease;
+}
+#clock { padding: 0 10px; color: @text; font-weight: bold; }
+#tray { padding: 0 8px; }
+#tray > .needs-attention { -gtk-icon-effect: highlight; }
+
+/* Triangles: their color is the segment that ends, their background the one that starts */
+#custom-l1, #custom-l2, #custom-l3, #custom-l4, #custom-l5, #custom-l6,
+#custom-c1, #custom-c2, #custom-r0, #custom-r1, #custom-r2, #custom-r3 {
+  font-family: "Hack Nerd Font";
+  font-size: 20px;
+  padding: 0;
+}
+#custom-c1 { color: @seg2; background: transparent; }
+#custom-c2 { color: @seg2; background: transparent; }
+#custom-r0 { color: @seg2; background: transparent; }
+#custom-r1 { color: @seg1; background: @seg2; }
+#custom-r2 { color: @seg2; background: @seg1; }
+#custom-r3 { color: @seg3; background: @seg2; }
+
+/* Heat scale: steel blue at rest, white normal, amber, orange and alert red */
+.cool  { color: @steel; }
+.warm  { color: @amber; }
+.hot   { color: @orange; text-shadow: 0 0 6px rgba(255, 122, 61, 0.5); }
+.crit  { color: @accent; font-weight: bold; text-shadow: 0 0 8px rgba(255, 0, 0, 0.85); }
+#battery.warning  { color: @amber; }
+#battery.critical:not(.charging) { color: @accent; text-shadow: 0 0 8px rgba(255, 0, 0, 0.85); }
+#battery.charging { color: #3fd9c0; }
+#custom-volt, #custom-hz { color: @sub; }
+
+/* Workspaces: the number inside a circle drawn by CSS; the active one filled red */
+#workspaces { padding: 0 6px; }
+#workspaces button {
+  min-width: 17px;
+  min-height: 17px;
+  margin: 5px 3px;                       /* (28 px bar - 17 px circle) / 2 above and below */
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid @faint;
+  background: transparent;
+  color: @faint;
+  font-size: 10.5px;
+  font-weight: bold;
+  transition: all 200ms ease;
+}
+#workspaces button label { padding: 0; }
+/* Workspaces with windows stand out a little from empty ones */
+#workspaces button:not(.empty):not(.persistent) { border-color: @dim; color: @sub; }
+/* No hover effect: GTK keeps a clicked workspace button in hover state after switching (it never gets
+   the pointer-leave), which left it highlighted. Inherit everything so hover looks like the normal state. */
+#workspaces button:hover { background: inherit; box-shadow: inherit; text-shadow: inherit; }
+/* Shown on its monitor but that monitor is not focused: red outline */
+#workspaces button.visible { border-color: @accent; color: @text; }
+#workspaces button.focused, #workspaces button.active {
+  background: @accent;
+  border-color: @accent;
+  color: #00040f;
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.75);
+}
+#workspaces button.urgent { border-color: @amber; color: @amber; }
+
+/* Interactive */
+#network.wifi, #network.ethernet, #network.disconnected, #bluetooth, #wireplumber, #backlight {
+  color: @sub;
+  padding: 0 6px;
+}
+#g-ctl > * :hover, #custom-notif:hover, #clock:hover { color: @accent; }
+#network.disconnected, #bluetooth.off, #bluetooth.disabled, #wireplumber.muted { color: @faint; }
+#bluetooth.connected { color: @steel; }
+#custom-notif { color: @sub; }
+#custom-notif.notification, #custom-notif.inhibited-notification { color: @accent; text-shadow: 0 0 8px rgba(255, 0, 0, 0.8); }
+#custom-notif.dnd-none, #custom-notif.dnd-notification { color: @faint; }
+#language { color: @sub; padding: 0 6px; font-weight: bold; }

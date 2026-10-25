@@ -1,0 +1,3 @@
+# Brasa for sway / SwayFX. Key bindings are generated from ~/.config/brasa/keys.tsv (brasa-gen).
+set $mod Mod4
+include ~/.config/sway/brasa.conf

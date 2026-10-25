@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Middle click on the bar's Hz module: real refresh rate (default) <-> the compositor's mode only.
+f=${XDG_STATE_HOME:-~/.local/state}/brasa/hz-mode-only
+mkdir -p "$(dirname "$f")"
+if [ -e "$f" ]; then rm -f "$f"; m="Refresh rate: real (measured)"
+else touch "$f"; m="Refresh rate: mode only (as the compositor reports it)"; fi
+~/.local/bin/brasa-osd video-display-symbolic "$m"
+# Restart the module so the change shows right away
+for p in $(pgrep -x python3); do grep -q "waybar/hz" "/proc/$p/cmdline" 2>/dev/null && kill "$p"; done

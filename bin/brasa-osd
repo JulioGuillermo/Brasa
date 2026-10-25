@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# On-screen indicator for Brasa's own toggles (effects, refresh rate, layout, airplane...).
+# Usage: brasa-osd ICON TEXT                     a message
+#        brasa-osd ICON TEXT VALUE:SEGMENTS      a segmented bar (e.g. keyboard light 2:3)
+# ICON is a freedesktop icon name. Falls back to a quiet notification without SwayOSD.
+icon=$1 text=$2 seg=${3:-}
+if command -v swayosd-client >/dev/null && pgrep -x swayosd-server >/dev/null; then
+  if [ -n "$seg" ]; then
+    exec swayosd-client --custom-icon "$icon" --custom-segmented-progress "$seg" --custom-progress-text "$text"
+  fi
+  exec swayosd-client --custom-icon "$icon" --custom-message "$text"
+fi
+exec notify-send -a brasa -u low -t 1500 -h string:x-canonical-private-synchronous:brasa-osd "$text"

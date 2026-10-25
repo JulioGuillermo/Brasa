@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Camera key: tells whether any app is using the camera right now.
+# (On many laptops the key already blocks the camera in hardware; this only reports.)
+users=$(for d in /dev/video*; do fuser "$d" 2>/dev/null; done | tr ' ' '\n' | grep -E '^[0-9]+$' | sort -u |
+        xargs -r -I{} cat /proc/{}/comm 2>/dev/null | sort -u | paste -sd ', ')
+if [ -n "$users" ]; then notify-send -a brasa -u normal "Camera in use" "$users"
+else notify-send -a brasa -u low "Camera idle" "No app is using it"; fi

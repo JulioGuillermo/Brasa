@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Session actions for the exit dialog and keys: brasa-session lock|logout|suspend|reboot|poweroff
+# nwg-bar runs its buttons without a shell and quits right away, so every button calls this
+# script with a single word; the action runs detached, and each step is logged
+# (journalctl -t brasa) to see what happened if something fails.
+act=${1:-}
+case $act in lock|logout|suspend|reboot|poweroff) ;; *) echo "usage: brasa-session lock|logout|suspend|reboot|poweroff" >&2; exit 1 ;; esac
+log() { logger -t brasa "session $act: $*"; }
+# systemd has suspend/reboot/poweroff in systemctl; elogind systems (e.g. Alpine) in loginctl
+power() { if [ -d /run/systemd/system ]; then systemctl "$1" 2>&1; else loginctl "$1" 2>&1; fi; }
+
+if [ -z "${BRASA_DETACHED:-}" ]; then
+  # Detach from the caller (nwg-bar exits ~150 ms after a click) and give the dialog time to close
+  BRASA_DETACHED=1 setsid -f "$0" "$act" >/dev/null 2>&1
+  exit 0
+fi
+sleep 0.3
+case $act in
+  lock)     ~/.local/bin/brasa-lock; log "rc=$?" ;;
+  logout)   log "exiting the window manager"; ~/.local/bin/brasa-wm exit ;;
+  suspend)  ~/.local/bin/brasa-lock; out=$(power suspend); log "rc=$? $out" ;;
+  reboot)   out=$(power reboot); log "rc=$? $out" ;;
+  poweroff) out=$(power poweroff); log "rc=$? $out" ;;
+esac

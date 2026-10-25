@@ -1,0 +1,62 @@
+/* Brasa · Redline for nwg-hello: blurred wallpaper, centered night-blue card, red details */
+* { font-family: "Hack Nerd Font Propo", sans-serif; color: #ffffff; }
+
+window {
+  background-image: url("/usr/share/nwg-hello/brasa-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-color: #00040f;
+}
+
+#form-wrapper {
+  background-color: rgba(0, 4, 15, 0.78);
+  border: 1px solid rgba(255, 0, 0, 0.45);
+  border-radius: 24px;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 0, 0, 0.12);
+  padding: 28px 8px 36px 8px;
+}
+
+#welcome-label { font-size: 40px; font-weight: bold; color: #ffffff; }
+#clock-label   { font-size: 64px; font-weight: bold; color: #ff0000; text-shadow: 0 0 18px rgba(255, 0, 0, 0.45); }
+#date-label    { font-size: 18px; color: #c3cbe0; }
+#form-label    { color: #99ccff; font-size: 13px; }
+
+entry, combobox button {
+  background: #08122b none;
+  color: #ffffff;
+  border: 1px solid #2c3a5e;
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: none;
+}
+entry:focus { border-color: #ff0000; box-shadow: 0 0 10px rgba(255, 0, 0, 0.35); }
+#password-entry { caret-color: #ff0000; }
+
+button {
+  background: #0c1838 none;
+  color: #ffffff;
+  border: 1px solid #2c3a5e;
+  border-radius: 14px;
+  padding: 10px 16px;
+}
+button:hover { background-color: #102050; border-color: #ff0000; }
+
+#login-button { background-color: #b00000; border-color: #ff0000; font-weight: bold; }
+#login-button:hover { background-color: #d00000; }
+
+#power-button { background: none; border: none; border-radius: 14px; }
+#power-button:hover { background-color: rgba(255, 0, 0, 0.18); }
+#power-button:active { background-color: rgba(255, 0, 0, 0.35); }
+
+checkbutton check { border: 1px solid #5a6a90; border-radius: 4px; background: #08122b; }
+checkbutton check:checked { background: #d00000; border-color: #ff0000; }
+
+/* Session and user drop-down lists */
+menu, .menu, combobox window menu {
+  background-color: #08122b;
+  border: 1px solid rgba(255, 0, 0, 0.45);
+  border-radius: 10px;
+  padding: 4px;
+}
+menuitem { color: #c3cbe0; padding: 6px 12px; border-radius: 6px; }
+menuitem:hover { background-color: #b00000; color: #ffffff; }

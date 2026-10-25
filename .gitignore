@@ -1,0 +1,7 @@
+config/sway/fx.conf
+config/sway/binds.conf
+config/hypr/binds.lua
+bin/__pycache__/
+config/waybar/segments.css
+config/waybar/config.jsonc
+config/swaync/config.json

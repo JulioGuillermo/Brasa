@@ -1,0 +1,83 @@
+/* Brasa · Redline for swaync (GTK4) */
+* { font-family: "Hack Nerd Font Propo", "Hack Nerd Font", sans-serif; font-size: 13px; }
+
+/* The list's rows and groups never paint GTK's grey selection */
+.notification-row, .notification-row:focus, .notification-row:hover,
+.notification-group, .notification-group:focus, .notification-group:hover,
+.control-center-list row, .control-center-list row:focus, .control-center-list row:selected,
+.control-center-list row:hover { background: transparent; outline: none; box-shadow: none; }
+
+.notification {
+  background: rgba(0, 6, 24, 0.94);
+  border: 1px solid rgba(255, 0, 0, 0.45);
+  border-radius: 14px;
+  margin: 6px 8px;
+  padding: 0;
+  color: #ffffff;
+  box-shadow: none;  /* a shadow makes the compositor blur and darken a box around the card */
+}
+.notification.critical { border-color: #ff0000; border-width: 2px; }
+.notification-content { padding: 10px; }
+.notification-default-action, .notification-action { background: transparent; border-radius: 14px; color: #ffffff; }
+.notification-default-action:hover, .notification-action:hover { background: #0c1838; }
+.summary { color: #ff0000; font-weight: bold; font-size: 13.5px; }
+.time { color: #5a6a90; font-size: 11.5px; }
+.body { color: #ffffff; }
+.close-button {
+  background: rgba(255, 0, 0, 0.15);
+  color: #ff0000;
+  border-radius: 99px;
+  min-width: 22px; min-height: 22px;
+  margin: 8px;
+}
+.close-button:hover { background: rgba(255, 0, 0, 0.35); }
+
+.control-center {
+  background: rgba(0, 4, 15, 0.92);
+  border: 1px solid rgba(255, 0, 0, 0.45);
+  border-radius: 18px;
+  color: #ffffff;
+  padding: 6px;
+}
+.control-center-list { background: transparent; }
+
+.widget-title { margin: 8px 10px; font-size: 16px; color: #ff0000; font-weight: bold; }
+.widget-title > button {
+  background: #0c1838; color: #ffffff;
+  border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: normal;
+}
+.widget-title > button:hover { background: rgba(255, 0, 0, 0.25); color: #ff0000; }
+
+.widget-dnd { margin: 4px 10px; color: #c3cbe0; }
+.widget-dnd > switch { background: rgba(255, 0, 0, 0.45); border-radius: 99px; }
+.widget-dnd > switch:checked { background: #ff0000; }
+.widget-dnd > switch slider { background: #ffffff; border-radius: 99px; }
+
+.widget-buttons-grid { margin: 6px 6px; padding: 4px; }
+.widget-buttons-grid > flowbox > flowboxchild > button {
+  background: #0c1838;
+  color: #c3cbe0;
+  border-radius: 12px;
+  min-width: 70px; min-height: 42px;
+  font-size: 18px;
+  transition: all 200ms ease;
+}
+.widget-buttons-grid > flowbox > flowboxchild > button:hover { background: rgba(255, 0, 0, 0.15); color: #ff3030; }
+.widget-buttons-grid > flowbox > flowboxchild > button.toggle:checked {
+  background: rgba(255, 0, 0, 0.22);
+  color: #ff0000;
+}
+
+.widget-volume, .widget-backlight { margin: 2px 12px; color: #ff0000; font-size: 16px; }
+scale trough { background: rgba(255, 0, 0, 0.45); border-radius: 99px; min-height: 6px; }
+scale highlight { background: linear-gradient(90deg, #7a0000, #ff0000); border-radius: 99px; }
+scale slider { background: #ffffff; border-radius: 99px; min-width: 14px; min-height: 14px; }
+
+.widget-mpris { margin: 6px 10px; }
+.widget-mpris-player { background: #0c1838; border-radius: 14px; padding: 8px; }
+.widget-mpris-title { color: #ff0000; font-weight: bold; }
+.widget-mpris-subtitle { color: #c3cbe0; }
+
+/* The popup window is larger than the cards: keep it fully transparent */
+window.floating-notifications, .floating-notifications, .floating-notifications.background,
+.notification-window, .blank-window { background: transparent; box-shadow: none; }

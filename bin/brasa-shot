@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Screenshots named like GNOME's, saved in ~/Pictures/Screenshots and copied to the clipboard.
+dir=$(xdg-user-dir PICTURES 2>/dev/null || echo ~/Pictures)/Screenshots
+mkdir -p "$dir"
+f="$dir/Screenshot From $(date '+%Y-%m-%d %H-%M-%S').png"
+case $1 in
+  area) g=$(slurp -b 00040f88 -c ff0000ff -w 2) || exit 0; grim -g "$g" "$f" ;;
+  *)    grim "$f" ;;
+esac
+wl-copy < "$f"
+notify-send -a brasa-shot -u low -i "$f" "Screenshot saved" "$(basename "$f")"

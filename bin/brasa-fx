@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Toggle effects: brasa-fx blur|anim|shadow|all|reset|restore. The state lives in $XDG_RUNTIME_DIR.
+st=${XDG_RUNTIME_DIR:-/tmp}/brasa-fx
+mkdir -p "$st"
+on() { [ ! -e "$st/$1-off" ]; }
+flip() { if on "$1"; then touch "$st/$1-off"; echo false; else rm -f "$st/$1-off"; echo true; fi; }
+say() { ~/.local/bin/brasa-osd preferences-desktop-display-symbolic "$1${2:+ · $2}"; }
+
+apply() {  # effect  true|false
+  if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+    case $1 in
+      blur)   hyprctl -q eval "hl.config({ decoration = { blur = { enabled = $2 } } })" ;;
+      shadow) hyprctl -q eval "hl.config({ decoration = { shadow = { enabled = $2 } } })" ;;
+      anim)   hyprctl -q eval "hl.config({ animations = { enabled = $2 } })" ;;
+    esac
+  else
+    v=$([ "$2" = true ] && echo enable || echo disable)
+    case $1 in
+      blur)   swaymsg -q "blur $v" ;;
+      shadow) swaymsg -q "shadows $v" ;;
+      anim)   ;;  # SwayFX has no animations
+    esac
+  fi
+}
+name() { case $1 in blur) echo Blur ;; anim) echo Animations ;; shadow) echo Shadows ;; esac; }
+
+case $1 in
+  all)
+    # If anything is still on, turn everything off; otherwise turn everything on
+    if on blur || on anim || on shadow; then v=false; else v=true; fi
+    for fx in blur anim shadow; do
+      [ $v = false ] && touch "$st/$fx-off" || rm -f "$st/$fx-off"; apply $fx $v
+    done
+    say "Effects $([ $v = true ] && echo on || echo off)" ;;
+  blur|anim|shadow)
+    if [ "$1" = anim ] && [ -z "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+      say "Animations" "SwayFX has no animations"; exit 0
+    fi
+    v=$(flip "$1"); apply "$1" "$v"
+    say "$(name "$1") $([ $v = true ] && echo on || echo off)" ;;
+  reset) rm -f "$st"/*-off ;;
+  restore) for fx in blur anim shadow; do on $fx || apply $fx false; done ;;  # after a compositor reload
+  *) echo "usage: brasa-fx blur|anim|shadow|all|reset|restore" >&2; exit 1 ;;
+esac

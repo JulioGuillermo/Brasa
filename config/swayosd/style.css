@@ -1,0 +1,23 @@
+/* Brasa · Redline for SwayOSD: a night-blue pill with a red edge and a red progress bar */
+window#osd {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 0, 0, 0.45);
+  background: rgba(0, 4, 15, 0.88);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+window#osd #container { margin: 12px 20px; }
+window#osd image { color: #ff0000; -gtk-icon-size: 22px; }
+window#osd label { color: #ffffff; font-family: "Hack Nerd Font Propo", sans-serif; font-size: 14px; font-weight: bold; }
+window#osd progressbar:disabled, window#osd image:disabled { opacity: 0.45; }
+window#osd progressbar, window#osd segmentedprogress {
+  min-height: 6px; min-width: 220px; border-radius: 999px; background: transparent; border: none;
+}
+window#osd trough, window#osd segment {
+  min-height: inherit; border-radius: inherit; border: none; background: #0c1838;
+}
+window#osd progress, window#osd segment.active {
+  min-height: inherit; border-radius: inherit; border: none;
+  background: linear-gradient(90deg, #7a0000, #ff0000);
+}
+window#osd segment { margin-left: 8px; }
+window#osd segment:first-child { margin-left: 0; }
