@@ -48,6 +48,15 @@
   border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: normal;
 }
 .widget-title > button:hover { background: rgba(255, 0, 0, 0.25); color: #ff0000; }
+/* The Settings gear (HyprMod), in the title row left of Clear: its own menubar, pulled up over that row */
+.widget-menubar.corner { margin: -51px 76px 9px 0; }
+.widget-menubar.corner > .menu-button-bar > .widget-menubar-container button {
+  background: #0c1838; color: #ffffff;
+  border-radius: 10px; padding: 2px 10px; margin: 0; min-height: 22px; min-width: 0; font-size: 14px;
+}
+.widget-menubar.corner > .menu-button-bar > .widget-menubar-container button:hover {
+  background: rgba(255, 0, 0, 0.25); color: #ff0000;
+}
 
 .widget-dnd { margin: 4px 10px; color: #c3cbe0; }
 .widget-dnd > switch { background: rgba(255, 0, 0, 0.45); border-radius: 99px; }

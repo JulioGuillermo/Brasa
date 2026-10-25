@@ -253,6 +253,7 @@ portal-wlr        xdg-desktop-portal-wlr  xdg-desktop-portal-wlr      xdg-deskto
 PKGS_HYPR='
 hyprland          hyprland                hyprland                    hyprland                  hyprland                  hyprland
 portal-hypr       xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland
+hyprmod           hyprmod@aur             -                           -                         -                         -
 '
 PKGS_ZSH='
 zsh               zsh                     zsh                         zsh                       zsh                       zsh
@@ -335,8 +336,11 @@ install_deps() {
         [ -n "$done_" ] || problem "Could not install from the AUR: ${want//|/ or }  ->  retry: $AUR -S ${want%%|*}"
       done
     else
-      warn "No yay or paru: cannot install ${aur[*]} from the AUR; installing plain sway (no effects)"
-      install_repo sway || problem "Could not install sway"
+      warn "No yay or paru: cannot install ${aur[*]} from the AUR"
+      if [[ " ${aur[*]} " == *" swayfx"* ]]; then
+        info "Installing plain sway instead of SwayFX (no effects)"
+        install_repo sway || problem "Could not install sway"
+      fi
     fi
   fi
   [ ${#missing[@]} -gt 0 ] && problem "Not available in $PM (install by hand if you need them): ${missing[*]}"
@@ -417,6 +421,9 @@ for f in $OBSOLETE; do
   [ -L ~/.config/$f ] && [[ "$(readlink ~/.config/$f)" == "$HERE"* ]] && run rm ~/.config/$f && info "removed old ~/.config/$f"
 done
 for f in $BINS; do link "$HERE/bin/$f" ~/.local/bin/$f; done
+# HyprMod's file (Settings in the panel), present before its first start so it does not add its own
+# require line to hyprland.lua, which belongs to the repository
+[ $DRY = 1 ] || touch "$HERE/config/hypr/hyprland-gui.lua"
 # The wallpaper, unless one was chosen with brasa-wallpaper
 readlink ~/.local/share/backgrounds/brasa.png 2>/dev/null | grep -q '/brasa-custom\.' ||
   link "$HERE/wallpaper.png" ~/.local/share/backgrounds/brasa.png

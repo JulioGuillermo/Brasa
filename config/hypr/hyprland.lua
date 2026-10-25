@@ -178,3 +178,7 @@ hl.on("window.active", function()
         hl.dispatch(hl.dsp.submap("reset"))
     end
 end)
+
+---- Settings made in HyprMod (the panel's Settings button): its own file, this machine's and ignored by
+-- git, loaded last so its choices win. pcall: a fresh copy without the file still starts
+pcall(require, "hyprland-gui")
