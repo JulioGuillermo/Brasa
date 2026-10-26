@@ -1,0 +1,21 @@
+# Brasa: the remote session on Hyprland for user %i (brasa-remote session, with "session wm hyprland").
+# Hyprland runs on a virtual screen (vkms) in seat1, in a logind session of its own: no password, the
+# VNC login is the only one.
+[Unit]
+Description=Brasa remote session on Hyprland for %i
+After=systemd-user-sessions.service systemd-logind.service
+
+[Service]
+User=%i
+PAMName=login
+Environment=XDG_SEAT=seat1 XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user
+Environment=XDG_SESSION_DESKTOP=Hyprland XDG_CURRENT_DESKTOP=Hyprland BRASA_REMOTE_SESSION=1
+ExecStartPre=+/usr/bin/modprobe vkms
+ExecStartPre=+/usr/bin/bash -c 'for i in $(seq 50); do loginctl show-seat seat1 >/dev/null 2>&1 && exit 0; sleep 0.1; done; echo "seat1 did not appear" >&2; exit 1'
+ExecStart=/usr/bin/setpriv --inh-caps=-all --ambient-caps=-all /usr/bin/bash -c 'exec dbus-run-session -- start-hyprland -- --config "$HOME/.config/hypr/remote.lua"'
+ExecStopPost=-+/usr/bin/modprobe -r vkms
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

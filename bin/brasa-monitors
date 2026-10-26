@@ -240,6 +240,8 @@ def watch():
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
+    if os.environ.get("BRASA_REMOTE_SESSION") and cmd in ("save", "apply", "refresh", "watch"):
+        sys.exit(0)  # brasa-remote sizes the remote session's output; the saved monitors are the local ones
     if cmd in ("help", "-h", "--help"):
         print(__doc__.strip())
     elif cmd == "list":

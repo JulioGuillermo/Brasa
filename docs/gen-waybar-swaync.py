@@ -187,7 +187,7 @@ if HAS["power_profiles"]:
 # What starts with the machine: lit entries are on, a click switches them (the panel stays open)
 MENUS["menu#boot"] = {"label": tile("\U000F14DE", "Startup"), "position": "left", "actions": [
     {**tog(f"{'Remote session at boot':<38}", B + "brasa-remote session boot", B + "brasa-remote session noboot",
-           "systemctl --user -q is-enabled brasa-remote-session && echo true || echo false")},
+           B + "brasa-remote session at-boot && echo true || echo false")},
     {**tog(f"{'SSH server at boot':<38}", B + "brasa-remote ssh boot", B + "brasa-remote ssh noboot",
            "{ systemctl -q is-enabled sshd || systemctl -q is-enabled ssh; } 2>/dev/null && echo true || echo false")}]}
 # Keyboard backlight levels, from what the driver offers (Off and 1..max; percentages when there are many)
@@ -252,7 +252,7 @@ TILES = [
       {"label": tile("\U000F16BE", "Networks"), "command": "sh -c 'swaync-client -cp; nm-connection-editor'"},
       {"label": tile("\U000F09F9", "Keyboard"), "command": f"sh -c '{CLOSE}; {B}brasa-keyboard'"},
       tog(tile("\U000F08B9", "Session"), B + "brasa-remote session", B + "brasa-remote session stop",
-          "systemctl --user -q is-active brasa-remote-session && echo true || echo false"),
+          B + "brasa-remote session active && echo true || echo false"),
       tog(tile("\U000F08C0", "SSH"), B + "brasa-remote ssh on", B + "brasa-remote ssh off",
           "{ systemctl -q is-active sshd || systemctl -q is-active ssh; } 2>/dev/null && echo true || echo false"),
       tog(tile("\U000F0E51", "Effects"), B + "brasa-fx all", B + "brasa-fx all",

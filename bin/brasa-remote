@@ -7,9 +7,12 @@
 # All of it works over SSH too: the local modes find the running Hyprland or sway by themselves.
 #
 # Modes
-#   session [stop|boot|noboot]   an independent remote-only session (sway without a physical screen),
-#                                persistent: closing the viewer leaves it running with its windows.
+#   session [stop|boot|noboot]   an independent remote-only session (sway without a physical screen,
+#                                or Hyprland on a virtual one), persistent: closing the viewer leaves
+#                                it running with its windows.
 #                                boot/noboot: start it automatically when the machine boots (or not)
+#   session wm sway|hyprland     its window manager (sway by default). hyprland asks for sudo once,
+#                                to install a virtual screen and the system service that runs it
 #   session size auto|WxH        auto (default): starts at 1920x1080 and takes the viewer's size;
 #                                WxH: always that size, e.g. 2560x1440
 #   session scale auto|N         auto (default): picked from the height; N: fixed, e.g. 1.25
@@ -34,7 +37,7 @@
 #   help                         this help
 #
 # Settings, optional, in ~/.config/brasa/remote.conf:
-#   REMOTE_DEFAULT=session   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
+#   REMOTE_DEFAULT=session   REMOTE_WM=sway   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
 #   REMOTE_ADDRESS=<ip>
 #   Session size: it starts at REMOTE_SIZE and then takes the viewer's size (TigerVNC asks for its window
 #   size: full screen = one remote pixel per screen pixel) unless REMOTE_RESIZE=no. VNC tells the size
@@ -49,9 +52,12 @@ set -u
 CONF_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc
 STATE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote
 UNIT=brasa-wayvnc                 # screen / mirror / take
-SESSION_UNIT=brasa-remote-session # session
+SESSION_UNIT=brasa-remote-session # session on sway (user service)
+HYPR_UNIT=brasa-remote-hyprland@$USER.service # session on Hyprland (system service)
 VIRTUAL=BRASA-REMOTE
-REMOTE_DEFAULT=session REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
+SESSION_OUTPUT=HEADLESS-REMOTE    # the Hyprland session's desktop (wayvnc only resizes HEADLESS-*)
+B=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+REMOTE_DEFAULT=session REMOTE_WM=sway REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
 [ -f ~/.config/brasa/remote.conf ] && . ~/.config/brasa/remote.conf
 mkdir -p "$STATE"
 say() {  # TITLE [BODY]: a notification for 5 s (a click closes it); each one replaces the previous
@@ -117,9 +123,10 @@ local_desktop() {  # over SSH, or from inside the remote session: point at the l
   export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
   unset HYPRLAND_INSTANCE_SIGNATURE SWAYSOCK WAYLAND_DISPLAY BRASA_REMOTE_SESSION
   local p env
-  # Hyprland lists its instances with their Wayland socket
+  # Hyprland lists its instances with their Wayland socket; the remote session's one is not local
   if command -v hyprctl >/dev/null; then
-    env=$(hyprctl instances -j 2>/dev/null | jq -r 'sort_by(.time) | last // empty | "\(.instance) \(.wl_socket)"')
+    env=$(hyprctl instances -j 2>/dev/null | jq -r --arg remote "$(cat "$STATE/session-hypr" 2>/dev/null)" \
+      '[.[] | select(.instance != $remote)] | sort_by(.time) | last // empty | "\(.instance) \(.wl_socket)"')
     if [ -n "$env" ]; then
       export HYPRLAND_INSTANCE_SIGNATURE=${env% *} WAYLAND_DISPLAY=${env#* }; return 0
     fi
@@ -173,7 +180,14 @@ remove_virtual() {
 }
 
 running() { systemctl --user -q is-active "$UNIT" 2>/dev/null; }
-session_running() { systemctl --user -q is-active "$SESSION_UNIT" 2>/dev/null; }
+session_running() {
+  if [ "$REMOTE_WM" = hyprland ]; then systemctl -q is-active "$HYPR_UNIT" 2>/dev/null
+  else systemctl --user -q is-active "$SESSION_UNIT" 2>/dev/null; fi
+}
+session_at_boot() {
+  if [ "$REMOTE_WM" = hyprland ]; then systemctl -q is-enabled "$HYPR_UNIT" 2>/dev/null
+  else systemctl --user -q is-enabled "$SESSION_UNIT" 2>/dev/null; fi
+}
 busy() {  # one local mode at a time (they share port $REMOTE_LOCAL_PORT); the session is separate
   if running; then echo "Already on: $(cat "$STATE/mode" 2>/dev/null) on $(where_local). 'brasa-remote off' first."; return 0; fi
   return 1
@@ -260,10 +274,12 @@ ssh_info() {  # one line: running or not, at boot or not, port
   echo "$(systemctl -q is-active "$u" && echo on || echo off), $(systemctl -q is-enabled "$u" 2>/dev/null &&
     echo starts at boot || echo does not start at boot) · port $port"
 }
+sudo_prefix() {  # sudo in a terminal; without one (the control panel) systemctl asks through polkit's dialog
+  { [ "$(id -u)" = 0 ] || [ ! -t 0 ]; } || echo sudo
+}
 ssh_cmd() {
   local u; u=$(ssh_unit)
-  # sudo in a terminal; without one (the control panel) systemctl asks through polkit's password dialog
-  local sudo=sudo; { [ "$(id -u)" = 0 ] || [ ! -t 0 ]; } && sudo=
+  local sudo; sudo=$(sudo_prefix)
   case ${1:-status} in
     on)     working SSH; $sudo systemctl start "$u" && say "SSH ON" "$(ssh_info "$u")" ;;
     off)    working SSH; $sudo systemctl stop "$u" && say "SSH OFF" "Open connections stay; new ones are refused
@@ -298,6 +314,62 @@ WantedBy=default.target
 EOF
   systemctl --user daemon-reload
 }
+
+# ---- the session on Hyprland: a system service, a virtual screen in seat1, the files in remote/
+HYPR_FILES="72-brasa-remote-seat.rules:/etc/udev/rules.d
+brasa-remote-hyprland@.service:/etc/systemd/system
+50-brasa-remote.rules:/usr/share/polkit-1/rules.d"
+hypr_installed() {
+  local f
+  while IFS=: read -r f dir; do cmp -s "$B/remote/$f" "$dir/$f" || return 1; done <<< "$HYPR_FILES"
+}
+hypr_install() {
+  hypr_installed && return 0
+  [ -t 0 ] || [ "$(id -u)" = 0 ] || { echo "Run it once in a terminal: it needs sudo to install the virtual screen" >&2; exit 1; }
+  echo "Installing the virtual screen and the system service of the Hyprland session (sudo)"
+  local sudo f dir; sudo=$(sudo_prefix)
+  while IFS=: read -r f dir; do $sudo install -Dm644 "$B/remote/$f" "$dir/$f" || exit 1; done <<< "$HYPR_FILES"
+  $sudo udevadm control --reload
+  $sudo systemctl daemon-reload
+}
+hypr_session_size() {  # WxH: the monitor rule of the session's output, live and in the file remote.lua loads
+  local rule="hl.monitor({ output = \"$SESSION_OUTPUT\", mode = \"$1@60\", position = \"0x0\", scale = $(scale_for "$1") })"
+  echo "$rule" > "$STATE/session-monitor.lua"
+  hyprctl -q eval "$rule"
+}
+hypr_session_current_size() {
+  local monitors
+  monitors=$(hyprctl monitors -j 2>/dev/null) || return 1
+  jq -r --arg o "$SESSION_OUTPUT" '.[] | select(.name == $o) | "\(.width)x\(.height)"' <<< "$monitors"
+}
+hypr_follow_viewer() {  # wayvnc resizes the output to the viewer's window, and Hyprland sends no event for it
+  local last=$REMOTE_SIZE size
+  while sleep 1; do
+    size=$(hypr_session_current_size) || break
+    [ -n "$size" ] && [ "$size" != "$last" ] || continue
+    last=$size
+    hypr_session_size "$size"
+  done
+}
+session_wm() {
+  case ${1:-} in
+    sway|hyprland) ;;
+    "") echo "window manager: $REMOTE_WM"; return ;;
+    *) echo "brasa-remote session wm sway|hyprland" >&2; exit 1 ;;
+  esac
+  [ "$1" = hyprland ] && { command -v Hyprland >/dev/null || { echo "Hyprland is not installed" >&2; exit 1; }; hypr_install; }
+  [ "$1" = "$REMOTE_WM" ] && { echo "The remote session already uses $1"; return; }
+  local was_running=no was_at_boot=no
+  session_running && was_running=yes
+  session_at_boot && was_at_boot=yes
+  [ $was_running = yes ] && session stop
+  [ $was_at_boot = yes ] && session noboot
+  conf_set REMOTE_WM "$1"; REMOTE_WM=$1
+  echo "The remote session uses $1"
+  [ $was_at_boot = yes ] && session boot
+  [ $was_running = yes ] && session start
+  true
+}
 # ---- remote.conf settings, changed by "session size|scale|defaults"
 USER_CONF=~/.config/brasa/remote.conf
 conf_set() {  # KEY VALUE: replace or add the line
@@ -315,6 +387,7 @@ session_sway() {  # the remote session's sway IPC socket, if it is running
   echo "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/sway-ipc.$(id -u).$p.sock"
 }
 session_live() {  # apply the current size/scale settings to a running session
+  if [ "$REMOTE_WM" = hyprland ]; then session_live_hypr; return; fi
   local sock out size
   sock=$(session_sway) || return 0
   out=$(swaymsg -s "$sock" -t get_outputs -r | jq -r '.[0].name')
@@ -323,10 +396,36 @@ session_live() {  # apply the current size/scale settings to a running session
   swaymsg -q -s "$sock" output "$out" scale "$(scale_for "$size")"
   echo "Applied to the running session: $size at scale $(scale_for "$size")"
 }
+session_live_hypr() {
+  session_running || return 0
+  local size
+  export HYPRLAND_INSTANCE_SIGNATURE; HYPRLAND_INSTANCE_SIGNATURE=$(cat "$STATE/session-hypr")
+  size=$REMOTE_SIZE
+  [ "$REMOTE_RESIZE" = no ] || size=$(hypr_session_current_size)
+  hypr_session_size "$size"
+  echo "Applied to the running session: $size at scale $(scale_for "$size")"
+}
 session_settings() {
   if [ "$REMOTE_RESIZE" = no ]; then echo "size:  $REMOTE_SIZE (fixed)"
   else echo "size:  auto (starts at $REMOTE_SIZE, then takes the viewer's size)"; fi
   if [ "$REMOTE_SCALE" = auto ]; then echo "scale: auto (from the height)"; else echo "scale: $REMOTE_SCALE (fixed)"; fi
+}
+compositor_alive() {
+  if hypr; then hyprctl version >/dev/null 2>&1; else swaymsg -t get_version >/dev/null 2>&1; fi
+}
+serve_session() {  # OUTPUT: wayvnc on the session's output for as long as the session lives
+  # wayvnc's virtual keyboard keeps the layout it starts with, so choosing another layout in the remote
+  # session (brasa-keyboard) saves it in $STATE/session-layout and stops wayvnc: this loop starts it
+  # again with that layout (the viewer reconnects)
+  local kb
+  while compositor_alive; do
+    kb=$(cat "$STATE/session-layout" 2>/dev/null); kb=${kb:-$(layout)}
+    wayvnc -C "$CONF_DIR/config" -o "$1" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock"
+    sleep 0.5
+  done
+}
+session_log() {
+  if [ "$REMOTE_WM" = hyprland ]; then echo "journalctl -u $HYPR_UNIT"; else echo "journalctl --user -u $SESSION_UNIT"; fi
 }
 session_restart_note() {
   session_running && echo "(follows the viewer or not from the next start: brasa-remote session stop, then session)"
@@ -354,30 +453,46 @@ session() {
       conf_unset REMOTE_SIZE; conf_unset REMOTE_SCALE; conf_unset REMOTE_RESIZE
       REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes
       session_settings; session_live; session_restart_note ;;
-    settings) session_settings ;;
+    settings) echo "wm:    $REMOTE_WM"; session_settings ;;
+    wm) session_wm "${2:-}" ;;
+    active) session_running ;;
+    at-boot) session_at_boot ;;
     start)
       if session_running; then echo "The remote session is already running on $(where)"; return; fi
       [ -f "$CONF_DIR/config" ] || setup || exit 1
-      command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; }
+      if [ "$REMOTE_WM" = hyprland ]; then
+        command -v Hyprland >/dev/null || { echo "The remote session needs Hyprland installed." >&2; exit 1; }
+        hypr_install
+      else
+        command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; }
+        session_unit
+      fi
       working "Remote session"
-      session_unit
       rm -f "$STATE/session-layout" "$STATE/session-layout-index"   # a new session starts with your first layout
-      systemctl --user start "$SESSION_UNIT"; sleep 3
-      if session_running; then say "Remote session ON" "Port $REMOTE_PORT · $(where)
+      if [ "$REMOTE_WM" = hyprland ]; then systemctl start "$HYPR_UNIT"; else systemctl --user start "$SESSION_UNIT"; fi
+      sleep 3
+      if session_running; then say "Remote session ON" "$REMOTE_WM · port $REMOTE_PORT · $(where)
 $(also_on session)"
-      else say "Remote session failed to start" "journalctl --user -u $SESSION_UNIT"; exit 1; fi ;;
+      else say "Remote session failed to start" "$(session_log)"; exit 1; fi ;;
     stop)
       if ! session_running; then echo "The remote session is not running"; return; fi
       working "Remote session"
-      systemctl --user stop "$SESSION_UNIT" && say "Remote session OFF" "Port $REMOTE_PORT closed, its windows too
+      if [ "$REMOTE_WM" = hyprland ]; then systemctl stop "$HYPR_UNIT"; else systemctl --user stop "$SESSION_UNIT"; fi &&
+        say "Remote session OFF" "Port $REMOTE_PORT closed, its windows too
 $(also_on session)" ;;
     boot)
-      session_unit; systemctl --user enable "$SESSION_UNIT" >/dev/null 2>&1
-      # A user service starting at boot without anyone logged in needs "linger"
-      loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER"
+      if [ "$REMOTE_WM" = hyprland ]; then
+        hypr_install
+        $(sudo_prefix) systemctl enable "$HYPR_UNIT" >/dev/null 2>&1 || exit 1
+      else
+        session_unit; systemctl --user enable "$SESSION_UNIT" >/dev/null 2>&1
+        # A user service starting at boot without anyone logged in needs "linger"
+        loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER"
+      fi
       say "Remote session starts at boot" "Also with nobody logged in · port $REMOTE_PORT" ;;
     noboot)
-      systemctl --user disable "$SESSION_UNIT" >/dev/null 2>&1
+      if [ "$REMOTE_WM" = hyprland ]; then $(sudo_prefix) systemctl disable "$HYPR_UNIT" >/dev/null 2>&1 || exit 1
+      else systemctl --user disable "$SESSION_UNIT" >/dev/null 2>&1; fi
       say "Remote session does not start at boot" "Linger left as it was" ;;
     *) usage; exit 1 ;;
   esac
@@ -411,16 +526,24 @@ $(also_on local)"
     if running; then echo "local desktop: $(cat "$STATE/mode") on $(cat "$STATE/output") at $(where_local)"
       wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null
     fi
-    if session_running; then echo "remote session: running at $(where)$(systemctl --user -q is-enabled $SESSION_UNIT 2>/dev/null && echo ', starts at boot')"
+    if session_running; then echo "remote session: $REMOTE_WM, running at $(where)$(session_at_boot && echo ', starts at boot')"
       session_settings | sed 's/^/  /' 
       wayvncctl -S "$STATE/session.sock" client-list 2>/dev/null
     fi
     running || session_running || echo "off (all modes)"
     ssh_cmd status
-    systemctl --user -q is-enabled $SESSION_UNIT 2>/dev/null || echo "remote session does not start at boot ('brasa-remote session boot')" ;;
+    session_at_boot || echo "remote session ($REMOTE_WM) does not start at boot ('brasa-remote session boot')" ;;
   # ---- internal
   _session-vnc)   # inside the remote session: size the virtual output and serve it
     # (settings are read from remote.conf here, so changing them only needs a session restart)
+    if hypr; then
+      echo "$HYPRLAND_INSTANCE_SIGNATURE" > "$STATE/session-hypr"
+      hypr_session_size "$REMOTE_SIZE"
+      hyprctl -q output create headless "$SESSION_OUTPUT"
+      [ "$REMOTE_RESIZE" = no ] || hypr_follow_viewer &
+      serve_session "$SESSION_OUTPUT"
+      exit
+    fi
     sleep 1
     out=$(swaymsg -t get_outputs -r | jq -r '.[0].name')
     wlr-randr --output "$out" --custom-mode "${REMOTE_SIZE}@60Hz" >/dev/null 2>&1
@@ -434,14 +557,7 @@ $(also_on local)"
           last=$size; swaymsg -q output "$out" scale "$(scale_for "$size")"
         done ) &
     fi
-    # wayvnc's virtual keyboard keeps the layout it starts with (sway cannot change it), so choosing another
-    # layout in the remote session (brasa-keyboard) saves it in $STATE/session-layout and stops wayvnc:
-    # this loop starts it again with that layout while the session's sway is alive (the viewer reconnects)
-    while swaymsg -t get_version >/dev/null 2>&1; do
-      kb=$(cat "$STATE/session-layout" 2>/dev/null); kb=${kb:-$(layout)}
-      wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock"
-      sleep 0.5
-    done ;;
+    serve_session "$out" ;;
   _take-restore) take_restore ;;
   _take-watch)    # nobody connected to "take" in time: stop it (which restores everything)
     clients=$(wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null | grep -c '^[[:space:]]*[0-9]')

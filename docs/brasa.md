@@ -73,10 +73,11 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `config/rofi/drawer.rasi` | App grid: rofi config and theme (any `~/.config/rofi` is left alone) | read from `~/.config/brasa` |
 | `config/nwg-bar/` | Exit dialog buttons and style | `~/.config/nwg-bar` |
 | `config/sway/` | sway/SwayFX: `config` (Super), `brasa.conf` (shared), `fx.*.conf` (effects), `test.conf` (Alt), `binds.conf` (generated) | `~/.config/sway` |
-| `config/hypr/` | Hyprland: `hyprland.lua`, `binds.lua` (generated) and `hyprlock.conf` | `~/.config/hypr` |
+| `config/hypr/` | Hyprland: `hyprland.lua`, `binds.lua` (generated), `hyprlock.conf` and `remote.lua` (the remote session) | `~/.config/hypr` |
 | `config/swaylock/` | swaylock fallback | `~/.config/swaylock` |
 | `config/foot/foot.ini` | Terminal: colors, transparency with blur, bell | `~/.config/foot` |
 | `greeter/` | Login screen: greetd, nwg-hello and the sway that runs it | `/etc/greetd`, `/etc/nwg-hello` (copied with sudo) |
+| `remote/` | The remote session on Hyprland: virtual screen in seat1 (udev), system service, polkit rule | `/etc/udev/rules.d`, `/etc/systemd/system`, `/usr/share/polkit-1/rules.d` (copied with sudo by `brasa-remote session wm hyprland`) |
 | `config/kvantum/Brasa/` | Flat Kvantum theme for Qt apps (made by `docs/gen-kvantum.py`) | `~/.config/Kvantum/Brasa` |
 | `config/qt/brasa-colors.conf` | Brasa colors for Qt apps without Kvantum (qt5ct / qt6ct, Fusion style) | read from `~/.config/brasa` |
 | `config/gtk-3.0/gtk.css`, `config/gtk-4.0/gtk.css` | Brasa colors for GTK3 and GTK4/libadwaita apps | `~/.config/gtk-3.0/`, `~/.config/gtk-4.0/` |
@@ -493,6 +494,7 @@ modes find the running Hyprland or sway by themselves (also when run from inside
 
 ```
 brasa-remote session [stop|boot|noboot]  an independent remote-only session (the default for "on")
+brasa-remote session wm sway|hyprland    its window manager (sway by default)
 brasa-remote session size auto|WxH       auto: 1920x1080, then the viewer's size; WxH: always that size
 brasa-remote session scale auto|N        auto: from the height; N: fixed, e.g. 1.25
 brasa-remote session defaults            size and scale back to auto
@@ -512,6 +514,20 @@ brasa-remote on | off | status | setup | help
   anyone logs in (enables `loginctl enable-linger`); `session noboot` undoes it. Its size is
   `REMOTE_SIZE`. It only starts at boot after `session boot`. The service never inherits the local compositor's variables, so keys and scripts in
   the remote session act on the remote session only.
+- **session on Hyprland** (`session wm hyprland`, saved as `REMOTE_WM=hyprland`): Hyprland cannot
+  start without a screen, so it gets a virtual one, the kernel's `vkms`, in a seat of its own
+  (`seat1`). Each seat has its own active session, so the local desktop and the remote one run at the
+  same time and the local one never sees the virtual screen. The system service
+  `brasa-remote-hyprland@<user>` loads `vkms`, opens a logind session in `seat1` for you (no second
+  password: the VNC login is the only one) and starts Hyprland with `config/hypr/remote.lua`, which is
+  `hyprland.lua` plus: the virtual screen off, and a headless output `HEADLESS-REMOTE` that `brasa-remote`
+  creates and serves, so the size follows the viewer as on sway. The first time asks for sudo to
+  install `remote/`; after that a polkit rule lets you start and stop your own session without a
+  password, also over SSH. `boot`/`noboot` enable the system service (sudo). Switching `wm` moves a
+  running session and its start at boot to the other one. Logs: `journalctl -u brasa-remote-hyprland@$USER`.
+  On a machine with GDM, GDM also tries a login screen on `seat1` while the session runs, fails and
+  gives up: harmless. `brasa-monitors` does nothing in either remote session, so your saved monitors
+  stay the local ones.
 - **screen**: a headless output created in the current compositor (Hyprland `output create headless`,
   sway `create_output`) at the requested size, scale 1. Move windows/workspaces to it with
   `Super+Alt+Shift+←/→`. `off` removes it. To switch between screen / mirror / take: `off`, then the new one.
@@ -526,7 +542,7 @@ brasa-remote on | off | status | setup | help
   closes it) with the mode, its port and what else is on.
 - **Where it listens**: only on a VPN interface (ZeroTier `zt*`, WireGuard `wg*`, Tailscale, OpenVPN
   `tun*`...), never on every network. Settings in `~/.config/brasa/remote.conf`:
-  `REMOTE_DEFAULT=` (mode for `on`), `REMOTE_ADDRESS=`, `REMOTE_PORT=` (session, 5900),
+  `REMOTE_DEFAULT=` (mode for `on`), `REMOTE_WM=` (sway or hyprland), `REMOTE_ADDRESS=`, `REMOTE_PORT=` (session, 5900),
   `REMOTE_LOCAL_PORT=` (local modes, 5901), `REMOTE_SIZE=`, `REMOTE_SCALE=`, `REMOTE_RESIZE=`,
   `REMOTE_TAKE_WAIT=`.
 - **Size and scale**: the remote session starts at `REMOTE_SIZE` (1920x1080) and then takes the
