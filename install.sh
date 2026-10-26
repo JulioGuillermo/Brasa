@@ -409,7 +409,14 @@ if [ "$ZSH" = ask ]; then
     [[ $a == [yY]* ]] && ZSH=1
   fi
 fi
+install_vkms() {  # the virtual screen of the remote session on Hyprland (brasa-remote session wm hyprland)
+  modinfo vkms >/dev/null 2>&1 && return 0
+  say "The kernel has no vkms module (virtual screen of the remote Hyprland session): installing it"
+  [ $DRY = 1 ] && { info "[dry run] $HERE/bin/brasa-remote _vkms"; return 0; }
+  "$HERE/bin/brasa-remote" _vkms || problem "No vkms: the remote session can only use sway"
+}
 [ $DEPS = 1 ] && { install_deps; install_font; }
+[ $DEPS = 1 ] && case $WM in hyprland|both) install_vkms ;; esac
 [ $DRY = 1 ] || verify
 check_hyprland
 

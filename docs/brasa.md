@@ -494,7 +494,7 @@ modes find the running Hyprland or sway by themselves (also when run from inside
 
 ```
 brasa-remote session [stop|boot|noboot]  an independent remote-only session (the default for "on")
-brasa-remote session wm sway|hyprland    its window manager (sway by default)
+brasa-remote session wm sway|hyprland    its window manager (sway, or Hyprland if it is the only one)
 brasa-remote session size auto|WxH       auto: 1920x1080, then the viewer's size; WxH: always that size
 brasa-remote session scale auto|N        auto: from the height; N: fixed, e.g. 1.25
 brasa-remote session defaults            size and scale back to auto
@@ -514,7 +514,8 @@ brasa-remote on | off | status | setup | help
   anyone logs in (enables `loginctl enable-linger`); `session noboot` undoes it. Its size is
   `REMOTE_SIZE`. It only starts at boot after `session boot`. The service never inherits the local compositor's variables, so keys and scripts in
   the remote session act on the remote session only.
-- **session on Hyprland** (`session wm hyprland`, saved as `REMOTE_WM=hyprland`): Hyprland cannot
+- **session on Hyprland** (`session wm hyprland`, saved as `REMOTE_WM=hyprland`; the default when
+  Hyprland is installed and sway is not): Hyprland cannot
   start without a screen, so it gets a virtual one, the kernel's `vkms`, in a seat of its own
   (`seat1`). Each seat has its own active session, so the local desktop and the remote one run at the
   same time and the local one never sees the virtual screen. The system service
@@ -522,7 +523,9 @@ brasa-remote on | off | status | setup | help
   password: the VNC login is the only one) and starts Hyprland with `config/hypr/remote.lua`, which is
   `hyprland.lua` plus: the virtual screen off, and a headless output `HEADLESS-REMOTE` that `brasa-remote`
   creates and serves, so the size follows the viewer as on sway. The first time asks for sudo to
-  install `remote/`; after that a polkit rule lets you start and stop your own session without a
+  install `remote/`, and `vkms` if the kernel lacks it (`install.sh` already does that with
+  `--wm hyprland|both`: Arch and Debian have it built in, Ubuntu's older kernels in
+  `linux-modules-extra-<kernel>`, Fedora in `kernel-modules-extra`, openSUSE in `kernel-default-extra`); after that a polkit rule lets you start and stop your own session without a
   password, also over SSH. `boot`/`noboot` enable the system service (sudo). Switching `wm` moves a
   running session and its start at boot to the other one. Logs: `journalctl -u brasa-remote-hyprland@$USER`.
   On a machine with GDM, GDM also tries a login screen on `seat1` while the session runs, fails and

@@ -11,8 +11,9 @@
 #                                or Hyprland on a virtual one), persistent: closing the viewer leaves
 #                                it running with its windows.
 #                                boot/noboot: start it automatically when the machine boots (or not)
-#   session wm sway|hyprland     its window manager (sway by default). hyprland asks for sudo once,
-#                                to install a virtual screen and the system service that runs it
+#   session wm sway|hyprland     its window manager (sway by default, or Hyprland if it is the only
+#                                one). hyprland asks for sudo once, to install a virtual screen (the
+#                                kernel module vkms, if missing) and the system service that runs it
 #   session size auto|WxH        auto (default): starts at 1920x1080 and takes the viewer's size;
 #                                WxH: always that size, e.g. 2560x1440
 #   session scale auto|N         auto (default): picked from the height; N: fixed, e.g. 1.25
@@ -37,7 +38,7 @@
 #   help                         this help
 #
 # Settings, optional, in ~/.config/brasa/remote.conf:
-#   REMOTE_DEFAULT=session   REMOTE_WM=sway   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
+#   REMOTE_DEFAULT=session   REMOTE_WM=sway|hyprland (default: sway, or Hyprland if it is the only one)   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
 #   REMOTE_ADDRESS=<ip>
 #   Session size: it starts at REMOTE_SIZE and then takes the viewer's size (TigerVNC asks for its window
 #   size: full screen = one remote pixel per screen pixel) unless REMOTE_RESIZE=no. VNC tells the size
@@ -57,7 +58,10 @@ HYPR_UNIT=brasa-remote-hyprland@$USER.service # session on Hyprland (system serv
 VIRTUAL=BRASA-REMOTE
 SESSION_OUTPUT=HEADLESS-REMOTE    # the Hyprland session's desktop (wayvnc only resizes HEADLESS-*)
 B=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
-REMOTE_DEFAULT=session REMOTE_WM=sway REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
+installed_wm() {  # the remote session's window manager when none was chosen: sway, or Hyprland if it is the only one
+  if ! command -v sway >/dev/null && command -v Hyprland >/dev/null; then echo hyprland; else echo sway; fi
+}
+REMOTE_DEFAULT=session REMOTE_WM=$(installed_wm) REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
 [ -f ~/.config/brasa/remote.conf ] && . ~/.config/brasa/remote.conf
 mkdir -p "$STATE"
 say() {  # TITLE [BODY]: a notification for 5 s (a click closes it); each one replaces the previous
@@ -323,9 +327,30 @@ hypr_installed() {
   local f
   while IFS=: read -r f dir; do cmp -s "$B/remote/$f" "$dir/$f" || return 1; done <<< "$HYPR_FILES"
 }
+vkms_package() {  # the package with the vkms module for the running kernel, by distro
+  if command -v apt-get >/dev/null; then echo "linux-modules-extra-$(uname -r)"
+  elif command -v dnf >/dev/null; then echo "kernel-modules-extra-$(uname -r)"
+  elif command -v zypper >/dev/null; then echo kernel-default-extra
+  fi
+}
+vkms_install() {  # the virtual screen of the Hyprland session: the kernel module vkms
+  modinfo vkms >/dev/null 2>&1 && return 0
+  if [ ! -d "/lib/modules/$(uname -r)" ]; then
+    echo "The kernel was updated and its modules are gone until you reboot: reboot, then try again" >&2; exit 1
+  fi
+  local pkg sudo; pkg=$(vkms_package); sudo=$(sudo_prefix)
+  [ -n "$pkg" ] || { echo "The kernel has no vkms module (virtual screen) and Brasa does not know its package here" >&2; exit 1; }
+  echo "Installing the virtual screen module vkms: $pkg (sudo)"
+  if command -v apt-get >/dev/null; then $sudo apt-get install -y "$pkg"
+  elif command -v dnf >/dev/null; then $sudo dnf install -y "$pkg"
+  else $sudo zypper install -y "$pkg"; fi
+  modinfo vkms >/dev/null 2>&1 || { echo "vkms is still missing after installing $pkg" >&2; exit 1; }
+}
 hypr_install() {
-  hypr_installed && return 0
+  modinfo vkms >/dev/null 2>&1 && hypr_installed && return 0
   [ -t 0 ] || [ "$(id -u)" = 0 ] || { echo "Run it once in a terminal: it needs sudo to install the virtual screen" >&2; exit 1; }
+  vkms_install
+  hypr_installed && return 0
   echo "Installing the virtual screen and the system service of the Hyprland session (sudo)"
   local sudo f dir; sudo=$(sudo_prefix)
   while IFS=: read -r f dir; do $sudo install -Dm644 "$B/remote/$f" "$dir/$f" || exit 1; done <<< "$HYPR_FILES"
@@ -558,6 +583,7 @@ $(also_on local)"
         done ) &
     fi
     serve_session "$out" ;;
+  _vkms) vkms_install ;;   # used by install.sh
   _take-restore) take_restore ;;
   _take-watch)    # nobody connected to "take" in time: stop it (which restores everything)
     clients=$(wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null | grep -c '^[[:space:]]*[0-9]')
