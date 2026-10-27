@@ -2,7 +2,7 @@ config/sway/fx.conf
 config/sway/binds.conf
 config/hypr/binds.lua
 config/hypr/hyprland-gui.lua
-bin/__pycache__/
+__pycache__/
 config/waybar/segments.css
 config/waybar/config.jsonc
 config/waybar/compact.jsonc
