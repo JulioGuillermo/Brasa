@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Starts or updates this session's waybar with one bar per monitor: the unfolded bar (config.jsonc) on
+# wide monitors, the folded one (compact.jsonc: short CPU, memory, network and clock, the Hz and
+# volts as icons) on the ones narrower than NARROW_BELOW logical pixels, such as a monitor turned
+# upright. Right click on a block folds or unfolds it on either.
+# Usage: brasa-bar           start the bar, or give the running one the new layout when it changed
+#        brasa-bar --reload  the same, and also reload the running one when nothing changed (style)
+# brasa-monitors runs it after every monitor change, brasa-autostart at login, brasa-reload with --reload.
+NARROW_BELOW=${BRASA_BAR_NARROW_BELOW:-1280}
+WAYBAR_DIR=~/.config/waybar
+SESSION=${HYPRLAND_INSTANCE_SIGNATURE:-${SWAYSOCK##*/}}
+CONFIG=${XDG_RUNTIME_DIR:-/tmp}/brasa-bar-${SESSION:-default}.json
+
+# "name logical-width" of every monitor; a monitor turned a quarter swaps its width and height
+monitor_widths() {
+  if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    hyprctl monitors -j | jq -r '.[] | "\(.name) \((if .transform % 2 == 1 then .height else .width end) / .scale | floor)"'
+  elif [ -n "${SWAYSOCK:-}" ]; then
+    swaymsg -t get_outputs -r | jq -r '.[] | select(.active) | "\(.name) \(.rect.width)"'
+  fi
+}
+
+# The waybar config: a list of bars, each for the monitors it is meant for
+write_config() {
+  local wide=() narrow=() name width
+  while read -r name width; do
+    [ -n "$name" ] || continue
+    if [ "$width" -lt "$NARROW_BELOW" ]; then narrow+=("$name"); else wide+=("$name"); fi
+  done < <(monitor_widths)
+  if [ ${#narrow[@]} -eq 0 ] || [ ! -s "$WAYBAR_DIR/compact.jsonc" ]; then
+    cp "$WAYBAR_DIR/config.jsonc" "$CONFIG.new"
+  else
+    jq -n --slurpfile unfolded "$WAYBAR_DIR/config.jsonc" --slurpfile folded "$WAYBAR_DIR/compact.jsonc" \
+      --argjson wide ${#wide[@]} \
+      '[($unfolded[0] + {output: $ARGS.positional[:$wide]}), ($folded[0] + {output: $ARGS.positional[$wide:]})]
+       | map(select(.output | length > 0))' \
+      --args "${wide[@]}" "${narrow[@]}" > "$CONFIG.new"
+  fi
+  if cmp -s "$CONFIG.new" "$CONFIG"; then
+    rm "$CONFIG.new"
+    return 1
+  fi
+  mv "$CONFIG.new" "$CONFIG"
+}
+
+# This session's waybar, if it runs with this config
+running_bar() {
+  local pid
+  for pid in $(~/.local/bin/brasa-here waybar); do
+    tr '\0' ' ' < "/proc/$pid/cmdline" | grep -qF -- "-c $CONFIG " && { echo "$pid"; return 0; }
+  done
+  return 1
+}
+
+[ -n "${WAYLAND_DISPLAY:-}" ] && [ -n "$SESSION" ] || exit 0   # no desktop to draw on (e.g. over SSH)
+changed=0
+write_config && changed=1
+if pid=$(running_bar); then
+  if [ $changed = 1 ] || [ "${1:-}" = --reload ]; then
+    kill -SIGUSR2 "$pid"   # waybar reads its config and style again
+  fi
+else
+  for pid in $(~/.local/bin/brasa-here waybar); do kill "$pid"; done   # one started some other way
+  setsid -f waybar -c "$CONFIG" -s "$WAYBAR_DIR/style.css" >/dev/null 2>&1
+fi

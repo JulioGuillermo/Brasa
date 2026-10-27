@@ -24,7 +24,7 @@ here -f 'brasa-monitors watch' || \
 # The panel before the bar (whose bell would otherwise start swaync through D-Bus with the default
 # config); on sway, the panel whose Layout menu has sway's layouts
 if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then run swaync; else run swaync -c ~/.config/swaync/config-sway.json; fi
-run waybar
+~/.local/bin/brasa-bar   # one bar per monitor, folded on narrow ones
 # sway: your keyboard layouts (brasa-keyboard; Hyprland loads them in hyprland.lua)
 [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -s ~/.config/brasa/keyboard.conf ] && ~/.local/bin/brasa-keyboard apply
 # sway: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)

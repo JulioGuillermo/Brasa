@@ -5,6 +5,7 @@ config/hypr/hyprland-gui.lua
 bin/__pycache__/
 config/waybar/segments.css
 config/waybar/config.jsonc
+config/waybar/compact.jsonc
 config/swaync/config.json
 config/swaync/config-sway.json
 config/swaync/menus.css

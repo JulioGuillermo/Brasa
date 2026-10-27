@@ -10,7 +10,7 @@ found=1
 for p in $(pgrep -u "$(id -u)" $mode -- "$1"); do
   [ "$p" = $$ ] && continue
   if [ -n "${WAYLAND_DISPLAY:-}" ]; then
-    tr '\0' '\n' < /proc/$p/environ 2>/dev/null | grep -qx "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" || continue
+    tr '\0' '\n' 2>/dev/null < /proc/$p/environ | grep -qx "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" || continue
   fi
   echo "$p"; found=0
 done

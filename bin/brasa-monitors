@@ -214,11 +214,19 @@ def set_refresh(name, choice):
     apply(name)
 
 
+def update_bar():
+    """A narrower or wider monitor may need the other bar (brasa-bar)."""
+    try:
+        subprocess.run([os.path.expanduser("~/.local/bin/brasa-bar")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass
+
+
 def watch():
     """Re-apply on hotplug (debounced): Hyprland's event socket, or sway's output events."""
     def settle():
         time.sleep(1.5)
-        apply(); time.sleep(0.5); apply(); x11_dpi()
+        apply(); time.sleep(0.5); apply(); x11_dpi(); update_bar()
     if HYPR:
         sock = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/run/user/%d" % os.getuid()), "hypr",
                             os.environ["HYPRLAND_INSTANCE_SIGNATURE"], ".socket2.sock")
@@ -247,11 +255,11 @@ if __name__ == "__main__":
     elif cmd == "list":
         print(json.dumps(outputs(), indent=2))
     elif cmd == "save":
-        print("saved:", ", ".join(o["name"] for o in save()))
+        print("saved:", ", ".join(o["name"] for o in save())); update_bar()
     elif cmd == "apply" and sys.argv[2:] == ["--settle"]:
-        apply(); time.sleep(0.5); apply(); x11_dpi()
+        apply(); time.sleep(0.5); apply(); x11_dpi(); update_bar()
     elif cmd == "apply":
-        apply(sys.argv[2] if len(sys.argv) > 2 else None); x11_dpi()
+        apply(sys.argv[2] if len(sys.argv) > 2 else None); x11_dpi(); update_bar()
     elif cmd == "refresh" and len(sys.argv) == 4:
         set_refresh(sys.argv[2], sys.argv[3])
     elif cmd == "choice" and len(sys.argv) == 3:  # used by brasa-refresh

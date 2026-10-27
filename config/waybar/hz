@@ -99,9 +99,10 @@ def show(real=None):
     tip = (f"{OUTPUT}\n" if OUTPUT else "") + \
           (f"Real: {real:.1f} Hz (frames shown in the last {PERIOD} s)\n" if real is not None else "") + \
           f"Mode: {'up to ' if vrr else ''}{top} Hz, {'variable (VRR)' if vrr else 'fixed'}\n" + \
-          "Click: choose · Right click: next · Middle click: " + \
+          "Click: choose · Scroll: next · Right click: fold · Middle click: " + \
           ("show the real rate" if os.path.exists(MODE_ONLY) else "show the mode only")
-    print(json.dumps({"text": text, "tooltip": tip, "class": "cool"}, ensure_ascii=False), flush=True)
+    # "alt" is the folded block (the bar's right click): the icon alone
+    print(json.dumps({"text": text, "alt": ICON, "tooltip": tip, "class": "cool"}, ensure_ascii=False), flush=True)
 
 
 fd, pipe = crtc_of(OUTPUT)

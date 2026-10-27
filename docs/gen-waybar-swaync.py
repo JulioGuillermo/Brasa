@@ -55,10 +55,9 @@ waybar = {
   **{f"custom/{n}": {"format": g, "tooltip": False} for n, g in
      [("l1", "\ue0b0"), ("l2", "\ue0b0"), ("l3", "\ue0b0"), ("l4", "\ue0b0"), ("l5", "\ue0b0"), ("l6", "\ue0b0"),
       ("c1", "\ue0b2"), ("c2", "\ue0b0"), ("r0", "\ue0b2"), ("r1", "\ue0b2"), ("r2", "\ue0b2"), ("r3", "\ue0b2")]},
-  "group/g-cpu": {"orientation": "horizontal", "modules": ["cpu", "cpu#freq"]},
-  "group/g-thermal": {"orientation": "horizontal",
-                      "modules": (["custom/temp"] if HAS["temp"] else []) + (["custom/fan"] if HAS["fans"] else [])},
-  "group/g-mem": {"orientation": "horizontal", "modules": ["memory", "memory#swap"]},
+  "group/g-cpu": {"orientation": "horizontal", "modules": ["cpu"]},
+  "group/g-thermal": {"orientation": "horizontal", "modules": ["custom/thermal"]},
+  "group/g-mem": {"orientation": "horizontal", "modules": ["memory"]},
   "group/g-net": {"orientation": "horizontal", "modules": ["network#rate"]},
   "group/g-power": {"orientation": "horizontal", "modules": ["battery", "custom/volt"]},
   "group/g-screen": {"orientation": "horizontal", "modules": ["custom/hz"]},
@@ -66,20 +65,15 @@ waybar = {
                   "modules": ["sway/language", "hyprland/language", "network#wifi"] + (["bluetooth"] if HAS["bluetooth"] else [])
                              + ["wireplumber"] + (["backlight"] if HAS["backlight"] else [])},
 
-  "cpu": {"interval": 1, "format": I(ICON["cpu"]) + " {usage:>2}%", "states": load, "tooltip": False},
-  "cpu#freq": {"interval": 1, "format": "{avg_frequency:.1f}<small>GHz</small>", "tooltip": False},
-  "custom/temp": {"exec": S + " temp", "return-type": "json", "interval": 3},
-  "custom/fan": {"exec": S + " fan", "return-type": "json", "interval": 3},
+  "cpu": {"interval": 1, "states": load, "tooltip": False},
+  "custom/thermal": {"exec": S + " thermal", "return-type": "json", "interval": 3},
   "memory": {"interval": 1, "states": {"warm": 70, "hot": 85, "crit": 93},
-             "format": I(ICON["ram"]) + " {used:.1f}<small>G</small> <span color='#5a6a90'>·</span> {avail:.1f}<small>G</small> <span color='#5a6a90'>·</span> {percentage}%",
-             "tooltip-format": "RAM: {used:.1f} of {total:.1f} GiB used, {avail:.1f} GiB available\nClick: where it is (apps, graphics, kernel, cache, swap)",
+             "tooltip-format": "RAM: {used:.1f} of {total:.1f} GiB used, {avail:.1f} GiB available\n"
+                               "Swap: {swapUsed:.1f} of {swapTotal:.1f} GiB used\n"
+                               "Click: where it is (apps, graphics, kernel, cache, swap) · Right click: fold",
              # The breakdown in a small floating terminal, only while it is open (brasa-mem)
              "on-click": "foot --app-id=brasa-mem --title=Memory -W 76x32 ~/.local/bin/brasa-mem"},
-  "memory#swap": {"interval": 5, "format": I(ICON["swap"]) + " {swapPercentage}%",
-                  "tooltip-format": "Swap: {swapUsed:.1f} of {swapTotal:.1f} GiB used"},
-  "network#rate": {"interval": 2,
-                   "format": I(ICON["up"]) + " {bandwidthUpBytes}  " + I(ICON["down"]) + " {bandwidthDownBytes}",
-                   "tooltip-format": "{ifname}: {ipaddr}"},
+  "network#rate": {"interval": 2, "tooltip-format": "{ifname}: {ipaddr}\nRight click: fold"},
   "battery": {"interval": 5, "states": {"warning": 30, "critical": 15},
               "on-click-right": "~/.local/bin/brasa-battery menu",   # charge limit: 60 / 80 / 90 / 100 %
               # Time left while discharging, time to full while charging ({time} is empty when unknown)
@@ -93,8 +87,8 @@ waybar = {
               "format-icons": ICON["bat"], "tooltip-format": "{timeTo} · {power:.1f} W"},
   "custom/volt": {"exec": S + " volt", "return-type": "json", "interval": 3},
   "custom/hz": {"exec": "~/.config/waybar/hz", "return-type": "json", "restart-interval": 5,
-                "on-click": "~/.local/bin/brasa-refresh menu", "on-click-right": "~/.local/bin/brasa-refresh cycle",
-                "on-click-middle": "~/.local/bin/brasa-hz-real"},
+                "on-click": "~/.local/bin/brasa-refresh menu", "on-click-middle": "~/.local/bin/brasa-hz-real",
+                "on-scroll-up": "~/.local/bin/brasa-refresh cycle", "on-scroll-down": "~/.local/bin/brasa-refresh cycle"},
 
   # Each bar shows its own monitor's workspaces: the number, inside a circle drawn in style.css.
   # "#sway" / "#hypr" become CSS classes: the two modules mark empty workspaces differently.
@@ -140,6 +134,32 @@ waybar = {
                    "tooltip": False, "on-click": "swaync-client -t -sw", "on-click-right": "swaync-client -d -sw",
                    "escape": True},
 }
+
+# Blocks that fold, (unfolded, folded): right click switches. The bar of a narrow monitor starts folded
+# (compact.jsonc, which brasa-bar gives to the monitors narrower than its limit), the others unfolded.
+# The custom blocks' scripts print the folded block as "alt".
+SEP = " <span color='#5a6a90'>·</span> "
+FOLDS = {
+  "cpu": (I(ICON["cpu"]) + " {usage:>2}% {avg_frequency:.1f}<small>GHz</small>", I(ICON["cpu"]) + " {usage:>2}%"),
+  "custom/thermal": ("{text}", "{alt}"),
+  "memory": (I(ICON["ram"]) + " {used:.1f}<small>G</small>" + SEP + "{avail:.1f}<small>G</small>" + SEP
+             + "{percentage}%  " + I(ICON["swap"]) + " {swapPercentage}%", I(ICON["ram"]) + " {percentage}%"),
+  "custom/volt": ("{text}", "{alt}"),
+  "custom/hz": ("{text}", "{alt}"),
+  "network#rate": (I(ICON["up"]) + " {bandwidthUpBytes}  " + I(ICON["down"]) + " {bandwidthDownBytes}",
+                   I(ICON["down"]) + " {bandwidthDownBytes}"),
+}
+for module, (unfolded, folded) in FOLDS.items():
+    waybar[module].update({"format": unfolded, "format-alt": folded, "format-alt-click": "click-right"})
+
+
+def folded_bar(bar):
+    """The same bar starting folded: every fold and the clock show their short form first."""
+    compact = json.loads(json.dumps(bar))
+    for module in [*FOLDS, "clock"]:
+        compact[module]["format"], compact[module]["format-alt"] = bar[module]["format-alt"], bar[module]["format"]
+    return compact
+
 
 B = "~/.local/bin/"
 HAS["charge_limit"] = bool(glob.glob("/sys/class/power_supply/BAT*/charge_control_end_threshold"))
@@ -291,6 +311,7 @@ swaync = {
 
 os.makedirs(f"{out}/waybar", exist_ok=True); os.makedirs(f"{out}/swaync", exist_ok=True)
 json.dump(waybar, open(f"{out}/waybar/config.jsonc", "w"), ensure_ascii=False, indent=2)
+json.dump(folded_bar(waybar), open(f"{out}/waybar/compact.jsonc", "w"), ensure_ascii=False, indent=2)
 
 # Left segments alternate two night blues; each triangle takes the color of the block that ends and the
 # background of the one that starts (the last one fades into the bar)

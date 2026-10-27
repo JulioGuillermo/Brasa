@@ -42,6 +42,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-fx` | Turns blur, animations and shadows on/off | `~/.local/bin/` |
 | `bin/brasa-refresh` | Screen refresh rate per monitor: dynamic (VRR) or fixed | `~/.local/bin/` |
 | `bin/brasa-monitors` | Saves and applies each monitor's layout and refresh rate; re-applies on hotplug | `~/.local/bin/` |
+| `bin/brasa-bar` | Starts waybar, one bar per monitor: folded on narrow monitors | `~/.local/bin/` |
 | `bin/brasa-hz-real` | Switches the bar's Hz between the real rate and the compositor's mode | `~/.local/bin/` |
 | `bin/brasa-keys` | Searchable cheat sheet (`Super+F1`) | `~/.local/bin/` |
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
@@ -81,7 +82,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `config/kvantum/Brasa/` | Flat Kvantum theme for Qt apps (made by `docs/gen-kvantum.py`) | `~/.config/Kvantum/Brasa` |
 | `config/qt/brasa-colors.conf` | Brasa colors for Qt apps without Kvantum (qt5ct / qt6ct, Fusion style) | read from `~/.config/brasa` |
 | `config/gtk-3.0/gtk.css`, `config/gtk-4.0/gtk.css` | Brasa colors for GTK3 and GTK4/libadwaita apps | `~/.config/gtk-3.0/`, `~/.config/gtk-4.0/` |
-| `docs/gen-waybar-swaync.py` | Generator for waybar's `config.jsonc` and swaync's `config.json` | — |
+| `docs/gen-waybar-swaync.py` | Generator for waybar's `config.jsonc` and `compact.jsonc` and swaync's `config.json` | — |
 
 Everything is a symlink, so editing a file in `~/brasa` changes the live configuration.
 Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
@@ -233,7 +234,7 @@ F12 MyASUS (`KEY_PROG1`). The keyboard light is handled by the firmware and send
 
 ## Screen refresh rate
 
-`brasa-refresh` (`Super+Alt+r`, or click the Hz module in a bar; right click cycles) works **per
+`brasa-refresh` (`Super+Alt+r`, or click the Hz module in a bar; scrolling on it cycles) works **per
 monitor**: from a bar it changes that bar's monitor (the one under the mouse), from the key the
 focused one:
 
@@ -306,6 +307,23 @@ Floating, with rounded corners, in three zones:
 - **Right**: clock (hover: calendar, scroll changes month; click: full date) ·
   keyboard layout · wifi · bluetooth · volume (scroll) · brightness (scroll) · tray · bell.
 
+**Folding.** Right click on the CPU, temperature, RAM, network, volts or Hz block folds it to its
+short form, and another right click unfolds it:
+
+| Block | Folded |
+| --- | --- |
+| CPU | % (without the GHz) |
+| Temperature and fans | the temperature |
+| RAM | % (without used, available and swap) |
+| Network | ↓ alone |
+| Volts, Hz | the icon |
+
+`brasa-bar` starts waybar with one bar per monitor: monitors narrower than 1280 logical pixels (a
+monitor turned upright, a small laptop) get the bar already folded, clock short too
+(`config/waybar/compact.jsonc`), the others unfolded (`config.jsonc`). `brasa-monitors` runs it again
+after every monitor change, so turning a monitor switches its bar. The limit is `NARROW_BELOW` in
+`bin/brasa-bar`, or `BRASA_BAR_NARROW_BELOW` in the environment. A fold lasts until the bar restarts.
+
 The blocks are joined with triangles (``, ``) like mo's status bar: they are `custom/l1…l6`,
 `c1-c2` and `r1-r3` modules whose color is the block that ends and whose background is the one that
 starts (`style.css`). If they look bigger or smaller than the bar, adjust their `font-size`.
@@ -327,7 +345,8 @@ alternating block colors and the triangles are recomputed for the blocks that re
 Run it again after changing hardware: `python3 docs/gen-waybar-swaync.py config`.
 
 To change modules, edit `docs/gen-waybar-swaync.py` and run
-`python3 docs/gen-waybar-swaync.py config`, or edit `config/waybar/config.jsonc` directly.
+`python3 docs/gen-waybar-swaync.py config`, then `brasa-bar --reload` (or `Super+Ctrl+r`). Editing
+`config/waybar/config.jsonc` directly works too, until the generator runs again.
 
 ## Notifications (swaync)
 
