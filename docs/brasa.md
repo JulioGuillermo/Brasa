@@ -191,7 +191,7 @@ The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter
 | `Super+Shift+q` | Kill the focused window's app (`kill -9` to its PID, nothing else) |
 | `Super+f` | Fullscreen |
 | `Super+Space` | Floating / tiled |
-| `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like: windows on a strip you scroll through, each half the screen) side by side → scrolling one above the other → focus side by side → focus one above the other (like scrolling, but each window nearly fills the screen and a sliver of its neighbours shows), remembered across logins. sway: side by side → one above the other → tabs → stacked |
+| `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like: windows on a strip you scroll through, each half the screen) side by side → scrolling one above the other → focus side by side → focus one above the other (like scrolling, but each window nearly fills the screen, kept in the middle so a sliver of the neighbours shows on both sides; the first and the last stay at the edge, the sliver all on their one neighbour), remembered across logins. sway: side by side → one above the other → tabs → stacked |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |

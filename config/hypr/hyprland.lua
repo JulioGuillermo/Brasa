@@ -122,7 +122,37 @@ for _, ns in ipairs({ "waybar", "swaync-control-center", "swaync-notification-wi
 end
 
 ---- Each workspace's window layout, chosen with Super+w (written by brasa-wm)
+BRASA_CENTERED = {}   -- the workspaces in a focus layout and their direction, set by workspace-layouts.lua
 pcall(dofile, state .. "workspace-layouts.lua")
+---- Focus layouts: the focused window in the middle, a sliver of each neighbour on both sides; the first
+---- and the last at the edge, with the whole sliver on their one neighbour. Hyprland centres the focused
+---- column on every workspace or on none, so this sets it for each window that gets the focus
+local function is_first_or_last(window, direction)
+    local axis = (direction == "down" or direction == "up") and "y" or "x"
+    local here = window.at[axis]
+    local first, last = here, here
+    for _, other in ipairs(hl.get_workspace_windows(window.workspace)) do
+        if not other.floating then
+            first = math.min(first, other.at[axis])
+            last = math.max(last, other.at[axis])
+        end
+    end
+    return here <= first or here >= last
+end
+
+function BRASA_FOLLOW_CENTERED()
+    local window = hl.get_active_window()
+    local workspace = window and window.workspace
+    local scrolling = workspace and workspace.tiled_layout == "scrolling" and not window.floating
+    local direction = scrolling and BRASA_CENTERED[workspace.id]
+    local centered = direction and not is_first_or_last(window, direction)
+    hl.config({ scrolling = { focus_fit_method = centered and 0 or 1 } })
+    if direction then
+        hl.dispatch(hl.dsp.layout("colresize +0"))   -- places the focused column again, the new way
+    end
+end
+hl.on("window.active", BRASA_FOLLOW_CENTERED)
+BRASA_FOLLOW_CENTERED()
 ---- Your keyboard layouts, chosen with brasa-keyboard (the panel's Keyboard tile); else the ones above
 pcall(dofile, state .. "keyboard.lua")
 

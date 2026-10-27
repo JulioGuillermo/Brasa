@@ -30,7 +30,8 @@ if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
     echo dwindle
   }
   # The Lua rules for a workspace's layout. A focus layout's new windows open nearly full size through a
-  # window rule; leaving it turns that rule off
+  # window rule, and BRASA_CENTERED tells hyprland.lua to keep the focused one in the middle; leaving it
+  # undoes both
   layout_rules() {
     local ws=$1 layout=$2 algorithm=dwindle direction=right focus=false
     case $layout in
@@ -46,13 +47,16 @@ if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
       echo "hl.workspace_rule({ workspace = \"$ws\", layout = \"$algorithm\" })"
     fi
     echo "hl.window_rule({ name = \"brasa-focus-$ws\", match = { workspace = \"$ws\" }, scrolling_width = $FOCUS_WIDTH, enabled = $focus })"
+    echo "BRASA_CENTERED[$ws] = $([ $focus = true ] && echo "\"$direction\"" || echo nil)"
   }
   # Hyprland keeps a scrolling workspace's direction until its layout changes, so it goes through dwindle;
   # then every window gets the layout's width (windows opened in a focus layout keep its width otherwise)
   apply_layout() {
     local ws=$1 layout=$2 width
     hyprctl -q eval "hl.workspace_rule({ workspace = \"$ws\", layout = \"dwindle\" })"
-    hyprctl -q eval "$(layout_rules "$ws" "$layout")"
+    hyprctl -q eval "BRASA_CENTERED = BRASA_CENTERED or {}
+$(layout_rules "$ws" "$layout")
+if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
     case $layout in
       focus|focus-down)         width=$FOCUS_WIDTH ;;
       scrolling|scrolling-down) width=$(hyprctl getoption scrolling:column_width -j | jq -r .float) ;;
@@ -67,6 +71,7 @@ if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
     { grep -v "^$ws " "$LAYOUTS"; [ "$layout" = dwindle ] || echo "$ws $layout"; } | sort -n > "$LAYOUTS.new"
     mv "$LAYOUTS.new" "$LAYOUTS"
     { echo "-- Written by brasa-wm (Super+w): each workspace's window layout"
+      echo "BRASA_CENTERED = BRASA_CENTERED or {}"
       while read -r w l; do layout_rules "$w" "$l"; done < "$LAYOUTS"
     } > "${LAYOUTS%/*}/workspace-layouts.lua"
   }
