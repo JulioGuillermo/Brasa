@@ -17,9 +17,11 @@ live_area() {
 frozen_area() {
   local still pixel_geometry
   still=$(mktemp --suffix=.png)
+  trap 'exit 1' INT TERM HUP
   trap "rm -f '$still'" EXIT
   grim "$still"
   coproc FREEZE { exec ~/.local/bin/brasa-freeze "$still"; }
+  trap "kill $FREEZE_PID 2>/dev/null; rm -f '$still'" EXIT
   if ! read -r left top scale <&"${FREEZE[0]}"; then
     live_area
     return
