@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""The Sessions window (Super+Ctrl+s, and the Sessions button of the panel): dialogs and the keyring in
+this session, the remote session, sharing this desktop and the SSH server. Everything it does goes
+through brasa-follow and brasa-remote."""
+import json
+import os
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gio, GLib, Gtk
+
+BIN = os.path.dirname(os.path.realpath(__file__))
+REMOTE = os.path.join(BIN, "brasa-remote")
+FOLLOW = os.path.join(BIN, "brasa-follow")
+REFRESH_SECONDS = 5
+
+SIZES = ["auto", "1280x720", "1600x900", "1920x1080", "2560x1440", "3840x2160"]
+SCALES = ["auto", "1", "1.25", "1.5", "1.75", "2"]
+SHARE_MODES = [("off", "Off", "not shared"), ("mirror", "Mirror", "share this screen"),
+               ("screen", "Screen", "add a virtual monitor"), ("take", "Take", "use it remotely, screens off")]
+WM_NAMES = {"sway": "sway", "hyprland": "Hyprland"}
+
+
+def run(argv, on_output):
+    """Runs a command in the background and calls on_output(stdout) when it ends."""
+    process = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+
+    def finished(process, result):
+        _, stdout, _ = process.communicate_utf8_finish(result)
+        on_output(stdout or "")
+
+    process.communicate_utf8_async(None, None, finished)
+
+
+def viewers_text(count):
+    if count == 0:
+        return "Nobody connected"
+    return "1 viewer connected" if count == 1 else f"{count} viewers connected"
+
+
+class Choice(Adw.ComboRow):
+    """A combo row over (value, label) pairs; a value that is not among them is added as is."""
+
+    def __init__(self, title, options):
+        super().__init__(title=title)
+        self.base_options = options
+        self.values = []
+
+    def show_value(self, value):
+        options = list(self.base_options)
+        if value not in [v for v, _ in options]:
+            options.append((value, value))
+        if [v for v, _ in options] != self.values:
+            self.values = [v for v, _ in options]
+            self.set_model(Gtk.StringList.new([label for _, label in options]))
+        self.set_selected(self.values.index(value))
+
+    def value(self):
+        return self.values[self.get_selected()]
+
+
+class SessionsWindow(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title="Sessions", default_width=560, default_height=720)
+        self.updating = False
+        self.busy = set()
+        self.state = None
+
+        page = Adw.PreferencesPage()
+        page.add(self.build_here())
+        page.add(self.build_remote_session())
+        page.add(self.build_share())
+        page.add(self.build_ssh())
+        view = Adw.ToolbarView(content=page)
+        view.add_top_bar(Adw.HeaderBar())
+        self.set_content(view)
+        self.close_on_escape()
+
+        self.refresh()
+        GLib.timeout_add_seconds(REFRESH_SECONDS, self.refresh_periodically)
+
+    def close_on_escape(self):
+        shortcuts = Gtk.ShortcutController()
+        shortcuts.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"),
+                                                Gtk.CallbackAction.new(lambda *_: self.close())))
+        self.add_controller(shortcuts)
+
+    def button(self, label, on_click):
+        button = Gtk.Button(label=label, valign=Gtk.Align.CENTER)
+        button.connect("clicked", on_click)
+        return button
+
+    def build_here(self):
+        group = Adw.PreferencesGroup(
+            title="This session",
+            description="Password prompts and other dialogs of apps started by the system open in one session")
+        self.dialogs_row = Adw.ActionRow(title="Dialogs and passwords")
+        self.dialogs_row.add_suffix(self.button("Bring here", lambda _: self.act(
+            self.dialogs_row, [[FOLLOW, "here"]])))
+        self.keyring_row = Adw.ActionRow(title="Keyring")
+        self.keyring_button = self.button("Unlock", self.on_keyring)
+        self.keyring_row.add_suffix(self.keyring_button)
+        group.add(self.dialogs_row)
+        group.add(self.keyring_row)
+        return group
+
+    def build_remote_session(self):
+        self.session_group = Adw.PreferencesGroup(title="Remote session")
+        self.session_on = Adw.SwitchRow(title="On")
+        self.session_on.connect("notify::active", lambda row, _: self.switched(
+            row, ["session"] if row.get_active() else ["session", "stop"]))
+        self.session_boot = Adw.SwitchRow(title="Start at boot", subtitle="Also with nobody logged in")
+        self.session_boot.connect("notify::active", lambda row, _: self.switched(
+            row, ["session", "boot" if row.get_active() else "noboot"]))
+        self.session_wm = Choice("Window manager", [])
+        self.session_wm.connect("notify::selected", lambda row, _: self.chosen(row, ["session", "wm"]))
+        self.session_size = Choice("Size", [(s, "Follow the viewer" if s == "auto" else s) for s in SIZES])
+        self.session_size.connect("notify::selected", lambda row, _: self.chosen(row, ["session", "size"]))
+        self.session_scale = Choice("Scale", [(s, "From the height" if s == "auto" else s) for s in SCALES])
+        self.session_scale.connect("notify::selected", lambda row, _: self.chosen(row, ["session", "scale"]))
+        for row in (self.session_on, self.session_boot, self.session_wm, self.session_size, self.session_scale):
+            self.session_group.add(row)
+        return self.session_group
+
+    def build_share(self):
+        self.share_group = Adw.PreferencesGroup(title="Share this desktop")
+        self.share_mode = Choice("Mode", [(mode, f"{name} · {what}") for mode, name, what in SHARE_MODES])
+        self.share_mode.connect("notify::selected", self.on_share_mode)
+        self.share_group.add(self.share_mode)
+        return self.share_group
+
+    def build_ssh(self):
+        self.ssh_group = Adw.PreferencesGroup(title="SSH server")
+        self.ssh_on = Adw.SwitchRow(title="On")
+        self.ssh_on.connect("notify::active", lambda row, _: self.switched(
+            row, ["ssh", "on" if row.get_active() else "off"]))
+        self.ssh_boot = Adw.SwitchRow(title="Start at boot")
+        self.ssh_boot.connect("notify::active", lambda row, _: self.switched(
+            row, ["ssh", "boot" if row.get_active() else "noboot"]))
+        self.ssh_group.add(self.ssh_on)
+        self.ssh_group.add(self.ssh_boot)
+        return self.ssh_group
+
+    def switched(self, row, args):
+        if not self.updating:
+            self.act(row, [[REMOTE, *args]])
+
+    def chosen(self, row, args):
+        if not self.updating:
+            self.act(row, [[REMOTE, *args, row.value()]])
+
+    def on_share_mode(self, row, _):
+        if self.updating:
+            return
+        mode = row.value()
+        commands = [[REMOTE, "off"]]
+        if mode != "off":
+            commands.append([REMOTE, mode])
+        self.act(row, commands)
+
+    def on_keyring(self, _button):
+        action = "lock" if self.keyring_button.get_label() == "Lock" else "unlock"
+        self.act(self.keyring_row, [[FOLLOW, "keyring", action]])
+
+    def act(self, row, commands):
+        """Runs the commands one after the other, with the row disabled, then shows the new state."""
+        self.busy.add(row)
+        row.set_sensitive(False)
+
+        def next_command(_output=""):
+            if commands:
+                run(commands.pop(0), next_command)
+                return
+            self.busy.discard(row)
+            row.set_sensitive(True)
+            self.refresh()
+
+        next_command()
+
+    def refresh_periodically(self):
+        self.refresh()
+        return GLib.SOURCE_CONTINUE
+
+    def refresh(self):
+        run([REMOTE, "state"], self.show_remote)
+        run([FOLLOW, "where"], self.show_dialogs)
+        run([FOLLOW, "keyring", "status"], self.show_keyring)
+        return False
+
+    def show_dialogs(self, output):
+        where = output.strip()
+        self.dialogs_row.set_subtitle("They open here" if where == "here" else f"They open in {where}")
+
+    def show_keyring(self, output):
+        status = output.strip()
+        known = status in ("locked", "unlocked")
+        self.keyring_button.set_visible(known)
+        self.keyring_button.set_label("Unlock" if status == "locked" else "Lock")
+        self.keyring_row.set_subtitle(status.capitalize() if known else status)
+
+    def show_remote(self, output):
+        try:
+            state = json.loads(output)
+        except json.JSONDecodeError:
+            return
+        self.updating = True
+        self.show_session(state["session"])
+        self.show_share(state["share"])
+        self.show_ssh(state["ssh"])
+        self.updating = False
+
+    def show_session(self, session):
+        where = f"{session['address']}:{session['port']}" if session["address"] else f"port {session['port']}"
+        self.session_group.set_description(f"A desktop of its own, only for remote use · {where}")
+        if self.session_on not in self.busy:
+            self.session_on.set_active(session["running"])
+        self.session_on.set_subtitle(viewers_text(session["viewers"]) if session["running"] else "")
+        if self.session_boot not in self.busy:
+            self.session_boot.set_active(session["at_boot"])
+        self.session_wm.base_options = [(wm, WM_NAMES.get(wm, wm)) for wm in session["wms"]]
+        self.session_wm.set_visible(len(session["wms"]) > 1)
+        for row, value in ((self.session_wm, session["wm"]), (self.session_size, session["size"]),
+                           (self.session_scale, session["scale"])):
+            if row not in self.busy:
+                row.show_value(value)
+
+    def show_share(self, share):
+        self.share_group.set_description(f"So someone can see or use this machine's own screens · port {share['port']}")
+        if self.share_mode not in self.busy:
+            self.share_mode.show_value(share["mode"])
+        self.share_mode.set_subtitle(viewers_text(share["viewers"]) if share["mode"] != "off" else "")
+
+    def show_ssh(self, ssh):
+        self.ssh_group.set_visible(ssh["installed"])
+        if not ssh["installed"]:
+            return
+        self.ssh_group.set_description(f"Port {ssh['port']}")
+        if self.ssh_on not in self.busy:
+            self.ssh_on.set_active(ssh["running"])
+        if self.ssh_boot not in self.busy:
+            self.ssh_boot.set_active(ssh["at_boot"])
+
+
+def main():
+    app = Adw.Application(application_id="org.brasa.Sessions")
+    app.connect("activate", lambda app: (app.get_active_window() or SessionsWindow(app)).present())
+    app.run([])
+
+
+if __name__ == "__main__":
+    main()

@@ -25,7 +25,7 @@ Undo it? `./install.sh --uninstall`.
 
 | Keys | What it does |
 |---|---|
-| `Super+F1` | **All key bindings**, searchable |
+| `Super+F1` | **All key bindings** the window manager has, searchable, with what each one does |
 | `Super+d` / `Super+r` | App grid / quick launcher |
 | `Super+Enter` or `Super+t` | Terminal (foot); with `Shift`, Ghostty |
 | `Super+e` / `Super+Shift+n` | Files: Thunar / Nautilus |
@@ -38,6 +38,7 @@ Undo it? `./install.sh --uninstall`.
 | `Super+Alt+r` | Screen refresh rate: dynamic or fixed |
 | `Super+Escape` | Lock the screen |
 | `Super+Shift+e` | Log out, lock, power off… |
+| `Super+Ctrl+s` | Sessions: remote session, sharing, SSH, dialogs and keyring here |
 
 Special keys (volume, brightness, keyboard light, microphone, camera, emoji, displays, airplane…)
 work on any laptop that has them. Key bindings live in `keys.tsv`; after editing, press `Super+Shift+r`.

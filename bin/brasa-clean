@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Frees space: brasa-clean tmp | ram
+
+tmp  a window listing the leftovers in /tmp that nothing uses (brasa-tmpclean, as root through pkexec),
+     removed once you confirm
+ram  drops the kernel's page cache (asks for the password) and tells how much was freed
+"""
+import os
+import subprocess
+import sys
+
+TMPCLEAN = os.path.join(os.path.dirname(os.path.realpath(__file__)), "brasa-tmpclean")
+PKEXEC_CANCELLED = (126, 127)
+
+
+def notify(title, body=""):
+    subprocess.run(["notify-send", "-a", "Clean", "-i", "edit-clear-all-symbolic", title, body])
+
+
+def human(size):
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
+def available_mib():
+    with open("/proc/meminfo") as meminfo:
+        for line in meminfo:
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) // 1024
+    return 0
+
+
+def free_ram():
+    before = available_mib()
+    dropped = subprocess.run(["pkexec", "sh", "-c", "sync; echo 3 > /proc/sys/vm/drop_caches"])
+    if dropped.returncode in PKEXEC_CANCELLED:
+        return
+    if dropped.returncode != 0:
+        notify("Could not free RAM")
+        return
+    after = available_mib()
+    notify(f"Freed {max(after - before, 0)} MiB", f"{after / 1024:.1f} GiB available")
+
+
+def clean_tmp():
+    import gi
+    gi.require_version("Gtk", "4.0")
+    gi.require_version("Adw", "1")
+    from gi.repository import Adw, Gio, GLib, Gtk
+
+    class TmpWindow(Adw.ApplicationWindow):
+        def __init__(self, app):
+            super().__init__(application=app, title="Clean /tmp", default_width=520, default_height=560)
+            self.entries = []
+            self.answered = False
+            self.view = Adw.ToolbarView()
+            self.view.add_top_bar(Adw.HeaderBar())
+            self.set_content(self.view)
+            self.show_status("Looking for leftovers…", "Nothing that is open, running or recent is touched",
+                             spinner=True)
+            self.connect("close-request", self.on_close)
+            self.start_tmpclean()
+
+        def start_tmpclean(self):
+            flags = Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE
+            self.process = Gio.Subprocess.new(["pkexec", TMPCLEAN, "--ask", "--all-users"], flags)
+            self.stdin = self.process.get_stdin_pipe()
+            self.stdout = Gio.DataInputStream.new(self.process.get_stdout_pipe())
+            self.stdout.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_listed_line)
+
+        def on_listed_line(self, stream, result):
+            line, _ = stream.read_line_finish_utf8(result)
+            if line is None:
+                self.process.wait_async(None, self.on_ended_early)
+                return
+            if line == "":
+                self.show_entries()
+                return
+            size, name = line.split("\t", 1)
+            self.entries.append((name, int(size)))
+            stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_listed_line)
+
+        def on_ended_early(self, process, result):
+            process.wait_finish(result)
+            if process.get_exit_status() in PKEXEC_CANCELLED:
+                self.close()
+                return
+            self.show_status("Could not look into /tmp", f"{os.path.basename(TMPCLEAN)} failed")
+
+        def show_status(self, title, description, spinner=False):
+            page = Adw.StatusPage(title=title, description=description)
+            if spinner:
+                page.set_paintable(Adw.SpinnerPaintable.new(page))
+            else:
+                page.set_icon_name("edit-clear-all-symbolic")
+            self.view.set_content(page)
+
+        def show_entries(self):
+            if not self.entries:
+                self.answer("no")
+                self.show_status("Nothing to clean", "/tmp has no leftovers")
+                return
+            total = sum(size for _, size in self.entries)
+            group = Adw.PreferencesGroup(
+                title=f"{len(self.entries)} leftovers, {human(total)}",
+                description="Nothing uses them and they did not change in the last hour")
+            for name, size in self.entries:
+                group.add(Adw.ActionRow(title=GLib.markup_escape_text(name), subtitle=human(size)))
+            page = Adw.PreferencesPage()
+            page.add(group)
+
+            cancel = Gtk.Button(label="Cancel")
+            cancel.connect("clicked", lambda _: self.close())
+            remove = Gtk.Button(label=f"Remove {human(total)}", css_classes=["destructive-action"])
+            remove.connect("clicked", self.on_remove)
+            buttons = Gtk.Box(spacing=12, halign=Gtk.Align.END, margin_top=12, margin_bottom=12,
+                              margin_start=12, margin_end=12)
+            buttons.append(cancel)
+            buttons.append(remove)
+
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            page.set_vexpand(True)
+            box.append(page)
+            box.append(buttons)
+            self.view.set_content(box)
+            remove.grab_focus()
+
+        def answer(self, word):
+            if self.answered:
+                return
+            self.answered = True
+            self.stdin.write_all(f"{word}\n".encode(), None)
+            self.stdin.close(None)
+
+        def on_remove(self, _button):
+            self.answer("yes")
+            self.show_status("Removing…", "", spinner=True)
+            self.removed, self.failed = [], []
+            self.stdout.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_removed_line)
+
+        def on_removed_line(self, stream, result):
+            line, _ = stream.read_line_finish_utf8(result)
+            if line is None:
+                self.report()
+                return
+            status, name, *_ = line.split("\t")
+            (self.removed if status == "removed" else self.failed).append(name)
+            stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_removed_line)
+
+        def report(self):
+            sizes = dict(self.entries)
+            freed = human(sum(sizes.get(name, 0) for name in self.removed))
+            body = f"{len(self.failed)} could not be removed: {', '.join(self.failed)}" if self.failed else ""
+            notify(f"/tmp cleaned: {len(self.removed)} leftovers, {freed}", body)
+            self.close()
+
+        def on_close(self, _window):
+            if hasattr(self, "stdin"):
+                self.answer("no")
+            return False
+
+    app = Adw.Application(application_id="org.brasa.Clean")
+    app.connect("activate", lambda app: TmpWindow(app).present())
+    app.run([])
+
+
+def main():
+    match sys.argv[1:]:
+        case ["tmp"]:
+            clean_tmp()
+        case ["ram"]:
+            free_ram()
+        case _:
+            print(__doc__.strip(), file=sys.stderr)
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

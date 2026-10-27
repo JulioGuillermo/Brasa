@@ -1,21 +1,133 @@
-#!/usr/bin/env bash
-# Key bindings cheat sheet (Super+F1): searchable list; Enter runs the chosen binding.
-tsv=~/.config/brasa/keys.tsv
-mapfile -t acts < <(python3 - "$tsv" <<'PY'
+#!/usr/bin/env python3
+"""Key bindings (Super+F1): every binding the window manager really has, grouped by kind, with what it does
+and what it runs. Type to search; Enter or a click runs it; Super+F1 again or Escape closes it."""
+import os
+import subprocess
 import sys
-for line in open(sys.argv[1], encoding="utf-8"):
-    if not line.strip() or line.startswith("#"): continue
-    mods, key, action, desc, *_ = line.rstrip("\n").split("\t")
-    if key == "1..9": key = "1…9"; desc = desc.replace("{n}", "N (0 = 10)"); action = ""
-    if key == "0" and "workspace 10" in desc: continue  # folded into the 1…9 line
-    if key.startswith("XF86") or key in ("Caps_Lock", "Num_Lock"): continue
-    combo = " + ".join([m.capitalize() for m in mods.split("+") if m != "-"] + [key])
-    print(f"{combo:<26}{desc}\t{action}")
-PY
-)
-pick=$(printf '%s\n' "${acts[@]%%$'\t'*}" | fuzzel --dmenu --index --width 60 --lines 22 --prompt "󰌌  ") || exit 0
-action=${acts[$pick]#*$'\t'}
-case $action in
-  exec\ *) setsid -f sh -c "${action#exec }" >/dev/null 2>&1 ;;
-  wm\ *)   ~/.local/bin/brasa-wm ${action#wm } ;;
-esac
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, GLib, Gtk, Pango
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from brasa_binds import CATEGORIES, current_binds  # noqa: E402
+
+RUN_DELAY_MS = 150
+
+
+def by_category(binds):
+    order = {name: i for i, name in enumerate(CATEGORIES)}
+    return sorted(binds, key=lambda b: order.get(b.category, len(order)))
+
+
+def label(text, css=(), xalign=0.0, **props):
+    return Gtk.Label(label=text, xalign=xalign, css_classes=list(css), **props)
+
+
+class BindRow(Gtk.ListBoxRow):
+    def __init__(self, bind):
+        super().__init__()
+        self.bind = bind
+        self.search_text = " ".join([bind.keys, bind.description, bind.action, bind.category, bind.mode]).lower()
+        keys = label(bind.keys, css=["heading", "monospace"], width_chars=26, max_width_chars=26,
+                     ellipsize=Pango.EllipsizeMode.END)
+        what = label(bind.description or "—", wrap=True)
+        texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
+        texts.append(what)
+        runs = bind.action + (f"   ·   only in the {bind.mode} mode" if bind.mode else "")
+        if runs:
+            texts.append(label(runs, css=["dim-label", "caption", "monospace"],
+                               ellipsize=Pango.EllipsizeMode.END))
+        box = Gtk.Box(spacing=16, margin_top=6, margin_bottom=6, margin_start=12, margin_end=12)
+        box.append(keys)
+        box.append(texts)
+        self.set_child(box)
+        self.set_activatable(bool(bind.run))
+
+
+class KeysWindow(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title="Key bindings", default_width=900, default_height=760)
+        self.search = Gtk.SearchEntry(placeholder_text="Search keys, actions, commands…", hexpand=True)
+        self.search.connect("search-changed", lambda _: self.list.invalidate_filter())
+        self.search.connect("activate", self.on_search_enter)
+        self.search.connect("stop-search", lambda _: self.close())
+        self.set_focus(self.search)
+
+        self.list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE, css_classes=["navigation-sidebar"])
+        self.list.set_filter_func(self.matches)
+        self.list.set_header_func(self.category_header)
+        self.list.connect("row-activated", lambda _, row: self.run_bind(row.bind))
+        binds = by_category(current_binds())
+        for bind in binds:
+            self.list.append(BindRow(bind))
+        if not binds:
+            self.list.set_placeholder(label("No Hyprland or sway running here", xalign=0.5, margin_top=24))
+
+        header = Adw.HeaderBar(title_widget=self.search)
+        view = Adw.ToolbarView(content=Gtk.ScrolledWindow(child=self.list, vexpand=True))
+        view.add_top_bar(header)
+        self.set_content(view)
+        self.close_on_escape()
+
+    def close_on_escape(self):
+        shortcuts = Gtk.ShortcutController(scope=Gtk.ShortcutScope.GLOBAL)
+        shortcuts.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"),
+                                                Gtk.CallbackAction.new(lambda *_: self.close())))
+        self.add_controller(shortcuts)
+
+    def matches(self, row):
+        words = self.search.get_text().lower().split()
+        return all(word in row.search_text for word in words)
+
+    def category_header(self, row, before):
+        if before and before.bind.category == row.bind.category:
+            row.set_header(None)
+            return
+        row.set_header(label(row.bind.category, css=["title-4"], margin_top=14, margin_bottom=4, margin_start=12))
+
+    def on_search_enter(self, _entry):
+        first = next((row for row in self.visible_rows() if row.bind.run), None)
+        if first:
+            self.run_bind(first.bind)
+
+    def visible_rows(self):
+        row = self.list.get_first_child()
+        while row:
+            if isinstance(row, BindRow) and row.get_child_visible():
+                yield row
+            row = row.get_next_sibling()
+
+    def run_bind(self, bind):
+        """Closes the window first, so the action applies to the window that had the focus before."""
+        if not bind.run:
+            return
+        self.set_visible(False)
+        app = self.get_application()
+
+        def run():
+            subprocess.Popen(bind.run, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            app.quit()
+            return False
+
+        GLib.timeout_add(RUN_DELAY_MS, run)
+
+
+def toggle(app):
+    window = app.get_active_window()
+    if window:
+        window.close()
+        return
+    KeysWindow(app).present()
+
+
+def main():
+    app = Adw.Application(application_id="org.brasa.Keys")
+    app.connect("activate", toggle)
+    app.run([])
+
+
+if __name__ == "__main__":
+    main()

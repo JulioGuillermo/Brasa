@@ -44,7 +44,12 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-monitors` | Saves and applies each monitor's layout and refresh rate; re-applies on hotplug | `~/.local/bin/` |
 | `bin/brasa-bar` | Starts waybar, one bar per monitor: folded on narrow monitors | `~/.local/bin/` |
 | `bin/brasa-hz-real` | Switches the bar's Hz between the real rate and the compositor's mode | `~/.local/bin/` |
-| `bin/brasa-keys` | Searchable cheat sheet (`Super+F1`) | `~/.local/bin/` |
+| `bin/brasa-keys` | Key bindings window (`Super+F1`): every binding the window manager really has, by kind | `~/.local/bin/` |
+| `lib/brasa_binds.py` | Reads those bindings from Hyprland (`hyprctl binds` and the Lua files) or sway (its config) | read from `~/.config/brasa` |
+| `bin/brasa-sessions` | Sessions window (`Super+Ctrl+s`): remote session, sharing, SSH, dialogs and keyring here | `~/.local/bin/` |
+| `bin/brasa-follow` | Sends the dialogs of the user's D-Bus (passwords, keyring, portals) to this session; locks and unlocks the keyring | `~/.local/bin/` |
+| `bin/brasa-clean` | Clean menu: a window to clean `/tmp`, and freeing RAM | `~/.local/bin/` |
+| `bin/brasa-tmpclean` | Finds the leftovers in `/tmp` that nothing uses, and removes them | `~/.local/bin/` |
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
@@ -171,7 +176,11 @@ CTRL+SUPER  Up    exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+   Volume u
   the key is released and lets the key through: used for Caps Lock and Num Lock).
 
 After editing: `Super+Shift+r` (regenerates with `brasa-gen` and reloads the window manager).
-The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter runs the binding.
+The key bindings window (`Super+F1`) does not read this file: it asks the running window manager for
+every binding it really has (Hyprland: `hyprctl binds` plus the `hl.bind` calls of `~/.config/hypr/*.lua`;
+sway: its config), so your own and HyprMod's show up too. Each one says what it does, what it runs and
+what kind it is (apps, Brasa, commands, windows, workspaces, sound, brightness, media, mouse). Type to
+search; Enter or a click runs it.
 
 | Keys | Action |
 |---|---|
@@ -183,7 +192,8 @@ The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter
 | `Super+Shift+n` | Nautilus |
 | `Super+z` | Zen |
 | `Super+n` | Notification panel |
-| `Super+F1` | Key bindings cheat sheet |
+| `Super+F1` | Key bindings window |
+| `Super+Ctrl+s` | Sessions window |
 | `Super+.` | Emoji picker |
 | `Super+p` | Displays and monitors |
 | `Super+Alt+r` | Screen refresh rate menu |
@@ -363,7 +373,7 @@ To change modules, edit `docs/gen-waybar-swaync.py` and run
   filter, one click or Enter opens, `Escape` or `Super+d` again closes. Opens in ~50 ms and uses ~14 MB
   only while open (nwg-drawer, used before, took ~1.5 s and ~70 MB). rofi does not handle touch
   input: with a finger, use the keyboard or the touchpad instead.
-- **fuzzel** (`Super+r`): type and Enter. Also used by the cheat sheet, emoji and refresh menus.
+- **fuzzel** (`Super+r`): type and Enter. Also used by the emoji and refresh menus.
 - **nwg-bar** (`Super+Shift+e`): centered dialog with Lock · Log out · Suspend · Reboot · Power off · Cancel.
   Every button calls `brasa-session <action>`: nwg-bar runs commands without a shell (so no `~`,
   quotes or pipes) and quits right after the click, so the script detaches and logs each action
@@ -602,11 +612,10 @@ choice is lit:
 | Wi-Fi · Bluetooth · Mute | on / off |
 | Networks | Wi-Fi and network settings (nm-connection-editor) |
 | Keyboard | keyboard layouts: pick one, add or remove (`brasa-keyboard`) |
-| Session | the remote session, `brasa-remote session` (port 5900) |
-| SSH | the SSH server; asks for the password through the system's dialog (polkit) |
+| Sessions | the Sessions window (below), like `Super+Ctrl+s` |
 | Effects | blur, animations and shadows, like `Super+Shift+f` |
 | Lock | lock the screen |
-| Keys | the key bindings cheat sheet, like `Super+F1` |
+| Keys | the key bindings window, like `Super+F1` |
 
 | Menu | Choices |
 |---|---|
@@ -614,15 +623,38 @@ choice is lit:
 | Battery | charge limit 60 / 80 / 90 / 100 % (laptops that support it, see below) |
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
 | Light | keyboard backlight level, the levels the driver offers (e.g. off, low, medium, high), the current one lit (`brasa-kbd set N`; only on keyboards with a backlight) |
-| Remote | sharing this machine's desktop on port 5901: off, mirror, screen, take |
-| Startup | what starts with the machine: the remote session, the SSH server (lit = on; the panel stays open) |
+| Clean | Clean /tmp…: a window lists the leftovers nobody uses, with their size, and removes them when you confirm (asks for the password: it also looks at root's). Free RAM: drops the page cache and tells how much was freed |
 | Custom | your own buttons, from `~/.config/brasa/panel.conf` (only when that file has some) |
 
-Choosing in a menu closes the panel (except Startup, whose entries are switches). swaync cannot show a
-spinner on a button, so remote and SSH changes show a "Working…" notice at once, replaced by the result. The panel is generated for each machine by
+Choosing in a menu closes the panel. The panel is generated for each machine by
 `docs/gen-waybar-swaync.py`, so menus a machine cannot use are left out. swaync (0.12) has no tooltips
 for these buttons, hence the words under the icons; and it mangles double quotes inside commands, so the
 panel's commands avoid them.
+
+### Sessions window
+
+`Super+Ctrl+s` or the Sessions tile. Changes apply at once; it refreshes every 5 seconds.
+
+| Section | What |
+|---|---|
+| This session | **Dialogs and passwords**: where they open now; *Bring here* sends them to this session. **Keyring**: locked or not; Lock / Unlock |
+| Remote session | on, start at boot, window manager (when both are installed), size, scale; who is connected (`brasa-remote session …`) |
+| Share this desktop | off, mirror, screen or take (port 5901) |
+| SSH server | on, start at boot (asks for the password through polkit) |
+
+**Bring here** (`brasa-follow`): password prompts, the keyring's dialog, file choosers and screen
+sharing come from programs the user's D-Bus or systemd starts, and they open on the screen of the
+session that last told the bus where it is. *Bring here* tells the bus (and systemd) this session's
+screen, and starts again the user services that have a window on another session's screen (found by
+their connection to that screen's socket, whatever program they are), so nothing stays behind. It
+only uses standards (D-Bus activation environment, the Secret Service API), so it works with any
+keyring: GNOME Keyring, KWallet, KeePassXC… Unlock asks in this session.
+
+```
+brasa-follow [here]               dialogs open here from now on
+brasa-follow where                where they open now
+brasa-follow keyring status|lock|unlock
+```
 
 ### Your own buttons (Custom)
 
@@ -631,7 +663,7 @@ panel's commands avoid them.
 ```
 # icon | name | command                                   a button
 # icon | name | on command | off command | state test     a switch, lit while the test succeeds
-󰃢 | Free RAM  | ~/.local/bin/free-ram
+󰌆 | VPN       | nmcli connection up work
 󰢮 | GPU awake | ~/.local/bin/gpu-awake on | ~/.local/bin/gpu-awake off | systemctl -q is-active gpu-forcewake
 ```
 
@@ -745,5 +777,5 @@ blurry because GNOME scales the window to 133 %; the real session is sharp. From
 - The Hyprland touchpad toggle uses `hl.device({ name, enabled })`, untested.
 - **nwg-bar** uses icon theme names (`system-lock-screen`…); if the icon theme lacks them they show empty.
 - Package names for apt, dnf, zypper and apk were written from memory; the installer reports the ones it cannot find.
-- `Super+/` is not used for the cheat sheet because `/` needs Shift on a Spanish keyboard.
+- `Super+/` is not used for the key bindings window because `/` needs Shift on a Spanish keyboard.
 - On the Zenbook, the camera key's light is driven by the ASUS firmware; Linux exposes no control for it.

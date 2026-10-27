@@ -160,7 +160,7 @@ pcall(dofile, state .. "keyboard.lua")
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })
 hl.window_rule({
     name  = "brasa-floating",
-    match = { class = "^(pavucontrol|org.pulseaudio.pavucontrol|blueman-manager|nm-connection-editor|brasa-mem)$" },
+    match = { class = "^(pavucontrol|org.pulseaudio.pavucontrol|blueman-manager|nm-connection-editor|brasa-mem|org.brasa.[A-Za-z]+)$" },
     float = true,
 })
 -- Dialogs and other floating windows open centred, whatever position the app asks for (XWayland apps

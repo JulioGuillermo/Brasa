@@ -208,12 +208,6 @@ if HAS["power_profiles"]:
     MENUS["menu#power"] = {"label": tile("\U000F04C5", "Power"), "position": "left", "actions": [
         choice(label, B + f"brasa-power {p}", f"powerprofilesctl get | grep -qx {p}")
         for p, label in (("power-saver", "Power saver"), ("balanced", "Balanced"), ("performance", "Performance"))]}
-# What starts with the machine: lit entries are on, a click switches them (the panel stays open)
-MENUS["menu#boot"] = {"label": tile("\U000F14DE", "Startup"), "position": "left", "actions": [
-    {**tog(f"{'Remote session at boot':<38}", B + "brasa-remote session boot", B + "brasa-remote session noboot",
-           B + "brasa-remote session at-boot && echo true || echo false")},
-    {**tog(f"{'SSH server at boot':<38}", B + "brasa-remote ssh boot", B + "brasa-remote ssh noboot",
-           "{ systemctl -q is-enabled sshd || systemctl -q is-enabled ssh; } 2>/dev/null && echo true || echo false")}]}
 # Keyboard backlight levels, from what the driver offers (Off and 1..max; percentages when there are many)
 KBD = next(iter(glob.glob("/sys/class/leds/*kbd_backlight*")), None)
 if KBD:
@@ -225,14 +219,10 @@ if KBD:
         MENUS["menu#kbdlight"] = {"label": tile("\U000F06E9", "Light"), "position": "left", "actions": [
             choice(f"Keyboard light: {name}", B + f"brasa-kbd set {n}", f"{B}brasa-kbd get | grep -qx {n}")
             for n, name in levels]}
-# Sharing this machine's own desktop (port 5901): one mode at a time
-MODE = "$XDG_RUNTIME_DIR/brasa-remote/mode"
-MENUS["menu#remote"] = {"label": tile("\U000F1483", "Remote"), "position": "left", "actions": [
-    choice("Off       not shared", B + "brasa-remote off", "! systemctl --user -q is-active brasa-wayvnc"),
-    *[choice(f"{name:<9} {desc}", f"{B}brasa-remote off; {B}brasa-remote {name.lower()}",
-             f"systemctl --user -q is-active brasa-wayvnc && grep -qx {name.lower()} {MODE}")
-      for name, desc in (("Mirror", "share this screen"), ("Screen", "add a virtual monitor"),
-                         ("Take", "use it remotely, screens off"))]]}
+# Freeing space: /tmp opens a window listing what would go; RAM drops the page cache
+MENUS["menu#clean"] = {"label": tile("\U000F00E2", "Clean"), "position": "left", "actions": [
+    {"label": f"{text:<38}", "command": f"sh -c '{CLOSE}; {B}brasa-clean {what}'"}
+    for what, text in (("tmp", "\U000F0A7A  Clean /tmp…"), ("ram", "\U000F035B  Free RAM (page cache)"))]}
 # Your own buttons, from ~/.config/brasa/panel.conf (see the comments in that file / docs/brasa.md):
 #   icon | name | command                              a button
 #   icon | name | on command | off command | test      a switch, lit while the test succeeds
@@ -254,7 +244,7 @@ for line in (open(CUSTOM, encoding="utf-8") if os.path.exists(CUSTOM) else []):
         custom.append(tog(f"{text:<38}", run(cmds[0]), run(cmds[1]), f"{cmds[2]} && echo true || echo false"))
 if custom:
     MENUS["menu#custom"] = {"label": tile("\U000F09AC", "Custom"), "position": "left", "actions": custom}
-MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "menu#kbdlight", "menu#remote", "menu#boot",
+MENUS = {k: MENUS[k] for k in ("menu#layout", "menu#battery", "menu#power", "menu#kbdlight", "menu#clean",
                             "menu#custom")
          if k in MENUS}
 # Hyprland's settings in a window: HyprMod, which writes them to config/hypr/hyprland-gui.lua (not in git).
@@ -275,10 +265,7 @@ TILES = [
           "wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED && echo true || echo false"),
       {"label": tile("\U000F16BE", "Networks"), "command": "sh -c 'swaync-client -cp; nm-connection-editor'"},
       {"label": tile("\U000F09F9", "Keyboard"), "command": f"sh -c '{CLOSE}; {B}brasa-keyboard'"},
-      tog(tile("\U000F08B9", "Session"), B + "brasa-remote session", B + "brasa-remote session stop",
-          B + "brasa-remote session active && echo true || echo false"),
-      tog(tile("\U000F08C0", "SSH"), B + "brasa-remote ssh on", B + "brasa-remote ssh off",
-          "{ systemctl -q is-active sshd || systemctl -q is-active ssh; } 2>/dev/null && echo true || echo false"),
+      {"label": tile("\U000F1483", "Sessions"), "command": f"sh -c '{CLOSE}; {B}brasa-sessions'"},
       tog(tile("\U000F0E51", "Effects"), B + "brasa-fx all", B + "brasa-fx all",
           "test -e $XDG_RUNTIME_DIR/brasa-fx/blur-off && echo false || echo true"),
       {"label": tile("\U000F033E", "Lock"), "command": f"sh -c '{CLOSE}; {B}brasa-lock'"},

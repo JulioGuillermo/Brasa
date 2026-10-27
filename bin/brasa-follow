@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""Sends the dialogs of the user's D-Bus here: password prompts, the keyring, portals (file choosers,
+screen sharing) and anything else the bus or systemd starts, which open on one session's screen.
+
+Usage: brasa-follow [here]        from now on they open in this session (local or remote); the ones
+                                  open on another session's screen start again here
+       brasa-follow where         where they open now
+       brasa-follow keyring status|lock|unlock
+                                  the default keyring, through the Secret Service standard (GNOME
+                                  Keyring, KWallet, KeePassXC...); unlock asks here
+"""
+import os
+import re
+import subprocess
+import sys
+
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+USER_BUS = f"unix:path={RUNTIME}/bus"
+SESSION_VARS = ("WAYLAND_DISPLAY", "DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE", "SWAYSOCK", "XDG_CURRENT_DESKTOP")
+DISPLAY_SOCKET = re.compile(rf"^({re.escape(RUNTIME)}/wayland-\d+|@?/tmp/\.X11-unix/X\d+)$")
+USER_MANAGER = re.compile(rf"/user@{os.getuid()}\.service/(.+)$")
+
+
+def on_user_bus():
+    return {**os.environ, "DBUS_SESSION_BUS_ADDRESS": USER_BUS}
+
+
+def wayland_socket(name):
+    return name if name.startswith("/") else f"{RUNTIME}/{name}"
+
+
+def x11_socket(display):
+    number = re.match(r"^:(\d+)", display)
+    return f"/tmp/.X11-unix/X{number.group(1)}" if number else None
+
+
+def own_displays():
+    sockets = set()
+    if os.environ.get("WAYLAND_DISPLAY"):
+        sockets.add(wayland_socket(os.environ["WAYLAND_DISPLAY"]))
+    if os.environ.get("DISPLAY") and x11_socket(os.environ["DISPLAY"]):
+        sockets.add(x11_socket(os.environ["DISPLAY"]))
+    return sockets
+
+
+def unix_sockets():
+    """(local address, inode, peer inode, [pids]) of every unix socket this user can see."""
+    out = subprocess.run(["ss", "-xpH"], capture_output=True, text=True).stdout
+    for line in out.splitlines():
+        fields = line.split()
+        if len(fields) < 8:
+            continue
+        pids = [int(pid) for pid in re.findall(r"pid=(\d+)", line)]
+        yield fields[4].removesuffix("_"), fields[5], fields[7], pids
+
+
+def display_clients():
+    """{pid: display socket} of the programs with a window (or a connection) on some display."""
+    sockets = list(unix_sockets())
+    display_of_inode = {inode: address.lstrip("@") for address, inode, _, _ in sockets
+                        if DISPLAY_SOCKET.match(address)}
+    clients = {}
+    for _, _, peer, pids in sockets:
+        if peer in display_of_inode:
+            for pid in pids:
+                clients[pid] = display_of_inode[peer]
+    return clients
+
+
+def user_unit(pid):
+    """The unit of the user's systemd a process runs in, or None for a session's own processes."""
+    try:
+        with open(f"/proc/{pid}/cgroup") as cgroup:
+            path = cgroup.read().strip().split(":", 2)[2]
+    except (OSError, IndexError):
+        return None
+    inside = USER_MANAGER.search(path)
+    return inside.group(1).split("/")[-1] if inside else None
+
+
+def process_name(pid):
+    try:
+        with open(f"/proc/{pid}/comm") as comm:
+            return comm.read().strip()
+    except OSError:
+        return str(pid)
+
+
+def point_bus_here():
+    present = [name for name in SESSION_VARS if os.environ.get(name)]
+    missing = [name for name in SESSION_VARS if not os.environ.get(name)]
+    subprocess.run(["dbus-update-activation-environment", "--systemd", *present], env=on_user_bus())
+    if missing:
+        subprocess.run(["systemctl", "--user", "unset-environment", *missing])
+
+
+def restart_elsewhere():
+    """Starts again the user services showing on another session's screen; returns their names."""
+    here = own_displays()
+    units, strays = set(), set()
+    for pid, display in display_clients().items():
+        unit = user_unit(pid)
+        if display in here or not unit or unit.startswith("brasa-"):
+            continue
+        if unit.startswith("app-dbus") or not unit.endswith(".service"):
+            strays.add(pid)
+        else:
+            units.add(unit)
+    for unit in sorted(units):
+        subprocess.run(["systemctl", "--user", "restart", unit])
+    for pid in strays:
+        try:
+            os.kill(pid, 15)
+        except OSError:
+            pass
+    return sorted(units) + sorted({process_name(pid) for pid in strays})
+
+
+def bring_here():
+    point_bus_here()
+    moved = restart_elsewhere()
+    print("Dialogs open here now" + (f"; started again here: {', '.join(moved)}" if moved else ""))
+
+
+def bus_display():
+    env = subprocess.run(["systemctl", "--user", "show-environment"], capture_output=True, text=True).stdout
+    found = re.search(r"^WAYLAND_DISPLAY=(.+)$", env, re.M)
+    return found.group(1) if found else None
+
+
+def where():
+    display = bus_display()
+    if not display:
+        print("nowhere: no session told the bus its screen")
+    elif wayland_socket(display) in own_displays():
+        print("here")
+    else:
+        print(f"another session ({display})")
+
+
+def keyring(action):
+    from gi.repository import Gio, GLib
+
+    bus = Gio.DBusConnection.new_for_address_sync(
+        USER_BUS, Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION)
+
+    def call(path, interface, method, args, reply):
+        return bus.call_sync("org.freedesktop.secrets", path, interface, method, args,
+                             GLib.VariantType(reply), Gio.DBusCallFlags.NONE, 120000, None).unpack()
+
+    def wait_for_prompt(prompt):
+        if prompt == "/":
+            return True
+        loop, outcome = GLib.MainLoop(), {}
+
+        def completed(_bus, _sender, _path, _interface, _signal, params):
+            outcome["dismissed"] = params.unpack()[0]
+            loop.quit()
+
+        bus.signal_subscribe("org.freedesktop.secrets", "org.freedesktop.Secret.Prompt", "Completed", prompt,
+                             None, Gio.DBusSignalFlags.NONE, completed)
+        call(prompt, "org.freedesktop.Secret.Prompt", "Prompt", GLib.Variant("(s)", ("",)), "()")
+        loop.run()
+        return not outcome["dismissed"]
+
+    service = "/org/freedesktop/secrets"
+    try:
+        (collection,) = call(service, "org.freedesktop.Secret.Service", "ReadAlias",
+                             GLib.Variant("(s)", ("default",)), "(o)")
+        if collection == "/":
+            print("No default keyring")
+            return 1
+        (locked,) = call(collection, "org.freedesktop.DBus.Properties", "Get",
+                         GLib.Variant("(ss)", ("org.freedesktop.Secret.Collection", "Locked")), "(v)")
+        if action == "status":
+            print("locked" if locked else "unlocked")
+            return 0
+        if action == "lock":
+            _, prompt = call(service, "org.freedesktop.Secret.Service", "Lock",
+                             GLib.Variant("(ao)", ([collection],)), "(aoo)")
+            print("Keyring locked" if wait_for_prompt(prompt) else "Keyring still unlocked")
+            return 0
+        if not locked:
+            print("Keyring already unlocked")
+            return 0
+        bring_here()
+        _, prompt = call(service, "org.freedesktop.Secret.Service", "Unlock",
+                         GLib.Variant("(ao)", ([collection],)), "(aoo)")
+        if wait_for_prompt(prompt):
+            print("Keyring unlocked")
+            return 0
+        print("Keyring still locked")
+        return 1
+    except GLib.Error as error:
+        print(f"No keyring answers on the Secret Service: {error.message}")
+        return 1
+
+
+def main():
+    match sys.argv[1:]:
+        case [] | ["here"]:
+            bring_here()
+        case ["where"]:
+            where()
+        case ["keyring", ("status" | "lock" | "unlock") as action]:
+            sys.exit(keyring(action))
+        case _:
+            print(__doc__.strip(), file=sys.stderr)
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

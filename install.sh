@@ -225,6 +225,10 @@ jq                jq                      jq                          jq        
 python3           python                  python3                     python3                   python3                   python3
 notify-send       libnotify               libnotify-bin               libnotify                 libnotify-tools           libnotify
 gtk-launch        gtk3                    libgtk-3-bin                gtk3                      gtk3-tools                gtk+3.0
+python-gi         python-gobject          python3-gi                  python3-gobject           python3-gobject           py3-gobject3
+gtk4              gtk4                    gir1.2-gtk-4.0              gtk4                      typelib-1_0-Gtk-4_0       gtk4.0
+libadwaita        libadwaita              gir1.2-adw-1                libadwaita                typelib-1_0-Adw-1         libadwaita
+ss                iproute2                iproute2                    iproute                   iproute2                  iproute2
 xdg-user-dirs     xdg-user-dirs           xdg-user-dirs               xdg-user-dirs             xdg-user-dirs             xdg-user-dirs
 sounds            sound-theme-freedesktop sound-theme-freedesktop     sound-theme-freedesktop   sound-theme-freedesktop   sound-theme-freedesktop
 grim              grim                    grim                        grim                      grim                      grim
@@ -370,6 +374,9 @@ verify() {  # are the pieces Brasa relies on really there?
     command -v $c >/dev/null || miss+=($c)
   done
   [ ${#miss[@]} -gt 0 ] && problem "Missing commands after installing: ${miss[*]}"
+  python3 -c 'import gi; gi.require_version("Gtk", "4.0"); gi.require_version("Adw", "1")
+from gi.repository import Adw, Gtk' 2>/dev/null ||
+    problem "Python cannot load GTK 4 and libadwaita (python-gobject, gtk4, libadwaita): the Sessions, Clean and Keys windows need them"
   case $WM in
     swayfx|both)
       if ! command -v sway >/dev/null; then problem "sway/SwayFX is not installed"

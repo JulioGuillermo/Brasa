@@ -34,6 +34,7 @@
 #   on                           the default mode (REMOTE_DEFAULT, "session" unless changed)
 #   off                          stop screen / mirror / take (the session keeps running)
 #   status                       what is running, where to connect, who is connected
+#   state                        the same as JSON (for the Sessions window)
 #   setup                        (re)create keys and config; done automatically the first time
 #   help                         this help
 #
@@ -456,6 +457,39 @@ session_restart_note() {
   session_running && echo "(follows the viewer or not from the next start: brasa-remote session stop, then session)"
 }
 
+viewers() {  # SOCKET: how many viewers are connected to that wayvnc
+  wayvncctl -j -S "$1" client-list 2>/dev/null | jq length 2>/dev/null || echo 0
+}
+installed_wms() {
+  local wms=()
+  command -v sway >/dev/null && wms+=(sway)
+  command -v Hyprland >/dev/null && wms+=(hyprland)
+  printf '%s\n' "${wms[@]}" | jq -R . | jq -s -c .
+}
+ssh_state() {
+  local u
+  u=$(ssh_unit 2>/dev/null) || { echo '{"installed": false}'; return; }
+  local port; port=$(sshd -T 2>/dev/null | awk '$1 == "port" { print $2; exit }')
+  jq -n -c --argjson running "$(systemctl -q is-active "$u" && echo true || echo false)" \
+    --argjson at_boot "$(systemctl -q is-enabled "$u" 2>/dev/null && echo true || echo false)" \
+    --argjson port "${port:-22}" '{installed: true, $running, $at_boot, $port}'
+}
+state_json() {  # everything the session window shows, as JSON
+  local size=auto mode=off share_viewers=0 session_viewers=0
+  [ "$REMOTE_RESIZE" = no ] && size=$REMOTE_SIZE
+  if running; then mode=$(cat "$STATE/mode" 2>/dev/null); share_viewers=$(viewers "$STATE/wayvnc.sock"); fi
+  session_running && session_viewers=$(viewers "$STATE/session.sock")
+  jq -n \
+    --argjson running "$(session_running && echo true || echo false)" \
+    --argjson at_boot "$(session_at_boot && echo true || echo false)" \
+    --arg wm "$REMOTE_WM" --argjson wms "$(installed_wms)" --arg size "$size" --arg scale "$REMOTE_SCALE" \
+    --arg address "$(address 2>/dev/null)" --argjson port "$REMOTE_PORT" --argjson viewers "$session_viewers" \
+    --arg mode "${mode:-off}" --argjson local_port "$REMOTE_LOCAL_PORT" --argjson share_viewers "$share_viewers" \
+    --argjson ssh "$(ssh_state)" \
+    '{session: {$running, $at_boot, $wm, $wms, $size, $scale, $address, $port, $viewers},
+      share: {$mode, port: $local_port, viewers: $share_viewers}, $ssh}'
+}
+
 session() {
   case ${1:-start} in
     size)
@@ -558,6 +592,7 @@ $(also_on local)"
     running || session_running || echo "off (all modes)"
     ssh_cmd status
     session_at_boot || echo "remote session ($REMOTE_WM) does not start at boot ('brasa-remote session boot')" ;;
+  state) state_json ;;
   # ---- internal
   _session-vnc)   # inside the remote session: size the virtual output and serve it
     # (settings are read from remote.conf here, so changing them only needs a session restart)
