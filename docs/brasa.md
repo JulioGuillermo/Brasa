@@ -143,7 +143,8 @@ packages are missing. Running `./install.sh` again after fixing is safe.
 **Dependencies** (logical names): waybar, swaync, fuzzel, rofi, nwg-bar, swaybg, swaylock,
 swayidle, nm-applet, blueman, brightnessctl, playerctl, wireplumber, paplay, pavucontrol, jq,
 python3, notify-send, gtk-launch, xdg-user-dirs, freedesktop sounds, grim, slurp, wl-clipboard,
-cliphist, Thunar, polkit agent, xdg portals (gtk, wlr, hyprland), wtype, wdisplays, wlr-randr, starship, wayvnc,
+cliphist, Thunar and its thumbnails (tumbler, ffmpegthumbnailer, poppler-glib, webp-pixbuf-loader),
+polkit agent, xdg portals (gtk, wlr, hyprland), wtype, wdisplays, wlr-randr, starship, wayvnc,
 openssl, btop, psmisc,
 hyprlock, swayosd, foot, Hack Nerd Font, and the window manager: SwayFX and/or Hyprland.
 With zsh: zsh, fzf and git.

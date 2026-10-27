@@ -232,6 +232,10 @@ slurp             slurp                   slurp                       slurp     
 wl-clipboard      wl-clipboard            wl-clipboard                wl-clipboard              wl-clipboard              wl-clipboard
 cliphist          cliphist                cliphist                    cliphist                  cliphist                  cliphist
 thunar            thunar                  thunar                      Thunar                    thunar                    thunar
+tumbler           tumbler                 tumbler                     tumbler                   tumbler                   tumbler
+thumbs-video      ffmpegthumbnailer       ffmpegthumbnailer           ffmpegthumbnailer         ffmpegthumbnailer         ffmpegthumbnailer
+thumbs-extra      poppler-glib            tumbler-plugins-extra       poppler-glib              libpoppler-glib8          poppler-glib
+thumbs-webp       webp-pixbuf-loader      webp-pixbuf-loader          webp-pixbuf-loader        webp-pixbuf-loader        webp-pixbuf-loader
 polkit-agent      polkit-gnome            mate-polkit|policykit-1-gnome polkit-gnome              polkit-gnome              polkit-gnome
 qt5ct             qt5ct                   qt5ct                       qt5ct                     qt5ct                     -
 kvantum           kvantum                 qt-style-kvantum            kvantum                   kvantum-qt6               kvantum
