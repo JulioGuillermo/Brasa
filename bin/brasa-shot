@@ -1,10 +1,42 @@
 #!/usr/bin/env bash
 # Screenshots named like GNOME's, saved in ~/Pictures/Screenshots and copied to the clipboard.
+#   area   pick an area on a frozen screen (hovers and menus stay as they were)
+#   live   pick an area while the screen keeps moving
+#   full   the whole screen
 dir=$(xdg-user-dir PICTURES 2>/dev/null || echo ~/Pictures)/Screenshots
 mkdir -p "$dir"
 f="$dir/Screenshot From $(date '+%Y-%m-%d %H-%M-%S').png"
+
+pick_area() { slurp -b 00040f88 -c ff0000ff -w 2; }
+
+live_area() {
+  g=$(pick_area) || return 1
+  grim -g "$g" "$f"
+}
+
+frozen_area() {
+  local still pixel_geometry
+  still=$(mktemp --suffix=.png)
+  trap "rm -f '$still'" EXIT
+  grim "$still"
+  coproc FREEZE { exec ~/.local/bin/brasa-freeze "$still"; }
+  if ! read -r left top scale <&"${FREEZE[0]}"; then
+    live_area
+    return
+  fi
+  g=$(pick_area)
+  kill "$FREEZE_PID"
+  [ -n "$g" ] || return 1
+  pixel_geometry=$(awk -v g="$g" -v l="$left" -v t="$top" -v s="$scale" 'BEGIN {
+    split(g, p, /[ ,x]/)
+    printf "%dx%d+%d+%d", p[3] * s, p[4] * s, (p[1] - l) * s, (p[2] - t) * s
+  }')
+  magick "$still" -crop "$pixel_geometry" +repage "$f"
+}
+
 case $1 in
-  area) g=$(slurp -b 00040f88 -c ff0000ff -w 2) || exit 0; grim -g "$g" "$f" ;;
+  area) frozen_area || exit 0 ;;
+  live) live_area || exit 0 ;;
   *)    grim "$f" ;;
 esac
 wl-copy < "$f"

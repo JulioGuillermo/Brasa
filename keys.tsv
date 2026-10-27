@@ -67,9 +67,10 @@ SUPER+ALT	space	wm layout-next	Switch keyboard layout
 SUPER+SHIFT	b	exec ~/.local/bin/brasa-fx blur	Blur on/off
 SUPER+SHIFT	a	exec ~/.local/bin/brasa-fx anim	Animations on/off
 SUPER+SHIFT	f	exec ~/.local/bin/brasa-fx all	All effects on/off
--	Print	exec ~/.local/bin/brasa-shot area	Screenshot of an area
-SUPER+SHIFT	s	exec ~/.local/bin/brasa-shot area	Screenshot of an area
-SHIFT	Print	exec ~/.local/bin/brasa-shot full	Screenshot of the screen
+-	Print	exec ~/.local/bin/brasa-shot area	Screenshot of an area, screen frozen
+SUPER+SHIFT	s	exec ~/.local/bin/brasa-shot area	Screenshot of an area, screen frozen
+SHIFT	Print	exec ~/.local/bin/brasa-shot live	Screenshot of an area, screen moving
+CTRL	Print	exec ~/.local/bin/brasa-shot full	Screenshot of the screen
 # --- Music and volume
 CTRL+SUPER	space	exec swayosd-client --playerctl play-pause	Play / pause
 CTRL+SUPER	Left	exec swayosd-client --playerctl prev	Previous track

@@ -53,6 +53,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-tmpclean` | Finds the leftovers in `/tmp` that nothing uses, and removes them | `~/.local/bin/` |
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
+| `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` picks the area | `~/.local/bin/` |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
 | `bin/brasa-kbd` | Keyboard backlight, for any `*kbd_backlight*` LED: up, down, toggle, set N, get, max | `~/.local/bin/` |
@@ -218,7 +219,7 @@ search; Enter or a click runs it.
 | `Super+Shift+b` | Blur on/off |
 | `Super+Shift+a` | Animations on/off (Hyprland only) |
 | `Super+Shift+f` | All effects on/off |
-| `Print`, `Super+Shift+s` / `Shift+Print` | Screenshot of an area / of the screen |
+| `Print`, `Super+Shift+s` / `Shift+Print` / `Ctrl+Print` | Screenshot of an area on a frozen screen / of an area while it moves / of the screen |
 | `Ctrl+Super+Space` | Play / pause |
 | `Ctrl+Super+←` / `→` | Previous / next track |
 | `Ctrl+Super+↑` / `↓` | Volume up / down |

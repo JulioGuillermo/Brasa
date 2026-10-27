@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Covers every monitor with a still image of the whole layout (a grim capture) until killed.
+# Once the image is on screen, prints the layout's top-left corner and the image's pixels per layout unit.
+exec env LD_PRELOAD=libgtk4-layer-shell.so.0 python3 -W ignore::DeprecationWarning - "$@" <<'EOF'
+import sys
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
+gi.require_version("Gtk4LayerShell", "1.0")
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk
+from gi.repository import Gtk4LayerShell as LayerShell
+
+
+def layout_bounds(monitors):
+    geometries = [monitor.get_geometry() for monitor in monitors]
+    left = min(g.x for g in geometries)
+    top = min(g.y for g in geometries)
+    right = max(g.x + g.width for g in geometries)
+    return left, top, right - left
+
+
+def frozen_window(app, monitor, image, left, top, scale):
+    geometry = monitor.get_geometry()
+    piece = image.new_subpixbuf(
+        round((geometry.x - left) * scale),
+        round((geometry.y - top) * scale),
+        round(geometry.width * scale),
+        round(geometry.height * scale),
+    )
+    window = Gtk.Window(application=app)
+    LayerShell.init_for_window(window)
+    LayerShell.set_namespace(window, "brasa-freeze")
+    LayerShell.set_layer(window, LayerShell.Layer.OVERLAY)
+    LayerShell.set_monitor(window, monitor)
+    LayerShell.set_exclusive_zone(window, -1)
+    for edge in (LayerShell.Edge.TOP, LayerShell.Edge.BOTTOM, LayerShell.Edge.LEFT, LayerShell.Edge.RIGHT):
+        LayerShell.set_anchor(window, edge, True)
+    picture = Gtk.Picture.new_for_paintable(Gdk.Texture.new_for_pixbuf(piece))
+    picture.set_content_fit(Gtk.ContentFit.FILL)
+    window.set_child(picture)
+    window.present()
+
+
+def announce_ready(left, top, scale):
+    print(left, top, scale, flush=True)
+    return GLib.SOURCE_REMOVE
+
+
+def on_activate(app):
+    app.hold()
+    monitors = list(Gdk.Display.get_default().get_monitors())
+    image = GdkPixbuf.Pixbuf.new_from_file(sys.argv[1])
+    left, top, width = layout_bounds(monitors)
+    scale = image.get_width() / width
+    for monitor in monitors:
+        frozen_window(app, monitor, image, left, top, scale)
+    GLib.timeout_add(80, announce_ready, left, top, scale)
+
+
+app = Gtk.Application(application_id="dev.brasa.freeze", flags=Gio.ApplicationFlags.NON_UNIQUE)
+app.connect("activate", on_activate)
+app.run([])
+EOF

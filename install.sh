@@ -228,6 +228,7 @@ gtk-launch        gtk3                    libgtk-3-bin                gtk3      
 python-gi         python-gobject          python3-gi                  python3-gobject           python3-gobject           py3-gobject3
 gtk4              gtk4                    gir1.2-gtk-4.0              gtk4                      typelib-1_0-Gtk-4_0       gtk4.0
 libadwaita        libadwaita              gir1.2-adw-1                libadwaita                typelib-1_0-Adw-1         libadwaita
+gtk4-layer-shell  gtk4-layer-shell        gir1.2-gtk4layershell-1.0   gtk4-layer-shell          typelib-1_0-Gtk4LayerShell-1_0 gtk4-layer-shell
 ss                iproute2                iproute2                    iproute                   iproute2                  iproute2
 xdg-user-dirs     xdg-user-dirs           xdg-user-dirs               xdg-user-dirs             xdg-user-dirs             xdg-user-dirs
 sounds            sound-theme-freedesktop sound-theme-freedesktop     sound-theme-freedesktop   sound-theme-freedesktop   sound-theme-freedesktop
