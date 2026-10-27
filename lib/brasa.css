@@ -1,0 +1,62 @@
+/* Brasa's own windows (Sessions, Clean, Keys): the look of the notification panel */
+:root {
+  --accent-color: #ff3030;
+  --accent-bg-color: #c00000;
+  --accent-fg-color: #ffffff;
+  --window-bg-color: #00040f;
+  --window-fg-color: #ffffff;
+  --view-bg-color: #00040f;
+  --headerbar-bg-color: #00040f;
+  --headerbar-fg-color: #ff0000;
+  --headerbar-shade-color: transparent;
+  --card-bg-color: #0c1838;
+  --card-fg-color: #ffffff;
+  --popover-bg-color: #08122b;
+  --popover-fg-color: #ffffff;
+  --dim-opacity: 0.6;
+}
+
+window, label, entry, button, row { font-family: "Hack Nerd Font Propo", "Hack Nerd Font", sans-serif; }
+.monospace { font-family: "Hack Nerd Font Mono", monospace; }
+
+window.brasa { background: rgba(0, 4, 15, 0.94); border-radius: 10px; }
+window.brasa headerbar { background: transparent; box-shadow: none; min-height: 44px; }
+window.brasa headerbar .title { color: #ff0000; font-weight: bold; font-size: 16px; }
+window.brasa scrolledwindow, window.brasa .navigation-sidebar, window.brasa preferencespage { background: transparent; }
+
+/* Group titles in red, like the panel's titles */
+window.brasa preferencesgroup > box > box.header > box.labels > label.heading,
+window.brasa .group-title { color: #ff0000; font-weight: bold; }
+window.brasa preferencesgroup > box > box.header > box.labels > label.body { color: #5a6a90; opacity: 1; }
+
+/* Cards: the panel's tiles */
+window.brasa .boxed-list, window.brasa .card { background: #0c1838; border-radius: 14px; box-shadow: none; }
+window.brasa .boxed-list > row { background: transparent; }
+window.brasa .boxed-list > row:hover, window.brasa .navigation-sidebar > row:hover { background: rgba(255, 0, 0, 0.12); }
+window.brasa .boxed-list > row .subtitle { color: #5a6a90; }
+
+/* Buttons: night blue, lit red on hover; inside a card, red; the main one solid red */
+window.brasa button.text-button { background: #0c1838; color: #ffffff; border-radius: 10px; }
+window.brasa button.text-button:hover { background: rgba(255, 0, 0, 0.25); color: #ff3030; }
+window.brasa .boxed-list button.text-button { background: rgba(255, 0, 0, 0.15); color: #ff3030; }
+window.brasa .boxed-list button.text-button:hover { background: rgba(255, 0, 0, 0.30); }
+window.brasa button.text-button.destructive-action,
+window.brasa button.text-button.suggested-action { background: #c00000; color: #ffffff; }
+window.brasa button.text-button.destructive-action:hover,
+window.brasa button.text-button.suggested-action:hover { background: #ff0000; color: #ffffff; }
+
+/* Switches and spinners: red */
+window.brasa switch { background: rgba(255, 0, 0, 0.30); }
+window.brasa switch:checked { background: #ff0000; }
+window.brasa switch slider { background: #ffffff; }
+
+/* Search entry */
+window.brasa entry { background: #0c1838; border-radius: 10px; color: #ffffff; }
+window.brasa entry image { color: #ff0000; }
+
+/* Key bindings window: the keys in red, the command dimmed */
+window.brasa .keys { color: #ff0000; font-weight: bold; }
+window.brasa .navigation-sidebar > row { border-radius: 10px; margin: 0 6px; }
+window.brasa .navigation-sidebar > row:selected { background: rgba(255, 0, 0, 0.22); }
+window.brasa .navigation-sidebar > row:selected .keys { color: #ffffff; }
+window.brasa .runs { color: #5a6a90; }

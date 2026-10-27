@@ -12,6 +12,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk, Pango
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+import brasa_ui  # noqa: E402
 from brasa_binds import CATEGORIES, current_binds  # noqa: E402
 
 RUN_DELAY_MS = 150
@@ -31,14 +32,14 @@ class BindRow(Gtk.ListBoxRow):
         super().__init__()
         self.bind = bind
         self.search_text = " ".join([bind.keys, bind.description, bind.action, bind.category, bind.mode]).lower()
-        keys = label(bind.keys, css=["heading", "monospace"], width_chars=26, max_width_chars=26,
+        keys = label(bind.keys, css=["keys", "monospace"], width_chars=26, max_width_chars=26,
                      ellipsize=Pango.EllipsizeMode.END)
         what = label(bind.description or "—", wrap=True)
         texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
         texts.append(what)
         runs = bind.action + (f"   ·   only in the {bind.mode} mode" if bind.mode else "")
         if runs:
-            texts.append(label(runs, css=["dim-label", "caption", "monospace"],
+            texts.append(label(runs, css=["runs", "caption", "monospace"],
                                ellipsize=Pango.EllipsizeMode.END))
         box = Gtk.Box(spacing=16, margin_top=6, margin_bottom=6, margin_start=12, margin_end=12)
         box.append(keys)
@@ -66,17 +67,11 @@ class KeysWindow(Adw.ApplicationWindow):
         if not binds:
             self.list.set_placeholder(label("No Hyprland or sway running here", xalign=0.5, margin_top=24))
 
-        header = Adw.HeaderBar(title_widget=self.search)
+        header = brasa_ui.header(self.search)
         view = Adw.ToolbarView(content=Gtk.ScrolledWindow(child=self.list, vexpand=True))
         view.add_top_bar(header)
         self.set_content(view)
-        self.close_on_escape()
-
-    def close_on_escape(self):
-        shortcuts = Gtk.ShortcutController(scope=Gtk.ShortcutScope.GLOBAL)
-        shortcuts.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"),
-                                                Gtk.CallbackAction.new(lambda *_: self.close())))
-        self.add_controller(shortcuts)
+        brasa_ui.make_brasa(self)
 
     def matches(self, row):
         words = self.search.get_text().lower().split()
@@ -86,7 +81,7 @@ class KeysWindow(Adw.ApplicationWindow):
         if before and before.bind.category == row.bind.category:
             row.set_header(None)
             return
-        row.set_header(label(row.bind.category, css=["title-4"], margin_top=14, margin_bottom=4, margin_start=12))
+        row.set_header(label(row.bind.category, css=["group-title"], margin_top=14, margin_bottom=4, margin_start=12))
 
     def on_search_enter(self, _entry):
         first = next((row for row in self.visible_rows() if row.bind.run), None)
@@ -125,6 +120,7 @@ def toggle(app):
 
 def main():
     app = Adw.Application(application_id="org.brasa.Keys")
+    app.connect("startup", lambda _: brasa_ui.load_style())
     app.connect("activate", toggle)
     app.run([])
 

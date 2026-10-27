@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 TMPCLEAN = os.path.join(os.path.dirname(os.path.realpath(__file__)), "brasa-tmpclean")
 PKEXEC_CANCELLED = (126, 127)
 
@@ -50,6 +51,7 @@ def clean_tmp():
     gi.require_version("Gtk", "4.0")
     gi.require_version("Adw", "1")
     from gi.repository import Adw, Gio, GLib, Gtk
+    import brasa_ui
 
     class TmpWindow(Adw.ApplicationWindow):
         def __init__(self, app):
@@ -57,8 +59,9 @@ def clean_tmp():
             self.entries = []
             self.answered = False
             self.view = Adw.ToolbarView()
-            self.view.add_top_bar(Adw.HeaderBar())
+            self.view.add_top_bar(brasa_ui.header())
             self.set_content(self.view)
+            brasa_ui.make_brasa(self)
             self.show_status("Looking for leftovers…", "Nothing that is open, running or recent is touched",
                              spinner=True)
             self.connect("close-request", self.on_close)
@@ -114,7 +117,8 @@ def clean_tmp():
 
             cancel = Gtk.Button(label="Cancel")
             cancel.connect("clicked", lambda _: self.close())
-            remove = Gtk.Button(label=f"Remove {human(total)}", css_classes=["destructive-action"])
+            remove = Gtk.Button(label=f"Remove {human(total)}")
+            remove.add_css_class("destructive-action")
             remove.connect("clicked", self.on_remove)
             buttons = Gtk.Box(spacing=12, halign=Gtk.Align.END, margin_top=12, margin_bottom=12,
                               margin_start=12, margin_end=12)
@@ -163,6 +167,7 @@ def clean_tmp():
             return False
 
     app = Adw.Application(application_id="org.brasa.Clean")
+    app.connect("startup", lambda _: brasa_ui.load_style())
     app.connect("activate", lambda app: TmpWindow(app).present())
     app.run([])
 

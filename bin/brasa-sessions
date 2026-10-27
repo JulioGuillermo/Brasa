@@ -4,12 +4,16 @@ this session, the remote session, sharing this desktop and the SSH server. Every
 through brasa-follow and brasa-remote."""
 import json
 import os
+import sys
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+import brasa_ui  # noqa: E402
 
 BIN = os.path.dirname(os.path.realpath(__file__))
 REMOTE = os.path.join(BIN, "brasa-remote")
@@ -74,18 +78,12 @@ class SessionsWindow(Adw.ApplicationWindow):
         page.add(self.build_share())
         page.add(self.build_ssh())
         view = Adw.ToolbarView(content=page)
-        view.add_top_bar(Adw.HeaderBar())
+        view.add_top_bar(brasa_ui.header())
         self.set_content(view)
-        self.close_on_escape()
+        brasa_ui.make_brasa(self)
 
         self.refresh()
         GLib.timeout_add_seconds(REFRESH_SECONDS, self.refresh_periodically)
-
-    def close_on_escape(self):
-        shortcuts = Gtk.ShortcutController()
-        shortcuts.add_shortcut(Gtk.Shortcut.new(Gtk.ShortcutTrigger.parse_string("Escape"),
-                                                Gtk.CallbackAction.new(lambda *_: self.close())))
-        self.add_controller(shortcuts)
 
     def button(self, label, on_click):
         button = Gtk.Button(label=label, valign=Gtk.Align.CENTER)
@@ -245,6 +243,7 @@ class SessionsWindow(Adw.ApplicationWindow):
 
 def main():
     app = Adw.Application(application_id="org.brasa.Sessions")
+    app.connect("startup", lambda _: brasa_ui.load_style())
     app.connect("activate", lambda app: (app.get_active_window() or SessionsWindow(app)).present())
     app.run([])
 

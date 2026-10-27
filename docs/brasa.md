@@ -45,6 +45,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-bar` | Starts waybar, one bar per monitor: folded on narrow monitors | `~/.local/bin/` |
 | `bin/brasa-hz-real` | Switches the bar's Hz between the real rate and the compositor's mode | `~/.local/bin/` |
 | `bin/brasa-keys` | Key bindings window (`Super+F1`): every binding the window manager really has, by kind | `~/.local/bin/` |
+| `lib/brasa_ui.py`, `lib/brasa.css` | The look of Brasa's own windows (the notification panel's), and no window buttons under Hyprland or sway (Escape closes) | read from `~/.config/brasa` |
 | `lib/brasa_binds.py` | Reads those bindings from Hyprland (`hyprctl binds` and the Lua files) or sway (its config) | read from `~/.config/brasa` |
 | `bin/brasa-sessions` | Sessions window (`Super+Ctrl+s`): remote session, sharing, SSH, dialogs and keyring here | `~/.local/bin/` |
 | `bin/brasa-follow` | Sends the dialogs of the user's D-Bus (passwords, keyring, portals) to this session; locks and unlocks the keyring | `~/.local/bin/` |
