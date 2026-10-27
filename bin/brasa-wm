@@ -2,6 +2,17 @@
 # Window actions that work the same in sway/SwayFX and Hyprland. Usage: brasa-wm <verb> [arg]
 verb=$1 arg=$2
 LAYOUTS=${XDG_STATE_HOME:-$HOME/.local/state}/brasa/workspace-layouts   # Hyprland: "workspace layout" lines
+
+# fuzzel list of MENU_NAMES with the current layout preselected; prints the picked one's MENU_IDS entry
+pick_layout() {
+  local current=$1 i selected=0 picked
+  for i in "${!MENU_IDS[@]}"; do
+    [ "${MENU_IDS[$i]}" = "$current" ] && selected=$i
+  done
+  picked=$(printf '%s\n' "${MENU_NAMES[@]}" |
+    fuzzel --dmenu --index --prompt "Layout  " --width 36 --lines ${#MENU_IDS[@]} --select-index "$selected")
+  [ -n "$picked" ] && [ "$picked" -ge 0 ] && echo "${MENU_IDS[$picked]}"
+}
 if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
   d() { hyprctl -q dispatch "$1"; }
 
@@ -100,6 +111,9 @@ if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
                  save_layout "$ws" "$next"
                  ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $ws: ${LAYOUT_NAMES[$next]}" ;;
     layout-current) saved_layout "$(hyprctl activeworkspace -j | jq -r .id)" ;;   # for the control panel
+    layout-menu) MENU_IDS=("${LAYOUT_ORDER[@]}") MENU_NAMES=()
+                 for l in "${LAYOUT_ORDER[@]}"; do MENU_NAMES+=("${LAYOUT_NAMES[$l]}"); done
+                 picked=$(pick_layout "$("$0" layout-current)") && "$0" layout-set "$picked" ;;
     dpms)        d "hl.dsp.dpms({ action = \"$arg\" })" ;;
     remote-keys) if [ "$(hyprctl submap | head -1)" = remote ]; then d 'hl.dsp.submap("reset")'; msg=off
                  else d 'hl.dsp.submap("remote")'; msg="on · Ctrl+Super+Esc to leave"; fi
@@ -131,6 +145,9 @@ else
     layout-current) # the focused workspace's layout: splith, splitv, tabbed or stacking
                  swaymsg -t get_tree | jq -r '[.. | objects | select(.type? == "workspace" and any(.. ; .focused? == true))][0].layout' |
                    sed 's/^stacked$/stacking/' ;;   # the tree says "stacked", the command "stacking"
+    layout-menu) MENU_IDS=(splith splitv tabbed stacking)
+                 MENU_NAMES=("side by side" "one above the other" "tabs" "stacked")
+                 picked=$(pick_layout "$("$0" layout-current)") && "$0" layout-set "$picked" ;;
     layout-cycle|layout-set) # sway's own layouts for the focused workspace, like Hyprland's per workspace: side by
                  # side (splith), one above the other (splitv), tabs (tabbed), stacked titles (stacking).
                  # Super+w goes through them; the panel sets one (Hyprland's names map to the nearest)

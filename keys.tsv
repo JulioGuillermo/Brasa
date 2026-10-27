@@ -29,6 +29,7 @@ SUPER+SHIFT	q	wm kill	Kill the app (kill -9)
 SUPER	f	wm fullscreen	Fullscreen
 SUPER	space	wm float	Toggle floating / tiled
 SUPER	w	wm layout-cycle	Window layout, next one. Hyprland (this workspace): dwindle, master, scrolling side by side, scrolling one above the other, focus side by side, focus one above the other. sway (this workspace): side by side, one above the other, tabs, stacked
+SUPER+SHIFT	w	exec ~/.local/bin/brasa-wm layout-menu	Window layout: pick one from a list
 SUPER	Left	wm focus left	Focus left
 SUPER	Right	wm focus right	Focus right
 SUPER	Up	wm focus up	Focus up
