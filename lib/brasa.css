@@ -34,6 +34,7 @@ window.brasa .boxed-list, window.brasa .card { background: #0c1838; border-radiu
 window.brasa .boxed-list > row { background: transparent; }
 window.brasa .boxed-list > row:hover, window.brasa .navigation-sidebar > row:hover { background: rgba(255, 0, 0, 0.12); }
 window.brasa .boxed-list > row .subtitle { color: #5a6a90; }
+window.brasa .boxed-list > row label.title { color: #ff3030; }
 
 /* Buttons: night blue, lit red on hover; inside a card, red; the main one solid red */
 window.brasa button.text-button { background: #0c1838; color: #ffffff; border-radius: 10px; }
@@ -60,3 +61,6 @@ window.brasa .navigation-sidebar > row { border-radius: 10px; margin: 0 6px; }
 window.brasa .navigation-sidebar > row:selected { background: rgba(255, 0, 0, 0.22); }
 window.brasa .navigation-sidebar > row:selected .keys { color: #ffffff; }
 window.brasa .runs { color: #5a6a90; }
+
+/* The title keeps its red when the window is not focused */
+window.brasa toolbarview > .top-bar:backdrop > windowhandle, window.brasa headerbar:backdrop > windowhandle { filter: none; }
