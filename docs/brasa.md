@@ -190,7 +190,7 @@ The cheat sheet (`Super+F1`) reads the same file, so it is always current; Enter
 | `Super+Shift+q` | Kill the focused window's app (`kill -9` to its PID, nothing else) |
 | `Super+f` | Fullscreen |
 | `Super+Space` | Floating / tiled |
-| `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like columns on a strip you scroll through), remembered across logins. sway: side by side → one above the other → tabs → stacked |
+| `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like: windows on a strip you scroll through, each half the screen) side by side → scrolling one above the other → focus side by side → focus one above the other (like scrolling, but each window nearly fills the screen and a sliver of its neighbours shows), remembered across logins. sway: side by side → one above the other → tabs → stacked |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |
@@ -591,7 +591,7 @@ choice is lit:
 
 | Menu | Choices |
 |---|---|
-| Layout | the focused workspace's window layout (like `Super+w`), the current one lit. Hyprland: dwindle, master, scrolling. sway: side by side, above/below, tabs, stacked (`config-sway.json`, the panel swaync gets on sway) |
+| Layout | the focused workspace's window layout (like `Super+w`), the current one lit. Hyprland: dwindle, master, scrolling and focus, each side by side (→) or one above the other (↓). sway: side by side, above/below, tabs, stacked (`config-sway.json`, the panel swaync gets on sway) |
 | Battery | charge limit 60 / 80 / 90 / 100 % (laptops that support it, see below) |
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
 | Light | keyboard backlight level, the levels the driver offers (e.g. off, low, medium, high), the current one lit (`brasa-kbd set N`; only on keyboards with a backlight) |

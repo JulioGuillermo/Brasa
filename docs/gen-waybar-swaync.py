@@ -170,10 +170,14 @@ def choice(text, run, current):
 
 MENUS = {
   "menu#layout": {"label": tile("\U000F056E", "Layout"), "position": "left", "actions": [
-      choice(f"{name:<10} {desc}", B + f"brasa-wm layout-set {name.lower()}",
-             f"{B}brasa-wm layout-current | grep -qx {name.lower()}")
-      for name, desc in (("Dwindle", "split the focused window"), ("Master", "one big + a column"),
-                         ("Scrolling", "columns you scroll"))]},
+      choice(f"{name:<10} {desc}", B + f"brasa-wm layout-set {layout}",
+             f"{B}brasa-wm layout-current | grep -qx {layout}")
+      for layout, name, desc in (("dwindle", "Dwindle", "split the focused window"),
+                                 ("master", "Master", "one big + a column"),
+                                 ("scrolling", "Scroll →", "half-screen columns"),
+                                 ("scrolling-down", "Scroll ↓", "half-screen rows"),
+                                 ("focus", "Focus →", "columns, the focused one big"),
+                                 ("focus-down", "Focus ↓", "rows, the focused one big"))]},
 }
 if HAS["charge_limit"]:
     MENUS["menu#battery"] = {"label": tile("\U000F1211", "Battery"), "position": "left", "actions": [

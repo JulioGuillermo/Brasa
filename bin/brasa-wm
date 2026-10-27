@@ -4,6 +4,73 @@ verb=$1 arg=$2
 LAYOUTS=${XDG_STATE_HOME:-$HOME/.local/state}/brasa/workspace-layouts   # Hyprland: "workspace layout" lines
 if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
   d() { hyprctl -q dispatch "$1"; }
+
+  # Hyprland window layouts, per workspace. The scrolling ones put windows on a strip you scroll through:
+  # side by side or one above the other, each window half the screen or, in the focus ones, nearly all of
+  # it, so only a sliver of its neighbours shows
+  LAYOUT_ORDER=(dwindle master scrolling scrolling-down focus focus-down)
+  declare -A LAYOUT_NAMES=(
+    [dwindle]="dwindle" [master]="master" [scrolling]="scrolling, side by side"
+    [scrolling-down]="scrolling, one above the other" [focus]="focus, side by side"
+    [focus-down]="focus, one above the other")
+  FOCUS_WIDTH=0.9
+  saved_layout() {
+    local saved
+    saved=$(awk -v ws="$1" '$1 == ws { print $2 }' "$LAYOUTS" 2>/dev/null)
+    echo "${saved:-dwindle}"
+  }
+  next_layout() {
+    local i
+    for i in "${!LAYOUT_ORDER[@]}"; do
+      if [ "${LAYOUT_ORDER[$i]}" = "$1" ]; then
+        echo "${LAYOUT_ORDER[$(( (i + 1) % ${#LAYOUT_ORDER[@]} ))]}"
+        return
+      fi
+    done
+    echo dwindle
+  }
+  # The Lua rules for a workspace's layout. A focus layout's new windows open nearly full size through a
+  # window rule; leaving it turns that rule off
+  layout_rules() {
+    local ws=$1 layout=$2 algorithm=dwindle direction=right focus=false
+    case $layout in
+      dwindle|master) algorithm=$layout ;;
+      scrolling)      algorithm=scrolling ;;
+      scrolling-down) algorithm=scrolling direction=down ;;
+      focus)          algorithm=scrolling focus=true ;;
+      focus-down)     algorithm=scrolling direction=down focus=true ;;
+    esac
+    if [ "$algorithm" = scrolling ]; then
+      echo "hl.workspace_rule({ workspace = \"$ws\", layout = \"scrolling\", layout_opts = { direction = \"$direction\" } })"
+    else
+      echo "hl.workspace_rule({ workspace = \"$ws\", layout = \"$algorithm\" })"
+    fi
+    echo "hl.window_rule({ name = \"brasa-focus-$ws\", match = { workspace = \"$ws\" }, scrolling_width = $FOCUS_WIDTH, enabled = $focus })"
+  }
+  # Hyprland keeps a scrolling workspace's direction until its layout changes, so it goes through dwindle;
+  # then every window gets the layout's width (windows opened in a focus layout keep its width otherwise)
+  apply_layout() {
+    local ws=$1 layout=$2 width
+    hyprctl -q eval "hl.workspace_rule({ workspace = \"$ws\", layout = \"dwindle\" })"
+    hyprctl -q eval "$(layout_rules "$ws" "$layout")"
+    case $layout in
+      focus|focus-down)         width=$FOCUS_WIDTH ;;
+      scrolling|scrolling-down) width=$(hyprctl getoption scrolling:column_width -j | jq -r .float) ;;
+      *)                        return ;;
+    esac
+    d "hl.dsp.layout(\"colresize all $width\")"
+  }
+  # Remembered per workspace in a rules file hyprland.lua loads (dwindle, the default, is not written)
+  save_layout() {
+    local ws=$1 layout=$2 w l
+    mkdir -p "$(dirname "$LAYOUTS")"; touch "$LAYOUTS"
+    { grep -v "^$ws " "$LAYOUTS"; [ "$layout" = dwindle ] || echo "$ws $layout"; } | sort -n > "$LAYOUTS.new"
+    mv "$LAYOUTS.new" "$LAYOUTS"
+    { echo "-- Written by brasa-wm (Super+w): each workspace's window layout"
+      while read -r w l; do layout_rules "$w" "$l"; done < "$LAYOUTS"
+    } > "${LAYOUTS%/*}/workspace-layouts.lua"
+  }
+
   case $verb in
     close)       d 'hl.dsp.window.close()' ;;
     kill)        d 'hl.dsp.window.kill()' ;;
@@ -19,23 +86,15 @@ if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
                  ~/.local/bin/brasa-osd input-keyboard-symbolic "$(hyprctl devices -j | jq -r '[.keyboards[] | select(.main)][0].active_keymap')" ;;
     reload)      ~/.local/bin/brasa-gen >/dev/null; hyprctl -q reload; sleep 0.5   # the reload finishes asynchronously
                  ~/.local/bin/brasa-fx restore; ~/.local/bin/brasa-monitors apply --settle ;;
-    layout-cycle|layout-set) # the focused workspace's layout: dwindle (each window splits the focused one),
-                 # master (one big + a column) or scrolling (niri-like columns on a strip you scroll through)
+    layout-cycle|layout-set) # the focused workspace's layout, see LAYOUT_ORDER
                  ws=$(hyprctl activeworkspace -j | jq -r .id)
                  if [ "$verb" = layout-set ]; then next=$arg
-                 else case $(hyprctl activeworkspace -j | jq -r .tiledLayout) in
-                        dwindle) next=master ;; master) next=scrolling ;; *) next=dwindle ;; esac; fi
-                 case $next in dwindle|master|scrolling) ;; *) echo "layout: dwindle, master or scrolling" >&2; exit 1 ;; esac
-                 hyprctl -q eval "hl.workspace_rule({ workspace = \"$ws\", layout = \"$next\" })"
-                 # Remembered per workspace in a rules file hyprland.lua loads (dwindle, the default, is not written)
-                 mkdir -p "$(dirname "$LAYOUTS")"; touch "$LAYOUTS"
-                 { grep -v "^$ws " "$LAYOUTS"; [ "$next" = dwindle ] || echo "$ws $next"; } | sort -n > "$LAYOUTS.new"
-                 mv "$LAYOUTS.new" "$LAYOUTS"
-                 { echo "-- Written by brasa-wm (Super+w): each workspace's window layout"
-                   while read -r w l; do echo "hl.workspace_rule({ workspace = \"$w\", layout = \"$l\" })"; done < "$LAYOUTS"
-                 } > "${LAYOUTS%/*}/workspace-layouts.lua"
-                 ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $ws: $next" ;;
-    layout-current) hyprctl activeworkspace -j | jq -r .tiledLayout ;;   # for the control panel
+                 else next=$(next_layout "$(saved_layout "$ws")"); fi
+                 [[ " ${LAYOUT_ORDER[*]} " == *" $next "* ]] || { echo "layout: ${LAYOUT_ORDER[*]}" >&2; exit 1; }
+                 apply_layout "$ws" "$next"
+                 save_layout "$ws" "$next"
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $ws: ${LAYOUT_NAMES[$next]}" ;;
+    layout-current) saved_layout "$(hyprctl activeworkspace -j | jq -r .id)" ;;   # for the control panel
     dpms)        d "hl.dsp.dpms({ action = \"$arg\" })" ;;
     remote-keys) if [ "$(hyprctl submap | head -1)" = remote ]; then d 'hl.dsp.submap("reset")'; msg=off
                  else d 'hl.dsp.submap("remote")'; msg="on · Ctrl+Super+Esc to leave"; fi
@@ -71,7 +130,7 @@ else
                  # side (splith), one above the other (splitv), tabs (tabbed), stacked titles (stacking).
                  # Super+w goes through them; the panel sets one (Hyprland's names map to the nearest)
                  if [ "$verb" = layout-set ]; then
-                   case $arg in splitv) l=splitv ;; tabbed|scrolling) l=tabbed ;; stacking) l=stacking ;; *) l=splith ;; esac
+                   case $arg in splitv|scrolling-down|focus-down) l=splitv ;; tabbed|scrolling|focus) l=tabbed ;; stacking) l=stacking ;; *) l=splith ;; esac
                  else
                    case $("$0" layout-current) in splith) l=splitv ;; splitv) l=tabbed ;; tabbed) l=stacking ;; *) l=splith ;; esac
                  fi
