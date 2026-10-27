@@ -15,8 +15,8 @@ every process and also removes root's entries (and, with --all-users, everyone's
 
 Usage: brasa-tmpclean [--yes] [--age MINUTES] [--all-users] [--dir /tmp]
        sudo brasa-tmpclean --yes          also root's leftovers
-       brasa-tmpclean --ask               for brasa-clean: prints "bytes<TAB>name" per entry and an empty
-                                          line, then removes them if "yes" comes on stdin
+       brasa-tmpclean --ask               for brasa-clean: prints "started", then "bytes<TAB>name" per entry
+                                          and an empty line, then removes them if "yes" comes on stdin
 Without --yes it only lists what it would remove.
 """
 import argparse, os, pwd, re, shutil, stat, sys, time
@@ -195,6 +195,7 @@ def remove_all(base, names):
 
 
 def ask(base, owners, age):
+    print("started", flush=True)
     found, _, _ = leftovers(base, owners, age)
     for name, size in found:
         print(f"{size}\t{name}")

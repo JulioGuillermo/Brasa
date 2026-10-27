@@ -72,7 +72,16 @@ def clean_tmp():
             self.process = Gio.Subprocess.new(["pkexec", TMPCLEAN, "--ask", "--all-users"], flags)
             self.stdin = self.process.get_stdin_pipe()
             self.stdout = Gio.DataInputStream.new(self.process.get_stdout_pipe())
-            self.stdout.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_listed_line)
+            self.stdout.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_started)
+
+        def on_started(self, stream, result):
+            """Shows the window once the password was accepted (pkexec has started brasa-tmpclean)."""
+            line, _ = stream.read_line_finish_utf8(result)
+            if line is None:
+                self.process.wait_async(None, self.on_ended_early)
+                return
+            self.present()
+            stream.read_line_async(GLib.PRIORITY_DEFAULT, None, self.on_listed_line)
 
         def on_listed_line(self, stream, result):
             line, _ = stream.read_line_finish_utf8(result)
@@ -89,9 +98,10 @@ def clean_tmp():
         def on_ended_early(self, process, result):
             process.wait_finish(result)
             if process.get_exit_status() in PKEXEC_CANCELLED:
-                self.close()
+                self.get_application().quit()
                 return
             self.show_status("Could not look into /tmp", f"{os.path.basename(TMPCLEAN)} failed")
+            self.present()
 
         def show_status(self, title, description, spinner=False):
             page = Adw.StatusPage(title=title, description=description)
@@ -168,7 +178,7 @@ def clean_tmp():
 
     app = Adw.Application(application_id="org.brasa.Clean")
     app.connect("startup", lambda _: brasa_ui.load_style())
-    app.connect("activate", lambda app: TmpWindow(app).present())
+    app.connect("activate", TmpWindow)
     app.run([])
 
 
