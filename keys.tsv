@@ -60,6 +60,7 @@ SUPER	Escape	exec ~/.local/bin/brasa-lock	Lock screen
 CTRL+SUPER	Escape	wm remote-keys	Remote keyboard on/off: every key goes to the window (automatic in VNC/RDP viewers)
 SUPER+SHIFT	r	wm reload	Reload the window manager
 SUPER+CTRL	r	exec ~/.local/bin/brasa-reload	Reload bar, notifications and menus
+SUPER+CTRL	c	exec ~/.local/bin/brasa-clean menu	Clean: /tmp or RAM
 SUPER+CTRL	s	exec ~/.local/bin/brasa-sessions	Sessions: remote session, sharing, SSH, dialogs and keyring here
 SUPER+ALT	space	wm layout-next	Switch keyboard layout
 SUPER+SHIFT	b	exec ~/.local/bin/brasa-fx blur	Blur on/off

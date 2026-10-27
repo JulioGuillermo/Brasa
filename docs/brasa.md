@@ -49,7 +49,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `lib/brasa_binds.py` | Reads those bindings from Hyprland (`hyprctl binds` and the Lua files) or sway (its config) | read from `~/.config/brasa` |
 | `bin/brasa-sessions` | Sessions window (`Super+Ctrl+s`): remote session, sharing, SSH, dialogs and keyring here | `~/.local/bin/` |
 | `bin/brasa-follow` | Sends the dialogs of the user's D-Bus (passwords, keyring, portals) to this session; locks and unlocks the keyring | `~/.local/bin/` |
-| `bin/brasa-clean` | Clean menu: a window to clean `/tmp`, and freeing RAM | `~/.local/bin/` |
+| `bin/brasa-clean` | Clean menu (`Super+Ctrl+c`): a window to clean `/tmp`, and freeing RAM | `~/.local/bin/` |
 | `bin/brasa-tmpclean` | Finds the leftovers in `/tmp` that nothing uses, and removes them | `~/.local/bin/` |
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
@@ -195,6 +195,7 @@ search; Enter or a click runs it.
 | `Super+n` | Notification panel |
 | `Super+F1` | Key bindings window |
 | `Super+Ctrl+s` | Sessions window |
+| `Super+Ctrl+c` | Clean: /tmp or RAM |
 | `Super+.` | Emoji picker |
 | `Super+p` | Displays and monitors |
 | `Super+Alt+r` | Screen refresh rate menu |

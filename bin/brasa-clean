@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Frees space: brasa-clean tmp | ram
+"""Frees space: brasa-clean [menu] | tmp | ram
 
+menu a small menu to pick one of these (Super+Ctrl+c)
 tmp  a window listing the leftovers in /tmp that nothing uses (brasa-tmpclean, as root through pkexec),
      removed once you confirm
 ram  drops the kernel's page cache (asks for the password) and tells how much was freed
@@ -182,8 +183,19 @@ def clean_tmp():
     app.run([])
 
 
+def menu():
+    choices = {"\U000F0A7A  Clean /tmp…": clean_tmp, "\U000F035B  Free RAM (page cache)": free_ram}
+    picked = subprocess.run(["fuzzel", "--dmenu", "--prompt", "\U000F00E2  ", "--width", "32",
+                             "--lines", str(len(choices))],
+                            input="\n".join(choices), capture_output=True, text=True).stdout.strip()
+    if picked in choices:
+        choices[picked]()
+
+
 def main():
     match sys.argv[1:]:
+        case [] | ["menu"]:
+            menu()
         case ["tmp"]:
             clean_tmp()
         case ["ram"]:
