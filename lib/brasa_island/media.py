@@ -1,18 +1,15 @@
 """The island's media module: what is playing, with cover, progress, controls and volume.
 Gives two views: `peek` (one line, shown for a moment when the track or play/pause changes) and `full`."""
 import time
-import urllib.parse
 
 from gi.repository import GLib, Gtk, Pango
 
-from . import cover, volume, youtube
+from . import cover, volume
 from .players import PLAYING, Players, metadata
-from .stopwatch import Stopwatch
 
 POLL_MS = 500
 VOLUME_WRITE_MS = 40
 USER_HOLD_SECONDS = 0.8
-REPORTED_POSITION_MIN = 1.0
 FULL_COVER = 84
 PEEK_COVER = 28
 PLACEHOLDER_ICON = "audio-x-generic-symbolic"
@@ -23,11 +20,6 @@ def clock(seconds: float) -> str:
     if seconds >= 3600:
         return f"{seconds // 3600}:{seconds // 60 % 60:02}:{seconds % 60:02}"
     return f"{seconds // 60}:{seconds % 60:02}"
-
-
-def source_name(player, data) -> str:
-    site = urllib.parse.urlparse(data.get("xesam:url", "")).hostname
-    return site or player.props.player_name
 
 
 def label(css, xalign=0.0, chars=None):
@@ -63,8 +55,9 @@ class Cover(Gtk.Box):
 
 
 class Media:
-    def __init__(self, on_peek):
+    def __init__(self, on_peek, on_resize):
         self.on_peek = on_peek
+        self.on_resize = on_resize
         self.shown = False
         self.poll_source = 0
         self.volume_source = 0
@@ -72,9 +65,6 @@ class Media:
         self.volume_hold_until = 0.0
         self.cover_url = None
         self.covers = []
-        self.stopwatch = Stopwatch()
-        self.length_reported = False
-        self.length_found = 0.0
         self.peek = self.build_peek()
         self.full = self.build_full()
         self.players = Players(self.on_players_change)
@@ -113,13 +103,9 @@ class Media:
         self.length = label(["island-time"])
         self.progress = Gtk.Scale(hexpand=True, css_classes=["island-progress"], draw_value=False)
         self.progress.connect("change-value", self.on_seek)
-        bar = Gtk.Box(spacing=8)
+        self.progress_row = Gtk.Box(spacing=8)
         for child in (self.position, self.progress, self.length):
-            bar.append(child)
-        self.no_time = label(["island-time"], xalign=0.5)
-        self.progress_row = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
-        self.progress_row.add_named(bar, "bar")
-        self.progress_row.add_named(self.no_time, "no-time")
+            self.progress_row.append(child)
         progress = self.progress_row
 
         self.play = round_button("media-playback-start-symbolic", ["island-play"], self.play_pause)
@@ -154,11 +140,6 @@ class Media:
             self.poll_source = GLib.timeout_add(POLL_MS, self.poll)
 
     def on_players_change(self, reason):
-        if reason in ("track", "player"):
-            self.length_found = 0.0
-            self.stopwatch.restart(self.playing())
-        if reason == "status":
-            self.stopwatch.run(self.playing())
         self.refresh()
         if reason in ("track", "status"):
             self.on_peek()
@@ -176,39 +157,20 @@ class Media:
         self.artist.set_text(artists)
         self.peek_artist.set_text(artists)
         self.album.set_text(data.get("xesam:album", ""))
-        self.no_time.set_text(f"{source_name(player, data)} does not say how long this lasts")
-        self.show_length(self.track_length(data))
+        self.show_length(data.get("mpris:length", 0) / 1e6)
         state = "media-playback-pause-symbolic" if player.props.playback_status == PLAYING else "media-playback-start-symbolic"
         self.play.set_icon_name(state)
         self.peek_state.set_from_icon_name(state)
         self.load_cover(cover.cover_url(data))
-
-    def playing(self) -> bool:
-        player = self.players.current
-        return player is not None and player.props.playback_status == PLAYING
-
-    def track_length(self, data) -> float:
-        reported = data.get("mpris:length", 0) / 1e6
-        self.length_reported = reported > 0
-        if self.length_reported:
-            return reported
-        if not self.length_found:
-            youtube.look_up_length(data.get("xesam:url", ""), self.on_length_found)
-        return self.length_found
-
-    def on_length_found(self, page_url, seconds):
-        player = self.players.current
-        if player is None or metadata(player).get("xesam:url") != page_url:
-            return
-        self.length_found = seconds
-        self.refresh()
 
     def show_length(self, seconds):
         known = seconds > 0
         self.progress.set_sensitive(known)
         self.progress.set_range(0, seconds if known else 1)
         self.length.set_text(clock(seconds) if known else "")
-        self.progress_row.set_visible_child_name("bar" if known or self.players.current is None else "no-time")
+        if self.progress_row.get_visible() != known:
+            self.progress_row.set_visible(known)
+            self.on_resize()
         if not known:
             self.progress.set_value(0)
 
@@ -238,27 +200,18 @@ class Media:
     def poll(self):
         now = time.monotonic()
         player = self.players.current
-        if player is not None and not self.length_reported and metadata(player).get("mpris:length"):
+        if player is not None and not self.progress.get_sensitive() and metadata(player).get("mpris:length"):
             self.refresh()
         if player is not None and self.progress.get_sensitive() and now > self.seek_hold_until:
-            self.show_position(player)
+            try:
+                seconds = player.get_position() / 1e6
+                self.progress.set_value(seconds)
+                self.position.set_text(clock(seconds))
+            except GLib.Error:
+                self.position.set_text("")
         if now > self.volume_hold_until:
             self.volume.set_value(volume.read())
         return GLib.SOURCE_CONTINUE
-
-    def show_position(self, player):
-        try:
-            reported = player.get_position() / 1e6
-        except GLib.Error:
-            reported = 0.0
-        if self.length_reported or reported >= REPORTED_POSITION_MIN:
-            self.stopwatch.set(reported, self.playing())
-            self.progress.set_value(reported)
-            self.position.set_text(clock(reported))
-            return
-        counted = min(self.stopwatch.seconds(), self.progress.get_adjustment().get_upper())
-        self.progress.set_value(counted)
-        self.position.set_text("~" + clock(counted))
 
     def on_seek(self, _scale, _scroll, seconds):
         player = self.players.current
@@ -266,7 +219,6 @@ class Media:
             return True
         self.seek_hold_until = time.monotonic() + USER_HOLD_SECONDS
         self.position.set_text(clock(seconds))
-        self.stopwatch.set(seconds, self.playing())
         try:
             player.set_position(int(seconds * 1e6))
         except GLib.Error:

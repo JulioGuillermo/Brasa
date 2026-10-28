@@ -32,9 +32,13 @@ class IslandApp(Gtk.Application):
         provider.load_from_path(STYLE)
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider,
                                                   Gtk.STYLE_PROVIDER_PRIORITY_USER)
-        media = Media(on_peek=lambda: self.island.peek())
+        media = Media(on_peek=lambda: self.island.peek(), on_resize=self.fit_island)
         self.island = Island(self, config.load(), media)
         self.island.present()
+
+    def fit_island(self):
+        if self.island is not None:
+            self.island.fit()
 
     def do_command_line(self, command_line):
         if self.island is None:

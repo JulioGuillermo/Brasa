@@ -109,7 +109,7 @@ class Island(Gtk.Window):
         layers = Gtk.Overlay(child=self.canvas)
         for state, view in self.views.items():
             view.set_opacity(0)
-            view.set_visible(False)
+            view.set_can_target(False)
             layers.add_overlay(view)
         layers.connect("get-child-position", self.place_view)
         return layers
@@ -137,13 +137,25 @@ class Island(Gtk.Window):
 
     def go(self, state):
         self.state = state
-        for spring, size in zip(self.springs, SIZES[state]):
-            spring.target = size
         self.module.set_shown(state != HIDDEN)
+        self.fit()
+
+    def fit(self):
+        """Retargets the outline to the current state's size, which follows its content's height."""
+        for spring, size in zip(self.springs, self.size_of(self.state)):
+            spring.target = size
         if not self.ticking:
             self.ticking = True
             self.last_frame = None
             self.canvas.add_tick_callback(self.on_frame)
+
+    def size_of(self, state):
+        width, height, shoulder, radius = SIZES[state]
+        if state == HIDDEN:
+            return SIZES[state]
+        from_edge, from_sides = PADDING[state]
+        content = self.views[state].measure(Gtk.Orientation.VERTICAL, width - 2 * from_sides)[1]
+        return width, min(height, content + 2 * from_edge), shoulder, radius
 
     def toggle(self):
         if self.state == FULL:
@@ -217,13 +229,13 @@ class Island(Gtk.Window):
     def fade_views(self, seconds) -> bool:
         fading = False
         for state, view in self.views.items():
-            grown = self.height.value >= CONTENT_SHOWS_AT * SIZES[state][1]
+            grown = self.height.value >= CONTENT_SHOWS_AT * self.size_of(state)[1]
             target = 1.0 if self.state == state and grown else 0.0
             step = seconds / CONTENT_FADE_SECONDS
             opacity = view.get_opacity()
             opacity = min(opacity + step, target) if target > opacity else max(opacity - step, target)
             view.set_opacity(opacity)
-            view.set_visible(opacity > 0)
+            view.set_can_target(opacity > 0)
             fading = fading or opacity != target or (self.state == state and not grown)
         return fading
 
