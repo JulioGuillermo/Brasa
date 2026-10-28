@@ -14,6 +14,7 @@ class Config:
     hover: bool = True
     media: bool = True
     notifications: bool = True
+    notification_centre: bool = True
     peek_seconds: float = 2.5
     color: str = "#0c1838"
 
@@ -52,6 +53,7 @@ def load() -> Config:
     config.hover = switched_on(pairs.get("hover", "on"))
     config.media = switched_on(pairs.get("media", "on"))
     config.notifications = switched_on(pairs.get("notifications", "on"))
+    config.notification_centre = switched_on(pairs.get("notification_centre", "on"))
     try:
         config.peek_seconds = float(pairs.get("peek_seconds", config.peek_seconds))
     except ValueError:
@@ -70,6 +72,7 @@ def save(config: Config):
         f"hover={on_off(config.hover)}",
         f"media={on_off(config.media)}",
         f"notifications={on_off(config.notifications)}",
+        f"notification_centre={on_off(config.notification_centre)}",
         f"peek_seconds={config.peek_seconds:g}",
         f"color={config.color}",
     ]

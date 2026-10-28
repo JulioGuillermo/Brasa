@@ -117,7 +117,7 @@ class Island(Gtk.Window):
     def build(self):
         self.canvas = Gtk.DrawingArea(content_width=WINDOW_WIDTH, content_height=WINDOW_HEIGHT)
         self.canvas.set_draw_func(self.draw)
-        self.empty = Gtk.Label(label="Music and notifications are off (Super+Shift+m)", css_classes=["island-time"])
+        self.empty = Gtk.Label(label="Nothing to show here (Super+Shift+m)", css_classes=["island-time"])
         self.content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=SECTION_SPACING, opacity=0)
         for section in (self.media.widget, self.notifications.widget, self.empty):
             self.content.append(section)
@@ -166,9 +166,10 @@ class Island(Gtk.Window):
 
     def relayout(self):
         media_on = self.config.media
-        notices_on = self.config.notifications and (self.open or self.notifications.has_toasts)
+        centre_on = self.open and self.config.notification_centre
+        notices_on = self.config.notifications and (centre_on or self.notifications.has_toasts)
         show_media = media_on and (self.open or self.peeking or (notices_on and self.media.playing()))
-        show_empty = self.open and not media_on and not self.config.notifications
+        show_empty = self.open and not show_media and not notices_on
         self.media.set_shown(show_media)
         if not (show_media or notices_on or show_empty):
             self.shape = HIDDEN
@@ -206,7 +207,7 @@ class Island(Gtk.Window):
 
     def open_view(self):
         self.open = True
-        self.notifications.set_centre(True)
+        self.notifications.set_centre(self.config.notification_centre)
 
     def close_view(self):
         self.cancel("idle")

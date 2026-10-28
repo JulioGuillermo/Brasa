@@ -457,7 +457,8 @@ between states, even when interrupted halfway. It shows two things, each one can
   pointer on them keeps them.
 - **Open** (`Super+m`, or rest the pointer on the edge, in the middle): the full music view and, below
   it, the notification centre: every notification, newest nearest the music, scrolling, with Do Not
-  Disturb, Clear all and a button that closes the island. `x` on one deletes it.
+  Disturb, Clear all and a button that closes the island. `x` on one deletes it. With the centre off,
+  notifications only pass by and the panel keeps them.
 
 swaync still keeps every notification: the panel (`Super+n`, the bell) shows them as before. While the
 island shows them, swaync's popups exist but are invisible.
@@ -477,6 +478,7 @@ They live in `~/.config/brasa/island.conf`; edited by hand, `Super+Ctrl+r` appli
 ```
 media=on            # the music
 notifications=on    # the notifications, instead of swaync's popups
+notification_centre=on  # off: opening the island shows no list
 edge=top            # top or bottom
 align=center        # left, center or right
 monitor=DP-2        # empty: the focused one when the session starts

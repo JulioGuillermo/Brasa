@@ -14,7 +14,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gtk
+from gi.repository import Adw, Gdk, GObject, Gtk
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 import brasa_ui  # noqa: E402
@@ -108,7 +108,11 @@ class IslandWindow(Adw.ApplicationWindow):
         self.notifications = Adw.SwitchRow(title="Notifications",
                                            subtitle="Instead of the popups; the panel still keeps them all. Switching it clears the list",
                                            active=self.config.notifications)
-        for row in (self.media, self.notifications):
+        self.centre = Adw.SwitchRow(title="Notification centre",
+                                    subtitle="Opening the island lists them all; off: they only pass by, the panel keeps them",
+                                    active=self.config.notification_centre)
+        self.notifications.bind_property("active", self.centre, "sensitive", GObject.BindingFlags.SYNC_CREATE)
+        for row in (self.media, self.notifications, self.centre):
             row.connect("notify::active", self.changed)
             group.add(row)
         return group
@@ -141,6 +145,7 @@ class IslandWindow(Adw.ApplicationWindow):
         self.config.media = self.media.get_active()
         notifications_switched = self.config.notifications != self.notifications.get_active()
         self.config.notifications = self.notifications.get_active()
+        self.config.notification_centre = self.centre.get_active()
         self.config.peek_seconds = self.peek.get_value()
         self.config.color = hex_color(self.color.get_rgba())
         island_config.save(self.config)
