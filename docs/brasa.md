@@ -382,7 +382,12 @@ See [Island](#island) for how they look.
 - **Bell** in the bar: click opens the notification centre (like `Super+n`), right click switches
   "do not disturb". The island writes its state to `$XDG_RUNTIME_DIR/brasa-bell.json` and sends the
   bar signal `RTMIN+8`.
-- The list lives in the island's memory: restarting it (`Super+Ctrl+r`, logging out) empties it.
+- **Closed by their app**: when an app takes a notification back (WhatsApp Web once the chat is read),
+  its toast goes but the notification stays, folded at the bottom of the centre under *Closed by their
+  app · N* (a click unfolds it). The bell counts only the others.
+- **Kept across restarts** in `~/.local/state/brasa/notifications.json`, with Do Not Disturb, and the
+  pictures beside it. After a restart their apps no longer know them: their buttons are grey and a click
+  opens the app instead. The centre keeps the latest 50; the oldest closed by their app go first.
 
 ## Menus and dialogs
 

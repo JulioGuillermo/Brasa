@@ -9,6 +9,7 @@ ICON_SIZE = 36
 BODY_LINES = 4
 FALLBACK_ICON = "dialog-information-symbolic"
 IMAGE_TAG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+STALE_HINT = "Its app no longer answers this one"
 
 
 def texture_from_data(data: GLib.Variant) -> Gdk.Texture:
@@ -69,13 +70,15 @@ def safe_markup(text: str) -> str:
 
 class NoticeRow(Gtk.Box):
     """on_close(notice_id) for the close button (deletes it); on_press(notice_id, action_key) for its buttons
-    and for a click on it, when its app gave it a default action."""
+    and for a click on it. A stale row is one its app no longer listens to (it closed it, or the island
+    restarted): greyed buttons, and a click opens the app."""
 
     def __init__(self, notice: Notice, on_close, on_press):
         super().__init__(spacing=12, css_classes=["island-notice"])
         self.on_close = on_close
         self.on_press = on_press
         self.notice = notice
+        self.stale = False
         self.icon = Gtk.Image(pixel_size=ICON_SIZE, valign=Gtk.Align.START, css_classes=["island-notice-icon"])
         self.app = Gtk.Label(xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END,
                              css_classes=["island-notice-app"])
@@ -104,6 +107,8 @@ class NoticeRow(Gtk.Box):
         self.notice = notice
         show_icon(self.icon, notice)
         self.set_css_classes(["island-notice", "critical"] if notice.critical else ["island-notice"])
+        if self.stale:
+            self.add_css_class("stale")
         self.app.set_text(notice.app)
         self.summary.set_text(notice.summary)
         self.summary.set_visible(bool(notice.summary))
@@ -116,8 +121,25 @@ class NoticeRow(Gtk.Box):
             button.connect("clicked", lambda _button, key=key: self.on_press(self.notice.id, key))
             self.buttons.append(button)
         self.buttons.set_visible(bool(notice.buttons))
+        self.set_stale(self.stale)
+
+    def set_stale(self, stale: bool):
+        self.stale = stale
+        if stale:
+            self.add_css_class("stale")
+        else:
+            self.remove_css_class("stale")
+        button = self.buttons.get_first_child()
+        while button is not None:
+            button.set_sensitive(not stale)
+            button.set_tooltip_text(STALE_HINT if stale else None)
+            button = button.get_next_sibling()
+
+    @property
+    def clickable(self) -> bool:
+        return bool(self.notice.desktop_entry) if self.stale else self.notice.has_default
 
     def on_click(self, gesture, _presses, _x, _y):
-        if self.notice.has_default:
+        if self.clickable:
             gesture.set_state(Gtk.EventSequenceState.CLAIMED)
             self.on_press(self.notice.id, DEFAULT_ACTION)
