@@ -37,6 +37,8 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `install.sh` | Installer | — |
 | `keys.tsv` | **Every key binding**, single source | `~/.config/brasa/keys.tsv` |
 | `wallpaper.png` | Default wallpaper and lock screen background (change it with `brasa-wallpaper`) | `~/.local/share/backgrounds/brasa.png` |
+| `wallpaper.svg` | Source of `wallpaper.png`: `rsvg-convert -w 3840 -h 2160 wallpaper.svg -o wallpaper.png` | — |
+| `data/wallpapers/` | Other wallpapers: the earlier campfire and peaks drafts, and the previous default | — |
 | `data/emoji.tsv` | 3963 Unicode emoji with English names and CLDR keywords | — |
 | `bin/brasa-gen` | Generates the sway and Hyprland bindings from `keys.tsv` | `~/.local/bin/` |
 | `bin/brasa-wm` | Window actions that work in both (close, kill, focus, workspaces, exit…) | `~/.local/bin/` |
