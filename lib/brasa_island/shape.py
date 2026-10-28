@@ -10,6 +10,7 @@ SHOULDER_DROP = 0.5
 CIRCLE_HANDLE = 0.552
 RIM_RED = (1.0, 0.0, 0.0, 0.55)
 RIM_WIDTH = 1.2
+RIM_FADE = 10
 
 
 @dataclass
@@ -50,13 +51,12 @@ def trace(cr, outline: Outline):
     cr.curve_to(right, drop * SHOULDER_DROP, right + shoulder * (1 - SHOULDER_FLATNESS), 0, right + shoulder, 0)
     cr.line_to(right + shoulder, -1)
     cr.close_path()
-    return drop
 
 
 def paint(cr, outline: Outline, color: Gdk.RGBA):
     if outline.height < 0.5:
         return
-    drop = trace(cr, outline)
+    trace(cr, outline)
 
     fill = cairo.LinearGradient(0, 0, 0, outline.height)
     fill.add_color_stop_rgb(0, 0, 0, 0)
@@ -64,7 +64,7 @@ def paint(cr, outline: Outline, color: Gdk.RGBA):
     cr.set_source(fill)
     cr.fill_preserve()
 
-    rim = cairo.LinearGradient(0, drop, 0, outline.height)
+    rim = cairo.LinearGradient(0, 0, 0, RIM_FADE)
     rim.add_color_stop_rgba(0, *RIM_RED[:3], 0)
     rim.add_color_stop_rgba(1, *RIM_RED)
     cr.set_source(rim)
