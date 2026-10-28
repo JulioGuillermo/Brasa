@@ -113,7 +113,7 @@ class Media:
                                 adjustment=Gtk.Adjustment(upper=1.0, step_increment=0.05, page_increment=0.1))
         self.volume.connect("change-value", self.on_volume)
         sound = Gtk.Box(spacing=4, halign=Gtk.Align.END, hexpand=True)
-        sound.append(Gtk.Image(icon_name="audio-volume-high-symbolic", css_classes=["island-dim"]))
+        sound.append(Gtk.Image(icon_name="audio-volume-high-symbolic", css_classes=["island-volume-icon"]))
         sound.append(self.volume)
         controls = Gtk.Box()
         controls.append(buttons)

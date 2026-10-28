@@ -2,20 +2,21 @@
 window.brasa-island { background: transparent; }
 window.brasa-island label { font-family: "Hack Nerd Font Propo", "Hack Nerd Font", sans-serif; color: #ffffff; }
 
-.island-title { font-weight: bold; }
+window.brasa-island label.island-title { color: #ff0000; font-weight: bold; }
 .island-big { font-size: 15px; }
 .island-artist { color: #c3cbe0; }
-.island-album, .island-time, .island-dim { color: #5a6a90; }
+.island-album, .island-time { color: #5a6a90; }
+.island-volume-icon { color: #ff0000; }
 .island-time { font-size: 11px; min-width: 38px; }
 .island-state { color: #ff0000; }
 
-.island-cover { border-radius: 12px; background: #0c1838; color: #5a6a90; }
+.island-cover { border-radius: 12px; background: #0c1838; color: #ff0000; }
 .island-peek .island-cover { border-radius: 8px; }
 
 .island-button { min-width: 34px; min-height: 34px; padding: 0; border-radius: 999px;
-                 background: transparent; color: #ffffff; box-shadow: none; border: none; }
+                 background: transparent; color: #ff0000; box-shadow: none; border: none; }
 .island-button:hover { background: rgba(255, 0, 0, 0.18); color: #ff3030; }
-.island-play { min-width: 40px; min-height: 40px; background: #c00000; }
+.island-play { min-width: 40px; min-height: 40px; background: #c00000; color: #ffffff; }
 .island-play:hover { background: #ff0000; color: #ffffff; }
 
 scale.island-progress, scale.island-volume { padding: 6px 0; }
