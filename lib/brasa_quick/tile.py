@@ -1,11 +1,14 @@
 """One tile: a square button with its icon and its name inside, centred. Lit (red) while what it switches
 is on. A menu tile has a chevron after its name."""
+import time
+
 from gi.repository import Gtk, Pango
 
 from . import glyphs, shell
 from .items import Action, Menu, Switch
 
 NAME_CHARACTERS = 11
+CLICK_HOLD_SECONDS = 2.0
 
 
 def icon_widget(icon: str) -> Gtk.Widget:
@@ -22,6 +25,7 @@ class Tile(Gtk.Box):
         super().__init__(css_classes=["quick-tile"])
         self.item = item
         self.lit = False
+        self.clicked_at = 0.0
         face = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
                        halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
         face.append(icon_widget(item.icon))
@@ -41,6 +45,7 @@ class Tile(Gtk.Box):
     def clicked(self, on_action, on_menu):
         if isinstance(self.item, Switch):
             shell.run(self.item.off if self.lit else self.item.on)
+            self.clicked_at = time.monotonic()
             self.show_lit(not self.lit)
         elif isinstance(self.item, Action):
             on_action(self.item)
@@ -48,8 +53,13 @@ class Tile(Gtk.Box):
             on_menu(self.item)
 
     def refresh(self):
+        """Asks the switch's state again; a click a moment ago wins over what is still the old state."""
         if isinstance(self.item, Switch):
-            shell.test(self.item.state, self.show_lit)
+            shell.test(self.item.state, self.show_state)
+
+    def show_state(self, lit: bool):
+        if time.monotonic() - self.clicked_at >= CLICK_HOLD_SECONDS:
+            self.show_lit(lit)
 
     def show_lit(self, lit: bool):
         self.lit = lit

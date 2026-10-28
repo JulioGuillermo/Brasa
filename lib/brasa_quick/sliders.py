@@ -1,5 +1,8 @@
-"""Volume and, with a backlight, screen brightness."""
+"""Volume and, with a backlight, screen brightness. While the panel is open they follow changes made
+elsewhere (the keys, another program), except right after you moved them."""
+import glob
 import subprocess
+import time
 
 from gi.repository import Gtk
 
@@ -8,14 +11,16 @@ from brasa_island import volume
 from . import glyphs
 
 KEY_STEP = 0.05
+USER_HOLD_SECONDS = 1.0
 
 
 def screen_brightness() -> float:
-    """brightnessctl -m: device,class,current,percent%,max"""
+    """Read from the first backlight, the one brightnessctl changes."""
+    device = next(iter(sorted(glob.glob("/sys/class/backlight/*"))), None)
     try:
-        reply = subprocess.run(["brightnessctl", "-m"], capture_output=True, text=True, timeout=1).stdout
-        return int(reply.split(",")[3].rstrip("%")) / 100
-    except (OSError, subprocess.SubprocessError, IndexError, ValueError):
+        with open(f"{device}/brightness") as current, open(f"{device}/max_brightness") as top:
+            return int(current.read()) / int(top.read())
+    except (TypeError, OSError, ValueError, ZeroDivisionError):
         return 0.0
 
 
@@ -29,6 +34,7 @@ class Slider(Gtk.Box):
         super().__init__(spacing=10, css_classes=["quick-slider"])
         self.read = read
         self.write = write
+        self.moved_at = 0.0
         self.scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.01)
         self.scale.set_hexpand(True)
         self.scale.set_draw_value(False)
@@ -39,10 +45,13 @@ class Slider(Gtk.Box):
         self.append(self.scale)
 
     def on_change(self, _scale, _scroll, value):
+        self.moved_at = time.monotonic()
         self.write(min(max(value, 0), 1))
         return False
 
     def refresh(self):
+        if time.monotonic() - self.moved_at < USER_HOLD_SECONDS:
+            return
         self.scale.set_value(self.read())
 
 

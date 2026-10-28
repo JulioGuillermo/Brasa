@@ -684,6 +684,8 @@ same springs, colours and red rim. The bottom left corner instead: **Corner** in
 - A **switch** tile turns red while on; a click turns it on or off.
 - A **menu** tile has a **›** after its name: it opens its choices in the card, the current one lit; the arrow goes back.
 - Icons are Nerd Font glyphs, so they look the same with any icon theme.
+- While open it follows changes made elsewhere: the sliders when you use the volume or brightness keys,
+  the switches (Wi-Fi, mute…) within two seconds.
 - Below: volume and, with a backlight, brightness; then the battery, the settings button (the Island
   window: corner, size), HyprMod (Hyprland settings, when installed) and the power button (`brasa-exit`).
 

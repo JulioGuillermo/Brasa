@@ -22,6 +22,8 @@ RADIUS = 34
 SHOULDER = 90
 CONTENT_FADE_SECONDS = 0.15
 MAX_FRAME_SECONDS = 1 / 30
+SLIDERS_EVERY_MS = 400
+SWITCHES_EVERY_MS = 2000
 EXIT = "~/.local/bin/brasa-exit"
 ISLAND_SETTINGS = "~/.local/bin/brasa-island-settings"
 HYPRMOD = "hyprmod"
@@ -63,6 +65,7 @@ class Panel(Gtk.Window):
         self.layers = Gtk.Overlay(child=self.canvas)
         self.layers.connect("get-child-position", self.place_content)
         self.clip = None
+        self.watches = []
         self.set_child(self.layers)
         self.listen()
 
@@ -103,16 +106,38 @@ class Panel(Gtk.Window):
         LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.EXCLUSIVE)
         self.is_open = True
         self.present()
-        self.pager.refresh()
-        for slider in self.sliders:
-            slider.refresh()
+        self.refresh_switches()
+        self.refresh_sliders()
+        self.watch()
         self.pager.focus_tile(0)
         self.fit()
 
     def close_panel(self):
         self.is_open = False
+        self.stop_watching()
         LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.NONE)
         self.fit()
+
+    # ---- Following changes made elsewhere while open
+
+    def watch(self):
+        self.stop_watching()
+        self.watches = [GLib.timeout_add(SLIDERS_EVERY_MS, self.refresh_sliders),
+                        GLib.timeout_add(SWITCHES_EVERY_MS, self.refresh_switches)]
+
+    def stop_watching(self):
+        for source in self.watches:
+            GLib.source_remove(source)
+        self.watches = []
+
+    def refresh_sliders(self):
+        for slider in self.sliders:
+            slider.refresh()
+        return GLib.SOURCE_CONTINUE
+
+    def refresh_switches(self):
+        self.pager.refresh()
+        return GLib.SOURCE_CONTINUE
 
     def back_or_close(self):
         if self.showing_menu:
