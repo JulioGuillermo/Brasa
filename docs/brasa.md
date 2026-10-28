@@ -68,7 +68,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-run` | Runs a custom panel button's command and shows how it went | `~/.local/bin/` |
 | `bin/brasa-keyboard` | Keyboard layouts: pick, add, remove (searchable menu) | `~/.local/bin/` |
 | `bin/brasa-wallpaper` | Wallpapers of the desktop, lock and login screens, together or each on its own | `~/.local/bin/` |
-| `bin/brasa-drawer` | Full-screen app grid with rofi (`Super+d`, again to close) | `~/.local/bin/` |
+| `bin/brasa-drawer` | Full-screen app grid with rofi (`Super+Shift+d`, again to close) | `~/.local/bin/` |
 | `bin/brasa-radio` | Airplane mode (rfkill) | `~/.local/bin/` |
 | `bin/brasa-cam` | Tells which app is using the camera | `~/.local/bin/` |
 | `bin/brasa-lock` | Locks with hyprlock (swaylock if hyprlock is missing) (`Super+Escape`) | `~/.local/bin/` |
@@ -190,7 +190,8 @@ search; Enter or a click runs it.
 
 | Keys | Action |
 |---|---|
-| `Super+d` | App grid (rofi) |
+| `Super+d` or `Super` alone | App launcher island |
+| `Super+Shift+d` | App grid, full screen (rofi) |
 | `Super+r` | Quick launcher (fuzzel) |
 | `Super+Enter`, `Super+t` | foot |
 | `Super+Shift+Enter`, `Super+Shift+t` | Ghostty |
@@ -377,8 +378,8 @@ To change modules, edit `docs/gen-waybar-swaync.py` and run
 
 ## Menus and dialogs
 
-- **App grid** (`Super+d`, `bin/brasa-drawer`): rofi full screen, a 7-column grid with search; type to
-  filter, one click or Enter opens, `Escape` or `Super+d` again closes. Opens in ~50 ms and uses ~14 MB
+- **App grid** (`Super+Shift+d`, `bin/brasa-drawer`): rofi full screen, a 7-column grid with search; type to
+  filter, one click or Enter opens, `Escape` or `Super+Shift+d` again closes. Opens in ~50 ms and uses ~14 MB
   only while open (nwg-drawer, used before, took ~1.5 s and ~70 MB). rofi does not handle touch
   input: with a finger, use the keyboard or the touchpad instead.
 - **fuzzel** (`Super+r`): type and Enter. Also used by the emoji and refresh menus.
@@ -460,7 +461,7 @@ between states, even when interrupted halfway. It shows two things, each one can
   Disturb, Clear all and a button that closes the island. `x` on one deletes it. With the centre off,
   notifications only pass by and the panel keeps them.
 
-- **App launcher** (`Super` alone, pressed and released): a search over every installed app, as a grid
+- **App launcher** (`Super+d`, or `Super` alone, pressed and released): a search over every installed app, as a grid
   of icons or a list, small, medium or large. Typing filters; arrows (Tab in the grid) move, Enter opens,
   Escape closes. It can sit on its own edge (by default the bottom one), with its own monitor and side;
   in the same place as the music and notifications, they share one island and `Super` switches it to

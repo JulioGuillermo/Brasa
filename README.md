@@ -26,7 +26,7 @@ Undo it? `./install.sh --uninstall`.
 | Keys | What it does |
 |---|---|
 | `Super+F1` | **All key bindings** the window manager has, searchable, with what each one does |
-| `Super+d` / `Super+r` | App grid / quick launcher |
+| `Super+d` (or `Super` alone) / `Super+Shift+d` / `Super+r` | App launcher island / full-screen app grid / quick launcher |
 | `Super+Enter` or `Super+t` | Terminal (foot); with `Shift`, Ghostty |
 | `Super+e` / `Super+Shift+n` | Files: Thunar / Nautilus |
 | `Super+z` | Zen |
@@ -35,7 +35,6 @@ Undo it? `./install.sh --uninstall`.
 | `Super+1…9` | Workspaces (with `Shift`, move the window) |
 | `Ctrl+Super+Space` `←` `→` `↑` `↓` | Music and volume |
 | `Super+m` | Island: music and notifications (or rest the pointer on the top edge); `Super+Shift+m` its settings |
-| `Super` alone | App launcher island |
 | `Super+.` | Emoji |
 | `Super+Alt+r` | Screen refresh rate: dynamic or fixed |
 | `Super+Escape` | Lock the screen |

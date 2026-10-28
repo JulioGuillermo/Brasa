@@ -3,6 +3,7 @@ One island for the music and notifications and one for the app launcher, or a si
 sit in the same place."""
 import os
 import sys
+import time
 
 import gi
 
@@ -17,6 +18,7 @@ from .launcher import Launcher
 from .media import Media
 from .notifications import Notifications
 
+DOUBLE_TOGGLE_SECONDS = 0.6
 STYLE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "island.css")
 
 
@@ -31,6 +33,7 @@ class IslandApp(Gtk.Application):
         self.started = False
         self.main_island = None
         self.launcher_island = None
+        self.last_launcher_toggle = 0.0
 
     def start(self):
         self.hold()
@@ -79,6 +82,11 @@ class IslandApp(Gtk.Application):
             getattr(self.main_island, method)()
 
     def toggle_launcher(self):
+        """Super+d then releasing Super asks twice in a row: the second one is ignored."""
+        now = time.monotonic()
+        if now - self.last_launcher_toggle < DOUBLE_TOGGLE_SECONDS:
+            return
+        self.last_launcher_toggle = now
         if self.launcher_island is not None:
             self.launcher_island.toggle_launcher()
 

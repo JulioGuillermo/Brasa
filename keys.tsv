@@ -9,7 +9,8 @@
 #            release (runs on key release and lets the key through, for Caps Lock / Num Lock).
 #
 # --- Apps
-SUPER	d	exec brasa-drawer	App launcher (grid)
+SUPER	d	exec ~/.local/bin/brasa-island launcher	App launcher island (also: Super alone)
+SUPER+SHIFT	d	exec brasa-drawer	App grid, full screen (rofi)
 SUPER	r	exec fuzzel	Quick launcher
 SUPER	Return	exec foot	Terminal (foot)
 SUPER	t	exec foot	Terminal (foot)

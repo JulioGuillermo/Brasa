@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full-screen app grid with rofi (Super+d). Pressing Super+d again, or Escape, closes it.
+# Full-screen app grid with rofi (Super+Shift+d). Pressing Super+Shift+d again, or Escape, closes it.
 # Its own config and theme, ~/.config/brasa/config/rofi/drawer.rasi, so any ~/.config/rofi is left alone.
 if pid=$(~/.local/bin/brasa-here rofi); then kill $pid; exit 0; fi
 icons=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
