@@ -17,6 +17,11 @@ class Clip(Gtk.Widget):
         self.visible_area = Graphene.Rect().init(x, y, max(width, 0), max(height, 0))
         self.queue_draw()
 
+    def do_dispose(self):
+        if self.child is not None:
+            self.child.unparent()
+            self.child = None
+
     def do_measure(self, orientation, for_size):
         return self.child.measure(orientation, for_size)
 

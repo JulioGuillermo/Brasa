@@ -32,6 +32,7 @@ class Config:
     launcher_size: str = "medium"
     launcher_hover: bool = True
     quick_side: str = "right"
+    quick_expanded: bool = False
 
 
 def read_pairs(path):
@@ -82,6 +83,7 @@ def load() -> Config:
     config.launcher_size = one_of(pairs.get("launcher_size", ""), LAUNCHER_SIZES, config.launcher_size)
     config.launcher_hover = switched_on(pairs.get("launcher_hover", on_off(config.hover)))
     config.quick_side = one_of(pairs.get("quick_side", ""), QUICK_SIDES, config.quick_side)
+    config.quick_expanded = switched_on(pairs.get("quick_expanded", "off"))
     try:
         config.peek_seconds = float(pairs.get("peek_seconds", config.peek_seconds))
     except ValueError:
@@ -112,6 +114,7 @@ def save(config: Config):
         f"launcher_hover={on_off(config.launcher_hover)}",
         "# Quick settings (brasa-quick)",
         f"quick_side={config.quick_side}",
+        f"quick_expanded={on_off(config.quick_expanded)}",
         "# Both",
         f"color={config.color}",
     ]

@@ -5,6 +5,8 @@ from gi.repository import Gtk
 
 from brasa_island import volume
 
+KEY_STEP = 0.05
+
 
 def screen_brightness() -> float:
     """brightnessctl -m: device,class,current,percent%,max"""
@@ -28,6 +30,8 @@ class Slider(Gtk.Box):
         self.scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.01)
         self.scale.set_hexpand(True)
         self.scale.set_draw_value(False)
+        self.scale.get_adjustment().set_step_increment(KEY_STEP)
+        self.scale.get_adjustment().set_page_increment(KEY_STEP * 2)
         self.scale.connect("change-value", self.on_change)
         self.append(Gtk.Image(icon_name=icon, pixel_size=18))
         self.append(self.scale)

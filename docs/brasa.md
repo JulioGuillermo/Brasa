@@ -673,16 +673,29 @@ brasa-remote on | off | status | setup | help
 
 ## Quick settings
 
-`brasa-quick` (`Super+a`, or the gear next to the bell in the bar): a card that slides in on the right
-edge of the focused monitor (or the left one: **Side** in the Island window, `quick_side` in
-`island.conf`). Escape or a click anywhere else closes it.
+`brasa-quick` (`Super+a`, or the gear next to the bell in the bar): it grows out of the bottom right
+corner of the focused monitor, joined to the bottom edge and to the side edge like the island, with the
+same springs, colours and red rim. The bottom left corner instead: **Corner** in the Island window,
+`quick_side` in `island.conf`. Escape or a click anywhere else closes it.
 
-- **Tiles** in pages of six. The **mouse wheel** goes from one page to the next, like Windows; the
-  dots on the side show which page, and a click on one jumps there.
+- **Tiles** in pages of six (three by two). One turn of the **mouse wheel**, or one swipe on the
+  touchpad, moves exactly one page; the dots on the side show which page, and a click on one jumps there.
+- **More tiles**: the grid button at the bottom shows four by four (all of them on most machines);
+  it stays that way (`quick_expanded`) until pressed again.
 - A **switch** tile is lit while on; a click turns it on or off.
 - A tile with **›** opens a menu in the card, the current choice lit; the arrow goes back.
-- Below: volume and, with a backlight, brightness; then the battery, HyprMod (Hyprland settings, when
-  installed) and the power button (`brasa-exit`).
+- Below: volume and, with a backlight, brightness; then the battery, the grid button, HyprMod
+  (Hyprland settings, when installed) and the power button (`brasa-exit`).
+
+**Keyboard only**:
+
+| Key | Does |
+|---|---|
+| Arrows | move between tiles; down from the last row turns the page, then goes on to the sliders and the bottom buttons |
+| Page Down / Page Up | the next / previous page |
+| Enter, Space | press the tile or button |
+| Left / Right on a slider | change it |
+| Escape | back from a menu (Left and Backspace too); on the tiles, close |
 
 | Tile | Click |
 |---|---|

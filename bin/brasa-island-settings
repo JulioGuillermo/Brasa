@@ -23,7 +23,7 @@ EDGES = [("top", "Top"), ("bottom", "Bottom")]
 ALIGNS = [("left", "Left"), ("center", "Center"), ("right", "Right")]
 VIEWS = [("grid", "Grid of icons"), ("list", "List")]
 SIZES = [("small", "Small"), ("medium", "Medium"), ("large", "Large")]
-SIDES = [("left", "Left"), ("right", "Right")]
+SIDES = [("left", "Bottom left corner"), ("right", "Bottom right corner")]
 FOCUSED_MONITOR = ("", "Any (the focused one)")
 
 
@@ -143,8 +143,8 @@ class IslandWindow(Adw.ApplicationWindow):
         return group
 
     def build_quick(self):
-        group = Adw.PreferencesGroup(title="Quick settings", description="Super+a or the bar's gear opens it")
-        self.quick_side = Choice("Side", SIDES, self.config.quick_side)
+        group = Adw.PreferencesGroup(title="Quick settings", description="Super+a or the bar's gear opens it · the grid button at its bottom shows more tiles")
+        self.quick_side = Choice("Corner", SIDES, self.config.quick_side)
         self.quick_side.connect("notify::selected", self.changed)
         group.add(self.quick_side)
         return group
