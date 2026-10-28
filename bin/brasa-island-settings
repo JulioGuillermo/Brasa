@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""The Island window (Super+Shift+m, and the Island button of the panel): which monitor, edge and side the
+island sits on, and how it behaves. Every change is saved to island.conf and the island moves at once."""
+import os
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gdk, Gtk
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+import brasa_ui  # noqa: E402
+from brasa_island import config as island_config  # noqa: E402
+
+ISLAND = os.path.join(os.path.dirname(os.path.realpath(__file__)), "brasa-island")
+EDGES = [("top", "Top"), ("bottom", "Bottom")]
+ALIGNS = [("left", "Left"), ("center", "Center"), ("right", "Right")]
+FOCUSED_MONITOR = ("", "Any (the focused one)")
+
+
+def monitor_options():
+    options = [FOCUSED_MONITOR]
+    monitors = sorted(Gdk.Display.get_default().get_monitors(), key=lambda monitor: monitor.get_geometry().x)
+    for monitor in monitors:
+        geometry = monitor.get_geometry()
+        name = monitor.get_description() or monitor.get_model() or ""
+        shape = "vertical" if geometry.height > geometry.width else "horizontal"
+        options.append((monitor.get_connector(), f"{monitor.get_connector()} · {shape} · {name}".rstrip(" ·")))
+    return options
+
+
+def rgba(color):
+    parsed = Gdk.RGBA()
+    parsed.parse(color)
+    return parsed
+
+
+def hex_color(color: Gdk.RGBA) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*(round(part * 255) for part in (color.red, color.green, color.blue)))
+
+
+class Choice(Adw.ComboRow):
+    """A combo row over (value, label) pairs; a value not among them (an unplugged monitor) is added as is."""
+
+    def __init__(self, title, options, value):
+        super().__init__(title=title)
+        if value not in [v for v, _ in options]:
+            options = [*options, (value, f"{value} · not connected")]
+        self.values = [v for v, _ in options]
+        self.set_model(Gtk.StringList.new([label for _, label in options]))
+        self.set_selected(self.values.index(value))
+
+    def value(self):
+        return self.values[self.get_selected()]
+
+
+class IslandWindow(Adw.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title="Island", default_width=520, default_height=560)
+        self.config = island_config.load()
+        page = Adw.PreferencesPage()
+        page.add(self.build_place())
+        page.add(self.build_behaviour())
+        view = Adw.ToolbarView(content=page)
+        view.add_top_bar(brasa_ui.header())
+        self.set_content(view)
+        brasa_ui.make_brasa(self)
+
+    def build_place(self):
+        group = Adw.PreferencesGroup(title="Where", description="The island shows up there at once to check it")
+        self.monitor = Choice("Monitor", monitor_options(), self.config.monitor)
+        self.edge = Choice("Edge", EDGES, self.config.edge)
+        self.align = Choice("Side", ALIGNS, self.config.align)
+        for row in (self.monitor, self.edge, self.align):
+            row.connect("notify::selected", self.changed)
+            group.add(row)
+        return group
+
+    def build_behaviour(self):
+        group = Adw.PreferencesGroup(title="Behaviour", description="Super+m opens and closes it")
+        self.hover = Adw.SwitchRow(title="Open with the pointer", subtitle="Resting it on that edge, in the middle",
+                                   active=self.config.hover)
+        self.hover.connect("notify::active", self.changed)
+        self.peek = Adw.SpinRow.new_with_range(0, 10, 0.5)
+        self.peek.set_title("Peek on a new track or play/pause")
+        self.peek.set_subtitle("Seconds · 0: never")
+        self.peek.set_digits(1)
+        self.peek.set_value(self.config.peek_seconds)
+        self.peek.connect("notify::value", self.changed)
+        self.color = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False), rgba=rgba(self.config.color),
+                                           valign=Gtk.Align.CENTER)
+        self.color.connect("notify::rgba", self.changed)
+        color_row = Adw.ActionRow(title="Colour", subtitle="Far from the edge; black at the edge")
+        color_row.add_suffix(self.color)
+        for row in (self.hover, self.peek, color_row):
+            group.add(row)
+        return group
+
+    def changed(self, *_):
+        self.config.monitor = self.monitor.value()
+        self.config.edge = self.edge.value()
+        self.config.align = self.align.value()
+        self.config.hover = self.hover.get_active()
+        self.config.peek_seconds = self.peek.get_value()
+        self.config.color = hex_color(self.color.get_rgba())
+        island_config.save(self.config)
+        subprocess.Popen([ISLAND, "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def main():
+    app = Adw.Application(application_id="org.brasa.Island")
+    app.connect("startup", lambda _: brasa_ui.load_style())
+    app.connect("activate", lambda app: (app.get_active_window() or IslandWindow(app)).present())
+    app.run([])
+
+
+if __name__ == "__main__":
+    main()

@@ -4,7 +4,8 @@
 #        brasa-island toggle     open or close the full view
 #        brasa-island peek       show the current track for a moment
 #        brasa-island hide
-# Settings in ~/.config/brasa/island.conf (see docs/brasa.md).
+#        brasa-island reload     read island.conf again and show the island where it now is
+# Settings: the Island window (brasa-island-settings, Super+Shift+m) or ~/.config/brasa/island.conf.
 lib=$(dirname "$(realpath "$0")")/../lib
 PYTHONPATH="$lib" LD_PRELOAD=libgtk4-layer-shell.so.0 exec -a brasa-island \
   python3 -W ignore::DeprecationWarning -m brasa_island "$@"

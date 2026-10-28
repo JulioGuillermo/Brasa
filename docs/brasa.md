@@ -56,6 +56,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` (`Shift+Print`) picks the area | `~/.local/bin/` |
 | `bin/brasa-island` | The island on a screen edge: what is playing, with controls (`Super+m`) | `~/.local/bin/` |
+| `bin/brasa-island-settings` | Island window (`Super+Shift+m`, panel button **Island**): monitor, edge, side, behaviour | `~/.local/bin/` |
 | `lib/brasa_island/` | The island itself: window, outline, springs, media module, `island.css` | (used in place) |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
@@ -453,14 +454,18 @@ from hidden to a one-line peek or to the full view and back, even when interrupt
   or rest the pointer on the edge, in the middle. It closes when the pointer leaves.
 - **Peek**: a new track or play/pause shows one line for a moment.
 
-Settings in `~/.config/brasa/island.conf`, all optional; `Super+Ctrl+r` applies them:
+**Settings**: the **Island** window (`Super+Shift+m`, or the **Island** button of the panel) picks the
+monitor, edge (top or bottom), side, opening with the pointer, peek time and colour. Each change is
+saved and the island shows up in its new place at once.
+
+They live in `~/.config/brasa/island.conf`; edited by hand, `Super+Ctrl+r` applies them:
 
 ```
 edge=top            # top or bottom
 align=center        # left, center or right
-monitor=DP-2        # empty: the one the compositor picks
+monitor=DP-2        # empty: the focused one when the session starts
 hover=on            # off: only Super+m
-peek_seconds=2.5
+peek_seconds=2.5    # 0: never
 color=#0c1838       # the far end of the gradient
 ```
 

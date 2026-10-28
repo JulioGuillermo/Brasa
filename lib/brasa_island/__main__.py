@@ -40,7 +40,12 @@ class IslandApp(Gtk.Application):
         if self.island is None:
             self.start()
         command = (command_line.get_arguments()[1:] or ["start"])[0]
-        actions = {"toggle": self.island.toggle, "peek": self.island.peek, "hide": self.island.hide_island}
+        actions = {
+            "toggle": self.island.toggle,
+            "peek": self.island.peek,
+            "hide": self.island.hide_island,
+            "reload": lambda: self.island.apply(config.load()),
+        }
         if command in actions:
             actions[command]()
         return 0

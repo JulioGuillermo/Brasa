@@ -47,3 +47,17 @@ def load() -> Config:
     if pairs.get("color", "").startswith("#"):
         config.color = pairs["color"]
     return config
+
+
+def save(config: Config):
+    lines = [
+        "# The island's settings. The Island window (Super+Shift+m) writes them; by hand, Super+Ctrl+r applies them.",
+        f"edge={config.edge}",
+        f"align={config.align}",
+        f"monitor={config.monitor}",
+        f"hover={'on' if config.hover else 'off'}",
+        f"peek_seconds={config.peek_seconds:g}",
+        f"color={config.color}",
+    ]
+    with open(PATH, "w") as conf:
+        conf.write("\n".join(lines) + "\n")

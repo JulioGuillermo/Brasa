@@ -266,6 +266,7 @@ TILES = [
       {"label": tile("\U000F16BE", "Networks"), "command": "sh -c 'swaync-client -cp; nm-connection-editor'"},
       {"label": tile("\U000F09F9", "Keyboard"), "command": f"sh -c '{CLOSE}; {B}brasa-keyboard'"},
       {"label": tile("\U000F1483", "Sessions"), "command": f"sh -c '{CLOSE}; {B}brasa-sessions'"},
+      {"label": tile("\U000F075A", "Island"), "command": f"sh -c '{CLOSE}; {B}brasa-island-settings'"},
       tog(tile("\U000F0E51", "Effects"), B + "brasa-fx all", B + "brasa-fx all",
           "test -e $XDG_RUNTIME_DIR/brasa-fx/blur-off && echo false || echo true"),
       {"label": tile("\U000F033E", "Lock"), "command": f"sh -c '{CLOSE}; {B}brasa-lock'"},

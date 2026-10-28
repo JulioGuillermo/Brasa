@@ -76,19 +76,38 @@ class Island(Gtk.Window):
         LayerShell.set_layer(self, LayerShell.Layer.OVERLAY)
         LayerShell.set_exclusive_zone(self, -1)
         LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.NONE)
-        LayerShell.set_anchor(self, LayerShell.Edge.TOP if self.at_top else LayerShell.Edge.BOTTOM, True)
-        if self.config.align != "center":
-            LayerShell.set_anchor(self, LayerShell.Edge.LEFT if self.config.align == "left" else LayerShell.Edge.RIGHT, True)
-        monitor = find_monitor(self.config.monitor) if self.config.monitor else None
-        if monitor:
-            LayerShell.set_monitor(self, monitor)
+        self.anchor()
+
+    def anchor(self):
+        anchored = {
+            LayerShell.Edge.TOP: self.at_top,
+            LayerShell.Edge.BOTTOM: not self.at_top,
+            LayerShell.Edge.LEFT: self.config.align == "left",
+            LayerShell.Edge.RIGHT: self.config.align == "right",
+        }
+        for edge, on in anchored.items():
+            LayerShell.set_anchor(self, edge, on)
+        LayerShell.set_monitor(self, find_monitor(self.config.monitor) if self.config.monitor else None)
+
+    def apply(self, config: Config):
+        """Moves the island to the edge, side and monitor of a new config, then shows it there."""
+        self.hide_island()
+        for spring in self.springs:
+            spring.value, spring.speed = spring.target, 0.0
+        self.config = config
+        self.color = rgba(config.color)
+        self.set_visible(False)
+        self.anchor()
+        self.present()
+        self.canvas.queue_draw()
+        self.queue_allocate()
+        self.later("show", 150, self.toggle)
 
     def build(self):
         self.canvas = Gtk.DrawingArea(content_width=WINDOW_WIDTH, content_height=WINDOW_HEIGHT)
         self.canvas.set_draw_func(self.draw)
         layers = Gtk.Overlay(child=self.canvas)
         for state, view in self.views.items():
-            from_edge, from_sides = PADDING[state]
             view.set_opacity(0)
             view.set_visible(False)
             layers.add_overlay(view)
@@ -139,7 +158,7 @@ class Island(Gtk.Window):
         self.go(FULL)
 
     def peek(self):
-        if self.state == FULL:
+        if self.state == FULL or self.config.peek_seconds <= 0:
             return
         self.go(PEEK)
         self.later("hide", int(self.config.peek_seconds * 1000), self.hide_island)
