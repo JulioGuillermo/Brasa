@@ -56,7 +56,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` (`Shift+Print`) picks the area | `~/.local/bin/` |
 | `bin/brasa-island` | The island on a screen edge: music and notifications (`Super+m`) | `~/.local/bin/` |
-| `bin/brasa-island-settings` | Island window (`Super+Shift+m`, panel button **Island**): music, notifications, monitor, edge, side | `~/.local/bin/` |
+| `bin/brasa-island-settings` | Island window (`Super+Shift+m`, panel button **Island**): music, notifications, launcher, where each one sits | `~/.local/bin/` |
 | `lib/brasa_island/` | The island itself: window, outline, springs, music, notifications, `island.css` | (used in place) |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
@@ -460,6 +460,13 @@ between states, even when interrupted halfway. It shows two things, each one can
   Disturb, Clear all and a button that closes the island. `x` on one deletes it. With the centre off,
   notifications only pass by and the panel keeps them.
 
+- **App launcher** (`Super` alone, pressed and released): a search over every installed app, as a grid
+  of icons or a list, small, medium or large. Typing filters; arrows (Tab in the grid) move, Enter opens,
+  Escape closes. It can sit on its own edge (by default the bottom one), with its own monitor and side;
+  in the same place as the music and notifications, they share one island and `Super` switches it to
+  the launcher. The pointer on its own island's edge opens it too.
+- **Monitor**: with none chosen, each island shows up on the monitor that has the focus when it opens.
+
 swaync still keeps every notification: the panel (`Super+n`, the bell) shows them as before. While the
 island shows them, swaync's popups exist but are invisible.
 
@@ -468,8 +475,8 @@ notification hides the newer popups first, so their buttons go grey in the islan
 panel. The centre's buttons work only while the notification is still a fresh popup.
 
 **Settings**: the **Island** window (`Super+Shift+m`, or the **Island** button of the panel) switches the
-music and the notifications on or off and picks the monitor, edge (top or bottom), side, opening with the
-pointer, peek time and colour. Each change is saved and the island shows up in its new place at once.
+music, the notifications and the launcher on or off, and picks for each island its monitor, edge (top or
+bottom) and side, plus the launcher's look, opening with the pointer, peek time and colour. Each change is saved and the island shows up in its new place at once.
 Switching the notifications restarts swaync, which empties its list.
 
 They live in `~/.config/brasa/island.conf`; edited by hand, `Super+Ctrl+r` applies them (except
@@ -481,10 +488,16 @@ notifications=on    # the notifications, instead of swaync's popups
 notification_centre=on  # off: opening the island shows no list
 edge=top            # top or bottom
 align=center        # left, center or right
-monitor=DP-2        # empty: the focused one when the session starts
+monitor=DP-2        # empty: the focused one
 hover=on            # off: only Super+m
 peek_seconds=2.5    # 0: never
 color=#0c1838       # the far end of the gradient
+launcher=on
+launcher_edge=bottom    # the launcher's own place: same keys with launcher_ in front
+launcher_align=center
+launcher_monitor=
+launcher_view=grid      # or list
+launcher_size=medium    # small, medium or large
 ```
 
 ## Lock screen

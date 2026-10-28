@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The Island window (Super+Shift+m, and the Island button of the panel): what the island shows, which
-monitor, edge and side it sits on, and how it behaves. Every change is saved to island.conf and the island
-moves at once; switching the notifications also switches swaync's own popups off or on (restarting it,
-which empties its list)."""
+"""The Island window (Super+Shift+m, and the Island button of the panel): what the islands show (music,
+notifications, app launcher), which monitor, edge and side each sits on, and how they behave. Every
+change is saved to island.conf and the islands move at once; switching the notifications also switches
+swaync's own popups off or on (restarting it, which empties its list)."""
 import os
 import signal
 import subprocess
@@ -28,6 +28,8 @@ HERE_COMMAND = os.path.join(HERE, "brasa-here")
 SWAY_PANEL = os.path.expanduser("~/.config/swaync/config-sway.json")
 EDGES = [("top", "Top"), ("bottom", "Bottom")]
 ALIGNS = [("left", "Left"), ("center", "Center"), ("right", "Right")]
+VIEWS = [("grid", "Grid of icons"), ("list", "List")]
+SIZES = [("small", "Small"), ("medium", "Medium"), ("large", "Large")]
 FOCUSED_MONITOR = ("", "Any (the focused one)")
 
 
@@ -78,31 +80,42 @@ class Choice(Adw.ComboRow):
         return self.values[self.get_selected()]
 
 
+class PlaceRows:
+    """Monitor, edge and side rows for one island."""
+
+    def __init__(self, place: island_config.Place, on_change):
+        self.monitor = Choice("Monitor", monitor_options(), place.monitor)
+        self.edge = Choice("Edge", EDGES, place.edge)
+        self.align = Choice("Side", ALIGNS, place.align)
+        self.rows = [self.monitor, self.edge, self.align]
+        for row in self.rows:
+            row.connect("notify::selected", on_change)
+
+    def value(self) -> island_config.Place:
+        return island_config.Place(edge=self.edge.value(), align=self.align.value(), monitor=self.monitor.value())
+
+
+def sensitive_while(switch: Adw.SwitchRow, rows):
+    for row in rows:
+        switch.bind_property("active", row, "sensitive", GObject.BindingFlags.SYNC_CREATE)
+
+
 class IslandWindow(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Island", default_width=520, default_height=560)
+        super().__init__(application=app, title="Island", default_width=540, default_height=720)
         self.config = island_config.load()
         page = Adw.PreferencesPage()
-        page.add(self.build_shows())
-        page.add(self.build_place())
-        page.add(self.build_behaviour())
+        page.add(self.build_main())
+        page.add(self.build_launcher())
+        page.add(self.build_both())
         view = Adw.ToolbarView(content=page)
         view.add_top_bar(brasa_ui.header())
         self.set_content(view)
         brasa_ui.make_brasa(self)
 
-    def build_place(self):
-        group = Adw.PreferencesGroup(title="Where", description="The island shows up there at once to check it")
-        self.monitor = Choice("Monitor", monitor_options(), self.config.monitor)
-        self.edge = Choice("Edge", EDGES, self.config.edge)
-        self.align = Choice("Side", ALIGNS, self.config.align)
-        for row in (self.monitor, self.edge, self.align):
-            row.connect("notify::selected", self.changed)
-            group.add(row)
-        return group
-
-    def build_shows(self):
-        group = Adw.PreferencesGroup(title="Shows")
+    def build_main(self):
+        group = Adw.PreferencesGroup(title="Music and notifications",
+                                     description="Super+m opens it · each change shows it at once where it is")
         self.media = Adw.SwitchRow(title="Music", subtitle="What is playing, with its controls",
                                    active=self.config.media)
         self.notifications = Adw.SwitchRow(title="Notifications",
@@ -111,42 +124,64 @@ class IslandWindow(Adw.ApplicationWindow):
         self.centre = Adw.SwitchRow(title="Notification centre",
                                     subtitle="Opening the island lists them all; off: they only pass by, the panel keeps them",
                                     active=self.config.notification_centre)
-        self.notifications.bind_property("active", self.centre, "sensitive", GObject.BindingFlags.SYNC_CREATE)
-        for row in (self.media, self.notifications, self.centre):
-            row.connect("notify::active", self.changed)
-            group.add(row)
-        return group
-
-    def build_behaviour(self):
-        group = Adw.PreferencesGroup(title="Behaviour", description="Super+m opens and closes it")
-        self.hover = Adw.SwitchRow(title="Open with the pointer", subtitle="Resting it on that edge, in the middle",
-                                   active=self.config.hover)
-        self.hover.connect("notify::active", self.changed)
+        sensitive_while(self.notifications, [self.centre])
         self.peek = Adw.SpinRow.new_with_range(0, 10, 0.5)
         self.peek.set_title("Peek on a new track or play/pause")
         self.peek.set_subtitle("Seconds · 0: never")
         self.peek.set_digits(1)
         self.peek.set_value(self.config.peek_seconds)
         self.peek.connect("notify::value", self.changed)
+        sensitive_while(self.media, [self.peek])
+        self.main_place = PlaceRows(self.config.place, self.changed)
+        for row in (self.media, self.notifications, self.centre):
+            row.connect("notify::active", self.changed)
+        for row in (self.media, self.peek, self.notifications, self.centre, *self.main_place.rows):
+            group.add(row)
+        return group
+
+    def build_launcher(self):
+        group = Adw.PreferencesGroup(title="App launcher",
+                                     description="Super alone opens it · in the same place as the music, they share one island")
+        self.launcher = Adw.SwitchRow(title="On", active=self.config.launcher)
+        self.launcher.connect("notify::active", self.changed)
+        self.launcher_place = PlaceRows(self.config.launcher_place, self.changed)
+        self.view = Choice("Apps as", VIEWS, self.config.launcher_view)
+        self.size = Choice("Size", SIZES, self.config.launcher_size)
+        for row in (self.view, self.size):
+            row.connect("notify::selected", self.changed)
+        settings = [*self.launcher_place.rows, self.view, self.size]
+        sensitive_while(self.launcher, settings)
+        for row in (self.launcher, *settings):
+            group.add(row)
+        return group
+
+    def build_both(self):
+        group = Adw.PreferencesGroup(title="Both")
+        self.hover = Adw.SwitchRow(title="Open with the pointer",
+                                   subtitle="Resting it on the island's edge, in the middle. Where music and launcher share an island, it opens the music",
+                                   active=self.config.hover)
+        self.hover.connect("notify::active", self.changed)
         self.color = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False), rgba=rgba(self.config.color),
                                            valign=Gtk.Align.CENTER)
         self.color.connect("notify::rgba", self.changed)
         color_row = Adw.ActionRow(title="Colour", subtitle="Far from the edge; black at the edge")
         color_row.add_suffix(self.color)
-        for row in (self.hover, self.peek, color_row):
-            group.add(row)
+        group.add(self.hover)
+        group.add(color_row)
         return group
 
     def changed(self, *_):
-        self.config.monitor = self.monitor.value()
-        self.config.edge = self.edge.value()
-        self.config.align = self.align.value()
-        self.config.hover = self.hover.get_active()
-        self.config.media = self.media.get_active()
         notifications_switched = self.config.notifications != self.notifications.get_active()
+        self.config.place = self.main_place.value()
+        self.config.media = self.media.get_active()
         self.config.notifications = self.notifications.get_active()
         self.config.notification_centre = self.centre.get_active()
         self.config.peek_seconds = self.peek.get_value()
+        self.config.launcher = self.launcher.get_active()
+        self.config.launcher_place = self.launcher_place.value()
+        self.config.launcher_view = self.view.value()
+        self.config.launcher_size = self.size.value()
+        self.config.hover = self.hover.get_active()
         self.config.color = hex_color(self.color.get_rgba())
         island_config.save(self.config)
         if notifications_switched:

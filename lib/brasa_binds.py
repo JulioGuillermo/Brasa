@@ -23,6 +23,7 @@ KEY_NAMES = {"mouse:272": "Left button", "mouse:273": "Right button", "mouse:274
              "mouse_down": "Wheel down", "mouse_up": "Wheel up", "button1": "Left button",
              "button3": "Right button", "button4": "Wheel up", "button5": "Wheel down", "Return": "Enter",
              "period": ".", "comma": ",", "space": "Space", "Escape": "Esc"}
+MODIFIER_KEYS = {"Super_L": "Super", "Super_R": "Super"}
 MOUSE_KEY = re.compile(r"^(mouse|button\d)")
 
 HYPR_ACTIONS = [
@@ -56,6 +57,8 @@ class Bind:
 
     @property
     def keys(self):
+        if self.key in MODIFIER_KEYS:
+            return f"{MODIFIER_KEYS[self.key]} alone"
         return " + ".join(self.mods + [key_name(self.key)])
 
 
