@@ -311,11 +311,11 @@ class Island(Gtk.Window):
     # ---- Pointer
 
     def hover_opens(self):
-        if not self.config.hover:
-            return None
-        if self.media:
+        if self.media and self.config.hover:
             return MAIN
-        return LAUNCHER if self.launcher else None
+        if self.launcher and self.config.launcher_hover:
+            return LAUNCHER
+        return None
 
     def on_enter(self, _controller, _x, _y):
         self.pointer_inside = True

@@ -133,9 +133,12 @@ class IslandWindow(Adw.ApplicationWindow):
         self.peek.connect("notify::value", self.changed)
         sensitive_while(self.media, [self.peek])
         self.main_place = PlaceRows(self.config.place, self.changed)
-        for row in (self.media, self.notifications, self.centre):
+        self.hover = Adw.SwitchRow(title="Open with the pointer",
+                                   subtitle="Resting it on the island's edge, in the middle",
+                                   active=self.config.hover)
+        for row in (self.media, self.notifications, self.centre, self.hover):
             row.connect("notify::active", self.changed)
-        for row in (self.media, self.peek, self.notifications, self.centre, *self.main_place.rows):
+        for row in (self.media, self.peek, self.notifications, self.centre, *self.main_place.rows, self.hover):
             group.add(row)
         return group
 
@@ -149,7 +152,11 @@ class IslandWindow(Adw.ApplicationWindow):
         self.size = Choice("Size", SIZES, self.config.launcher_size)
         for row in (self.view, self.size):
             row.connect("notify::selected", self.changed)
-        settings = [*self.launcher_place.rows, self.view, self.size]
+        self.launcher_hover = Adw.SwitchRow(title="Open with the pointer",
+                                            subtitle="Where it shares an island with the music, only if the music's is off",
+                                            active=self.config.launcher_hover)
+        self.launcher_hover.connect("notify::active", self.changed)
+        settings = [*self.launcher_place.rows, self.view, self.size, self.launcher_hover]
         sensitive_while(self.launcher, settings)
         for row in (self.launcher, *settings):
             group.add(row)
@@ -157,16 +164,11 @@ class IslandWindow(Adw.ApplicationWindow):
 
     def build_both(self):
         group = Adw.PreferencesGroup(title="Both")
-        self.hover = Adw.SwitchRow(title="Open with the pointer",
-                                   subtitle="Resting it on the island's edge, in the middle. Where music and launcher share an island, it opens the music",
-                                   active=self.config.hover)
-        self.hover.connect("notify::active", self.changed)
         self.color = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False), rgba=rgba(self.config.color),
                                            valign=Gtk.Align.CENTER)
         self.color.connect("notify::rgba", self.changed)
         color_row = Adw.ActionRow(title="Colour", subtitle="Far from the edge; black at the edge")
         color_row.add_suffix(self.color)
-        group.add(self.hover)
         group.add(color_row)
         return group
 
@@ -182,6 +184,7 @@ class IslandWindow(Adw.ApplicationWindow):
         self.config.launcher_view = self.view.value()
         self.config.launcher_size = self.size.value()
         self.config.hover = self.hover.get_active()
+        self.config.launcher_hover = self.launcher_hover.get_active()
         self.config.color = hex_color(self.color.get_rgba())
         island_config.save(self.config)
         if notifications_switched:

@@ -30,6 +30,7 @@ class Config:
     launcher_place: Place = field(default_factory=lambda: Place(edge="bottom"))
     launcher_view: str = "grid"
     launcher_size: str = "medium"
+    launcher_hover: bool = True
 
     @property
     def main(self) -> bool:
@@ -84,6 +85,7 @@ def load() -> Config:
     config.launcher = switched_on(pairs.get("launcher", "on"))
     config.launcher_view = one_of(pairs.get("launcher_view", ""), LAUNCHER_VIEWS, config.launcher_view)
     config.launcher_size = one_of(pairs.get("launcher_size", ""), LAUNCHER_SIZES, config.launcher_size)
+    config.launcher_hover = switched_on(pairs.get("launcher_hover", on_off(config.hover)))
     try:
         config.peek_seconds = float(pairs.get("peek_seconds", config.peek_seconds))
     except ValueError:
@@ -104,6 +106,7 @@ def save(config: Config):
         f"notifications={on_off(config.notifications)}",
         f"notification_centre={on_off(config.notification_centre)}",
         f"peek_seconds={config.peek_seconds:g}",
+        f"hover={on_off(config.hover)}",
         "# App launcher",
         f"launcher={on_off(config.launcher)}",
         f"launcher_edge={config.launcher_place.edge}",
@@ -111,8 +114,8 @@ def save(config: Config):
         f"launcher_monitor={config.launcher_place.monitor}",
         f"launcher_view={config.launcher_view}",
         f"launcher_size={config.launcher_size}",
+        f"launcher_hover={on_off(config.launcher_hover)}",
         "# Both",
-        f"hover={on_off(config.hover)}",
         f"color={config.color}",
     ]
     with open(PATH, "w") as conf:

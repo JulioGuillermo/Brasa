@@ -479,7 +479,8 @@ panel. The centre's buttons work only while the notification is still a fresh po
 
 **Settings**: the **Island** window (`Super+Shift+m`, or the **Island** button of the panel) switches the
 music, the notifications and the launcher on or off, and picks for each island its monitor, edge (top or
-bottom) and side, plus the launcher's look, opening with the pointer, peek time and colour. Each change is saved and the island shows up in its new place at once.
+bottom) and side, plus the launcher's look, opening with the pointer (a switch for each island), peek
+time and colour. Each change is saved and the island shows up in its new place at once.
 Switching the notifications restarts swaync, which empties its list.
 
 They live in `~/.config/brasa/island.conf`; edited by hand, `Super+Ctrl+r` applies them (except
@@ -492,7 +493,7 @@ notification_centre=on  # off: opening the island shows no list
 edge=top            # top or bottom
 align=center        # left, center or right
 monitor=DP-2        # empty: the focused one
-hover=on            # off: only Super+m
+hover=on            # open it with the pointer; off: only Super+m
 peek_seconds=2.5    # 0: never
 color=#0c1838       # the far end of the gradient
 launcher=on
@@ -501,6 +502,7 @@ launcher_align=center
 launcher_monitor=
 launcher_view=grid      # or list
 launcher_size=medium    # small, medium or large
+launcher_hover=on       # its own pointer switch; missing: same as hover
 ```
 
 ## Lock screen
