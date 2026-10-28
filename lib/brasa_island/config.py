@@ -8,6 +8,7 @@ EDGES = ("top", "bottom")
 ALIGNS = ("left", "center", "right")
 LAUNCHER_VIEWS = ("grid", "list")
 LAUNCHER_SIZES = ("small", "medium", "large")
+QUICK_SIDES = ("left", "right")
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class Config:
     launcher_view: str = "grid"
     launcher_size: str = "medium"
     launcher_hover: bool = True
+    quick_side: str = "right"
 
 
 def read_pairs(path):
@@ -79,6 +81,7 @@ def load() -> Config:
     config.launcher_view = one_of(pairs.get("launcher_view", ""), LAUNCHER_VIEWS, config.launcher_view)
     config.launcher_size = one_of(pairs.get("launcher_size", ""), LAUNCHER_SIZES, config.launcher_size)
     config.launcher_hover = switched_on(pairs.get("launcher_hover", on_off(config.hover)))
+    config.quick_side = one_of(pairs.get("quick_side", ""), QUICK_SIDES, config.quick_side)
     try:
         config.peek_seconds = float(pairs.get("peek_seconds", config.peek_seconds))
     except ValueError:
@@ -107,6 +110,8 @@ def save(config: Config):
         f"launcher_view={config.launcher_view}",
         f"launcher_size={config.launcher_size}",
         f"launcher_hover={on_off(config.launcher_hover)}",
+        "# Quick settings (brasa-quick)",
+        f"quick_side={config.quick_side}",
         "# Both",
         f"color={config.color}",
     ]

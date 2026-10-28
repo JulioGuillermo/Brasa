@@ -59,7 +59,7 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
 /* Segments */
 #clock                                    { background: @seg1; }
 #g-ctl, #workspaces, #g-net              { background: @seg2; }
-#tray, #custom-notif                      { background: @seg3; }
+#tray, #custom-quick, #custom-notif       { background: @seg3; }
 #g-cpu { border-radius: 13px 0 0 13px; padding-left: 10px; }
 #custom-notif { border-radius: 0 13px 13px 0; padding-right: 12px; font-size: 14px; }
 
@@ -142,10 +142,11 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
   color: @sub;
   padding: 0 6px;
 }
-#g-ctl > * :hover, #custom-notif:hover, #clock:hover { color: @accent; }
+#g-ctl > * :hover, #custom-notif:hover, #custom-quick:hover, #clock:hover { color: @accent; }
 #network.disconnected, #bluetooth.off, #bluetooth.disabled, #wireplumber.muted { color: @faint; }
 #bluetooth.connected { color: @steel; }
-#custom-notif { color: @sub; }
+#custom-notif, #custom-quick { color: @sub; }
+#custom-quick { padding: 0 6px; font-size: 14px; }
 #custom-notif.notification, #custom-notif.inhibited-notification { color: @accent; text-shadow: 0 0 8px rgba(255, 0, 0, 0.8); }
 #custom-notif.dnd-none, #custom-notif.dnd-notification { color: @faint; }
 #language { color: @sub; padding: 0 6px; font-weight: bold; }

@@ -50,7 +50,7 @@ waybar = {
   "modules-center": ["custom/c1", "sway/workspaces#sway", "hyprland/workspaces#hypr", "custom/c2"],
   # Network sits on the right, nearest the center: its width changes the most and nothing else moves
   "modules-right": ["custom/r0", "group/g-net", "custom/r1", "clock", "custom/r2", "group/g-ctl", "custom/r3",
-                    "tray", "custom/notif"],
+                    "tray", "custom/quick", "custom/notif"],
 
   **{f"custom/{n}": {"format": g, "tooltip": False} for n, g in
      [("l1", "\ue0b0"), ("l2", "\ue0b0"), ("l3", "\ue0b0"), ("l4", "\ue0b0"), ("l5", "\ue0b0"), ("l6", "\ue0b0"),
@@ -126,6 +126,7 @@ waybar = {
   "hyprland/language": {"format": "{short}", "on-click": "~/.local/bin/brasa-wm layout-next",
                         "on-click-right": "~/.local/bin/brasa-keyboard"},
   "tray": {"icon-size": 16, "spacing": 8},
+  "custom/quick": {"format": "\U000F062E", "tooltip": False, "on-click": "~/.local/bin/brasa-quick"},
   # The island writes the bell's state to brasa-bell.json and sends this signal (lib/brasa_island/bell.py)
   "custom/notif": {"exec": "cat \"$XDG_RUNTIME_DIR/brasa-bell.json\" 2>/dev/null || echo '{\"alt\": \"none\"}'",
                    "return-type": "json", "format": "{icon}", "interval": "once", "signal": 8,

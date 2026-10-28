@@ -20,6 +20,7 @@ SUPER	e	exec thunar	Files (Thunar)
 SUPER+SHIFT	n	exec nautilus	Files (Nautilus)
 SUPER	z	exec gtk-launch zen	Browser (Zen)
 SUPER	n	exec ~/.local/bin/brasa-island centre	Notification centre
+SUPER	a	exec ~/.local/bin/brasa-quick	Quick settings
 SUPER	F1	exec ~/.local/bin/brasa-keys	Key bindings cheat sheet
 SUPER	period	exec ~/.local/bin/brasa-emoji	Emoji picker
 SUPER	p	exec ~/.local/bin/brasa-display	Displays and monitors

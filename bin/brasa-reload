@@ -10,5 +10,7 @@ setsid -f ~/.local/bin/brasa-island >/dev/null 2>&1
 for _ in $(seq 30); do   # until it serves the notifications: one sent before would start swaync through D-Bus
   busctl --user status org.freedesktop.Notifications >/dev/null 2>&1 && break; sleep 0.1
 done
+quick=$(~/.local/bin/brasa-here -f '^brasa-quick') && kill $quick                # quick settings: new code
+setsid -f ~/.local/bin/brasa-quick start >/dev/null 2>&1
 pkill -x rofi; pkill -x nwg-bar; pkill -x fuzzel                          # menus read their config when opened
 notify-send -a brasa-reload -u low -t 1500 "Programs reloaded" "Bar, notifications and menus"

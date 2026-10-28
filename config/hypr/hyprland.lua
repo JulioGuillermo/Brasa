@@ -117,7 +117,7 @@ hl.animation({ leaf = "layersOut",     enabled = true, speed = 1.5,  bezier = "l
 hl.animation({ leaf = "workspaces",    enabled = true, speed = 1.94, bezier = "almostLinear", style = "slide" })
 
 ---- Blur behind the bar, notifications and menus
-for _, ns in ipairs({ "waybar", "swaync-control-center", "swaync-notification-window", "launcher", "rofi", "nwg-bar", "swayosd" }) do
+for _, ns in ipairs({ "waybar", "swaync-control-center", "swaync-notification-window", "launcher", "rofi", "nwg-bar", "swayosd", "brasa-quick" }) do
     hl.layer_rule({ match = { namespace = "^" .. ns .. "$" }, blur = true, ignore_alpha = 0.2 })
 end
 

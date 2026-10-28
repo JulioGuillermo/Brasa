@@ -25,6 +25,7 @@ here -f 'brasa-monitors watch' || \
 pkill -u "$(id -u)" -x swaync
 here -f '^brasa-island' || setsid -f ~/.local/bin/brasa-island >/dev/null 2>&1   # music and notifications (Super+m)
 ~/.local/bin/brasa-bar   # one bar per monitor, folded on narrow ones
+here -f '^brasa-quick' || setsid -f ~/.local/bin/brasa-quick start >/dev/null 2>&1   # quick settings (Super+a)
 # sway: your keyboard layouts (brasa-keyboard; Hyprland loads them in hyprland.lua)
 [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -s ~/.config/brasa/keyboard.conf ] && ~/.local/bin/brasa-keyboard apply
 # sway: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)

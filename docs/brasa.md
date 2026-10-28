@@ -58,7 +58,8 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` (`Shift+Print`) picks the area | `~/.local/bin/` |
 | `bin/brasa-island` | The island on a screen edge: music and notifications (`Super+m`) | `~/.local/bin/` |
-| `bin/brasa-island-settings` | Island window (`Super+Shift+m`, panel button **Island**): music, notifications, launcher, where each one sits | `~/.local/bin/` |
+| `bin/brasa-quick`, `lib/brasa_quick/` | Quick settings (`Super+a`, the bar's gear) | `~/.local/bin/` |
+| `bin/brasa-island-settings` | Island window (`Super+Shift+m`, quick settings tile **Island**): music, notifications, launcher, where each one sits | `~/.local/bin/` |
 | `lib/brasa_island/` | The island itself: window, outline, springs, music, notifications, `island.css` | (used in place) |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
@@ -201,6 +202,7 @@ search; Enter or a click runs it.
 | `Super+Shift+n` | Nautilus |
 | `Super+z` | Zen |
 | `Super+n` | Notification centre (the island) |
+| `Super+a` | Quick settings |
 | `Super+F1` | Key bindings window |
 | `Super+Ctrl+s` | Sessions window |
 | `Super+Ctrl+c` | Clean: /tmp or RAM |
@@ -669,35 +671,40 @@ brasa-remote on | off | status | setup | help
   `Ctrl+Alt` releases the keyboard grab, `Ctrl+Alt+G` grabs again, `Ctrl+Alt+M` opens the menu,
   `Ctrl+Alt+Enter` toggles full screen. `vncviewer 10.x.x.x:5900` (session) or `:5901` (local desktop).
 
-## Quick settings (notification panel)
+## Quick settings
 
-**Not started for now**: it is swaync's panel, and the island replaced swaync. A panel of its own is
-still to come. What it had: the panel has one grid of tiles, lit while on, and a row of menus whose current
-choice is lit:
+`brasa-quick` (`Super+a`, or the gear next to the bell in the bar): a card that slides in on the right
+edge of the focused monitor (or the left one: **Side** in the Island window, `quick_side` in
+`island.conf`). Escape or a click anywhere else closes it.
+
+- **Tiles** in pages of six. The **mouse wheel** goes from one page to the next, like Windows; the
+  dots on the side show which page, and a click on one jumps there.
+- A **switch** tile is lit while on; a click turns it on or off.
+- A tile with **›** opens a menu in the card, the current choice lit; the arrow goes back.
+- Below: volume and, with a backlight, brightness; then the battery, HyprMod (Hyprland settings, when
+  installed) and the power button (`brasa-exit`).
 
 | Tile | Click |
 |---|---|
-| Wi-Fi · Bluetooth · Mute | on / off |
+| Wi-Fi · Bluetooth · Airplane · Mute | on / off (Bluetooth only with Bluetooth) |
+| Effects | blur, animations and shadows, like `Super+Shift+f` |
 | Networks | Wi-Fi and network settings (nm-connection-editor) |
 | Keyboard | keyboard layouts: pick one, add or remove (`brasa-keyboard`) |
 | Sessions | the Sessions window (below), like `Super+Ctrl+s` |
-| Effects | blur, animations and shadows, like `Super+Shift+f` |
-| Lock | lock the screen |
+| Island | the Island window, like `Super+Shift+m` |
 | Keys | the key bindings window, like `Super+F1` |
+| Lock | lock the screen |
 
 | Menu | Choices |
 |---|---|
-| Layout | the focused workspace's window layout (like `Super+w`), the current one lit. Hyprland: dwindle, master, scrolling and focus, each side by side (→) or one above the other (↓). sway: side by side, above/below, tabs, stacked (`config-sway.json`, the panel swaync gets on sway) |
-| Battery | charge limit 60 / 80 / 90 / 100 % (laptops that support it, see below) |
+| Layout | the focused workspace's window layout (like `Super+w`). Hyprland: dwindle, master, scrolling and focus, each side by side (→) or one above the other (↓). sway: side by side, above/below, tabs, stacked |
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
-| Light | keyboard backlight level, the levels the driver offers (e.g. off, low, medium, high), the current one lit (`brasa-kbd set N`; only on keyboards with a backlight) |
+| Charge limit | 60 / 80 / 90 / 100 % (laptops that support it, see below) |
+| Key light | keyboard backlight level, the levels the driver offers (`brasa-kbd set N`; only with one) |
 | Clean | Clean /tmp…: a window lists the leftovers nobody uses, with their size, and removes them when you confirm (asks for the password: it also looks at root's). Free RAM: drops the page cache and tells how much was freed |
-| Custom | your own buttons, from `~/.config/brasa/panel.conf` (only when that file has some) |
 
-Choosing in a menu closes the panel. The panel is generated for each machine by
-`docs/gen-waybar-swaync.py`, so menus a machine cannot use are left out. swaync (0.12) has no tooltips
-for these buttons, hence the words under the icons; and it mangles double quotes inside commands, so the
-panel's commands avoid them.
+Your own tiles from `~/.config/brasa/panel.conf` come last. Tiles a machine cannot use are left out.
+The card is built again at every opening, so a change to `panel.conf` shows at once.
 
 ### Sessions window
 
@@ -724,9 +731,10 @@ brasa-follow where                where they open now
 brasa-follow keyring status|lock|unlock
 ```
 
-### Your own buttons (Custom)
+### Your own tiles
 
-`~/.config/brasa/panel.conf` (yours, not in git), one button per line:
+`~/.config/brasa/panel.conf` (yours, not in git), one tile per line. The icon is a Nerd Font glyph or a
+symbolic icon name (`…-symbolic`):
 
 ```
 # icon | name | command                                   a button
@@ -735,9 +743,8 @@ brasa-follow keyring status|lock|unlock
 󰢮 | GPU awake | ~/.local/bin/gpu-awake on | ~/.local/bin/gpu-awake off | systemctl -q is-active gpu-forcewake
 ```
 
-After editing, `Super+Ctrl+r` (`brasa-reload`) rebuilds the panel. Each command runs through
-`brasa-run`, which shows "Working…" at once and then the command's last line of output (or the error).
-Commands cannot contain quotes (swaync mangles them): anything more complex goes in a script. For
+The next opening of the panel shows them. Each command runs through `brasa-run`, which shows
+"Working…" at once and then the command's last line of output (or the error). For
 actions that need root, the script can use `pkexec`, which asks for the password with a dialog (the
 polkit agent Brasa starts), e.g. `pkexec sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'`.
 
