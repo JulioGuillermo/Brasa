@@ -1,4 +1,5 @@
 """The installed apps (their .desktop files): listing, matching a search, launching."""
+import os
 import re
 import shlex
 import subprocess
@@ -6,6 +7,7 @@ import subprocess
 from gi.repository import Gdk, Gio, GLib
 
 TERMINAL = "foot"
+ISLAND_ONLY_VARIABLES = ("LD_PRELOAD", "PYTHONPATH")
 FIELD_CODE = re.compile(r"%[a-zA-Z]")
 NAME_STARTS, WORD_STARTS, NAME_CONTAINS, ELSEWHERE = range(4)
 
@@ -44,12 +46,21 @@ def terminal_command(app: Gio.DesktopAppInfo) -> list[str]:
     return [TERMINAL, "-e", *shlex.split(command)]
 
 
+def app_environment() -> dict:
+    """The island's environment without what only the island needs: the layer-shell preload breaks
+    other GTK and Electron apps."""
+    return {name: value for name, value in os.environ.items() if name not in ISLAND_ONLY_VARIABLES}
+
+
 def launch(app: Gio.DesktopAppInfo):
     if app.get_boolean("Terminal"):
-        subprocess.Popen(terminal_command(app), start_new_session=True,
+        subprocess.Popen(terminal_command(app), env=app_environment(), start_new_session=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return
+    context = Gdk.Display.get_default().get_app_launch_context()
+    for name in ISLAND_ONLY_VARIABLES:
+        context.unsetenv(name)
     try:
-        app.launch([], Gdk.Display.get_default().get_app_launch_context())
+        app.launch([], context)
     except GLib.Error:
         pass
