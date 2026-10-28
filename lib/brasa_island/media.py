@@ -1,6 +1,7 @@
 """The island's media module: what is playing, with cover, progress, controls and volume.
 Gives two views: `peek` (one line, shown for a moment when the track or play/pause changes) and `full`."""
 import time
+import urllib.parse
 
 from gi.repository import GLib, Gtk, Pango
 
@@ -20,6 +21,11 @@ def clock(seconds: float) -> str:
     if seconds >= 3600:
         return f"{seconds // 3600}:{seconds // 60 % 60:02}:{seconds % 60:02}"
     return f"{seconds // 60}:{seconds % 60:02}"
+
+
+def source_name(player, data) -> str:
+    site = urllib.parse.urlparse(data.get("xesam:url", "")).hostname
+    return site or player.props.player_name
 
 
 def label(css, xalign=0.0, chars=None):
@@ -102,9 +108,14 @@ class Media:
         self.length = label(["island-time"])
         self.progress = Gtk.Scale(hexpand=True, css_classes=["island-progress"], draw_value=False)
         self.progress.connect("change-value", self.on_seek)
-        progress = Gtk.Box(spacing=8)
+        bar = Gtk.Box(spacing=8)
         for child in (self.position, self.progress, self.length):
-            progress.append(child)
+            bar.append(child)
+        self.no_time = label(["island-time"], xalign=0.5)
+        self.progress_row = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
+        self.progress_row.add_named(bar, "bar")
+        self.progress_row.add_named(self.no_time, "no-time")
+        progress = self.progress_row
 
         self.play = round_button("media-playback-start-symbolic", ["island-play"], self.play_pause)
         buttons = Gtk.Box(spacing=6)
@@ -155,6 +166,7 @@ class Media:
         self.artist.set_text(artists)
         self.peek_artist.set_text(artists)
         self.album.set_text(data.get("xesam:album", ""))
+        self.no_time.set_text(f"{source_name(player, data)} does not say how long this lasts")
         self.show_length(data.get("mpris:length", 0) / 1e6)
         state = "media-playback-pause-symbolic" if player.props.playback_status == PLAYING else "media-playback-start-symbolic"
         self.play.set_icon_name(state)
@@ -166,6 +178,7 @@ class Media:
         self.progress.set_sensitive(known)
         self.progress.set_range(0, seconds if known else 1)
         self.length.set_text(clock(seconds) if known else "")
+        self.progress_row.set_visible_child_name("bar" if known or self.players.current is None else "no-time")
         if not known:
             self.progress.set_value(0)
 

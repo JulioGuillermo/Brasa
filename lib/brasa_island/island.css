@@ -4,8 +4,8 @@ window.brasa-island label { font-family: "Hack Nerd Font Propo", "Hack Nerd Font
 
 window.brasa-island label.island-title { color: #ff0000; font-weight: bold; }
 .island-big { font-size: 15px; }
-.island-artist { color: #c3cbe0; }
-.island-album, .island-time { color: #5a6a90; }
+window.brasa-island label.island-artist { color: #c3cbe0; }
+window.brasa-island label.island-album, window.brasa-island label.island-time { color: #5a6a90; }
 .island-volume-icon { color: #ff0000; }
 .island-time { font-size: 11px; min-width: 38px; }
 .island-state { color: #ff0000; }
