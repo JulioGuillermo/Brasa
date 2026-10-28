@@ -450,6 +450,8 @@ from hidden to a one-line peek or to the full view and back, even when interrupt
 - **Full view**: cover, title, artist, album, progress (drag to seek), previous / play-pause / next and
   the output volume. Any MPRIS player counts (browsers, Spotify, mpv...); the current one is the last
   that started playing.
+- **No length from the player** (browsers sometimes give none): on YouTube the island reads it from the
+  video's page and counts the time itself, shown as `~1:23`; elsewhere it says the length is unknown.
 - **Open it**: `Super+m` (again to close; it closes by itself after 5 s if the pointer never goes in),
   or rest the pointer on the edge, in the middle. It closes when the pointer leaves.
 - **Peek**: a new track or play/pause shows one line for a moment.

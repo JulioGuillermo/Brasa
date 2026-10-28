@@ -2,30 +2,18 @@
 when the player gives none, the thumbnail of a YouTube video. Always a centred square, so it never
 changes the island's layout."""
 import threading
-import urllib.parse
 import urllib.request
 
 from gi.repository import Gdk, GdkPixbuf, GLib
 
+from . import youtube
+
 DOWNLOAD_TIMEOUT = 5
 SIDE_PIXELS = 256
-YOUTUBE_THUMBNAILS = "https://i.ytimg.com/vi/"
-YOUTUBE_HOSTS = ("youtube.com", "www.youtube.com", "music.youtube.com", "m.youtube.com")
-
-
-def youtube_thumbnail(page_url: str) -> str:
-    page = urllib.parse.urlparse(page_url)
-    if page.hostname == "youtu.be":
-        video = page.path.strip("/")
-    elif page.hostname in YOUTUBE_HOSTS:
-        video = urllib.parse.parse_qs(page.query).get("v", [""])[0]
-    else:
-        return ""
-    return f"{YOUTUBE_THUMBNAILS}{video}/hqdefault.jpg" if video else ""
 
 
 def cover_url(metadata: dict) -> str:
-    return metadata.get("mpris:artUrl") or youtube_thumbnail(metadata.get("xesam:url", ""))
+    return metadata.get("mpris:artUrl") or youtube.thumbnail(metadata.get("xesam:url", ""))
 
 
 def fetch(url: str) -> bytes:
@@ -47,7 +35,7 @@ def square(data: bytes, url: str) -> Gdk.Texture:
     loader.write(data)
     loader.close()
     image = loader.get_pixbuf()
-    if url.startswith(YOUTUBE_THUMBNAILS):
+    if url.startswith(youtube.THUMBNAILS):
         image = without_letterbox(image)
     side = min(image.get_width(), image.get_height())
     left = (image.get_width() - side) // 2
