@@ -1,6 +1,6 @@
 /* Brasa · Redline: near-black night blue, pure red accent, white and light blue (#99ccff),
    segments joined by triangles (powerline) like mo's status bar. */
-@define-color base   rgba(0, 4, 15, 0.86);  /* #00040f */
+@define-color base   rgba(0, 4, 15, 0.45);  /* #00040f */
 @define-color seg1   #0c1838;
 @define-color seg2   #08122b;
 @define-color seg3   #040b1f;
