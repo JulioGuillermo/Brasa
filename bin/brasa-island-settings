@@ -144,7 +144,7 @@ class IslandWindow(Adw.ApplicationWindow):
 
     def build_launcher(self):
         group = Adw.PreferencesGroup(title="App launcher",
-                                     description="Super+d or Super alone opens it · in the same place as the music, they share one island")
+                                     description="Super+d opens it · in the same place as the music, they share one island")
         self.launcher = Adw.SwitchRow(title="On", active=self.config.launcher)
         self.launcher.connect("notify::active", self.changed)
         self.launcher_place = PlaceRows(self.config.launcher_place, self.changed)

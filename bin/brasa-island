@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The islands on the screen edges: music and notifications (Super+m), app launcher (Super+d or Super alone).
+# The islands on the screen edges: music and notifications (Super+m), app launcher (Super+d).
 # Usage: brasa-island            start it (brasa-autostart does)
 #        brasa-island toggle     open or close it (music and the notification centre)
-#        brasa-island launcher   open or close the app launcher (Super+d, Super alone)
+#        brasa-island launcher   open or close the app launcher (Super+d)
 #        brasa-island peek       show the current track for a moment
 #        brasa-island hide
 #        brasa-island reload     read island.conf again and show the island where it now is

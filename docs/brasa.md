@@ -192,7 +192,7 @@ search; Enter or a click runs it.
 
 | Keys | Action |
 |---|---|
-| `Super+d` or `Super` alone | App launcher island |
+| `Super+d` | App launcher island |
 | `Super+Shift+d` | App grid, full screen (rofi) |
 | `Super+r` | Quick launcher (fuzzel) |
 | `Super+Enter`, `Super+t` | foot |
@@ -463,7 +463,7 @@ between states, even when interrupted halfway. It shows two things, each one can
   Disturb, Clear all and a button that closes the island. `x` on one deletes it. With the centre off,
   notifications only pass by and the panel keeps them.
 
-- **App launcher** (`Super+d`, or `Super` alone, pressed and released): a search over every installed app, as a grid
+- **App launcher** (`Super+d`): a search over every installed app, as a grid
   of icons or a list, small, medium or large. Typing filters; arrows (Tab in the grid) move, Enter opens,
   Escape closes. It can sit on its own edge (by default the bottom one), with its own monitor and side;
   in the same place as the music and notifications, they share one island and `Super` switches it to
