@@ -1,5 +1,5 @@
 """One tile: a square button with its icon and its name inside, centred. Lit (red) while what it switches
-is on. A menu tile has a chevron in its corner and a red line along its bottom."""
+is on. A menu tile has a chevron after its name."""
 from gi.repository import Gtk, Pango
 
 from . import glyphs, shell
@@ -25,18 +25,18 @@ class Tile(Gtk.Box):
         face = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
                        halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
         face.append(icon_widget(item.icon))
-        face.append(Gtk.Label(label=item.name, ellipsize=Pango.EllipsizeMode.END, max_width_chars=NAME_CHARACTERS,
-                              justify=Gtk.Justification.CENTER, css_classes=["quick-tile-name"]))
-        layers = Gtk.Overlay(child=face)
-        classes = ["quick-tile-button"]
-        if isinstance(item, Menu):
-            classes.append("menu")
-            layers.add_overlay(Gtk.Label(label=glyphs.CHEVRON, halign=Gtk.Align.END, valign=Gtk.Align.START,
-                                         css_classes=["quick-chevron"]))
-        self.button = Gtk.Button(child=layers, css_classes=classes, hexpand=True,
-                                 tooltip_text=f"{item.name} ›" if isinstance(item, Menu) else item.name)
+        face.append(self.name_row(item))
+        self.button = Gtk.Button(child=face, css_classes=["quick-tile-button"], hexpand=True, tooltip_text=item.name)
         self.button.connect("clicked", lambda _button: self.clicked(on_action, on_menu))
         self.append(self.button)
+
+    def name_row(self, item) -> Gtk.Box:
+        row = Gtk.Box(spacing=2, halign=Gtk.Align.CENTER)
+        row.append(Gtk.Label(label=item.name, ellipsize=Pango.EllipsizeMode.END, max_width_chars=NAME_CHARACTERS,
+                             css_classes=["quick-tile-name"]))
+        if isinstance(item, Menu):
+            row.append(Gtk.Label(label=glyphs.CHEVRON, css_classes=["quick-chevron"]))
+        return row
 
     def clicked(self, on_action, on_menu):
         if isinstance(self.item, Switch):

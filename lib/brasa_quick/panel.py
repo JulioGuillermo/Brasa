@@ -24,7 +24,6 @@ CONTENT_FADE_SECONDS = 0.15
 MAX_FRAME_SECONDS = 1 / 30
 EXIT = "~/.local/bin/brasa-exit"
 ISLAND_SETTINGS = "~/.local/bin/brasa-island-settings"
-BODY_DARKNESS = 0.5
 HYPRMOD = "hyprmod"
 
 
@@ -39,13 +38,6 @@ def rgba(color):
     parsed = Gdk.RGBA()
     parsed.parse(color)
     return parsed
-
-
-def darker(color: Gdk.RGBA) -> Gdk.RGBA:
-    shade = Gdk.RGBA()
-    shade.red, shade.green, shade.blue = (part * BODY_DARKNESS for part in (color.red, color.green, color.blue))
-    shade.alpha = 1
-    return shade
 
 
 def round_button(glyph, tooltip, on_click):
@@ -102,7 +94,7 @@ class Panel(Gtk.Window):
     def open_panel(self):
         config = island_config.load()
         self.on_right = config.quick_side == "right"
-        self.color = darker(rgba(config.color))
+        self.color = rgba(config.color)
         self.size = config.quick_size
         self.show_card(self.build())
         monitor = find_monitor(focused_connector())

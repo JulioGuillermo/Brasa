@@ -5,32 +5,28 @@ window.brasa-quick label { font-family: "Hack Nerd Font Propo", "Hack Nerd Font"
 window.brasa-quick label.quick-title { color: #ff0000; font-weight: bold; }
 window.brasa-quick button { outline: none; }
 
-/* Tiles: square, icon and name inside; red on dark, white on red when lit. Focus is drawn inside the
-   button (an outline outside would be cut by the page). */
+/* Tiles: square and black with a red line along the bottom, icon and name inside in red; white on red
+   when lit. Focus is drawn inside the button (an outline outside would be cut by the page). */
 button.quick-tile-button {
   min-width: 84px;
   min-height: 84px;
   padding: 4px;
   border-radius: 16px;
   border: none;
-  box-shadow: none;
-  background: rgba(153, 204, 255, 0.07);
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 -3px 0 rgba(255, 32, 32, 0.55);
   color: #ff2020;
 }
 button.quick-tile-button label { color: inherit; }
 label.quick-tile-icon { font-size: 22px; }
 image.quick-tile-icon { color: inherit; }
 window.brasa-quick label.quick-tile-name { font-size: 11px; }
+window.brasa-quick label.quick-chevron { font-size: 12px; }
 button.quick-tile-button:hover { background: rgba(255, 0, 0, 0.16); color: #ff4040; }
-button.quick-tile-button.lit { background: #c00000; color: #ffffff; }
+button.quick-tile-button.lit { background: #c00000; color: #ffffff; box-shadow: inset 0 -3px 0 #ff5050; }
 button.quick-tile-button.lit:hover { background: #e00000; }
-button.quick-tile-button:focus-visible { box-shadow: inset 0 0 0 2px #ff2020; }
-button.quick-tile-button.lit:focus-visible { box-shadow: inset 0 0 0 2px #ffffff; }
-
-/* Menu tiles: a chevron in the corner and a line along the bottom */
-button.quick-tile-button.menu { box-shadow: inset 0 -3px 0 rgba(255, 32, 32, 0.55); }
-button.quick-tile-button.menu:focus-visible { box-shadow: inset 0 0 0 2px #ff2020, inset 0 -3px 0 #ff2020; }
-window.brasa-quick label.quick-chevron { font-size: 13px; margin: 0 2px; opacity: 0.8; }
+button.quick-tile-button:focus-visible { box-shadow: inset 0 0 0 2px #ff2020, inset 0 -3px 0 #ff2020; }
+button.quick-tile-button.lit:focus-visible { box-shadow: inset 0 0 0 2px #ffffff, inset 0 -3px 0 #ffffff; }
 
 /* Page dots */
 button.quick-dot {
