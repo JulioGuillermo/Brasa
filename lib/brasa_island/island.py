@@ -100,13 +100,13 @@ class Island(Gtk.Window):
         self.anchor()
         self.present()
         self.canvas.queue_draw()
-        self.queue_allocate()
+        self.layers.queue_resize()
         self.later("show", 150, self.toggle)
 
     def build(self):
         self.canvas = Gtk.DrawingArea(content_width=WINDOW_WIDTH, content_height=WINDOW_HEIGHT)
         self.canvas.set_draw_func(self.draw)
-        layers = Gtk.Overlay(child=self.canvas)
+        self.layers = layers = Gtk.Overlay(child=self.canvas)
         for state, view in self.views.items():
             view.set_opacity(0)
             view.set_can_target(False)
