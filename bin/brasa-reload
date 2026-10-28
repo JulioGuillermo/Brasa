@@ -5,5 +5,7 @@ for f in ~/.config/brasa/bin/brasa-*; do [ -e ~/.local/bin/"${f##*/}" ] || ln -s
 python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/null 2>&1   # bar + panel (panel.conf)
 ~/.local/bin/brasa-bar --reload                                                # bar: config and style
 swaync-client -R -sw >/dev/null 2>&1; swaync-client -rs -sw >/dev/null 2>&1   # notifications
+island=$(~/.local/bin/brasa-here -f '^brasa-island') && { kill $island; sleep 0.3; }   # island: island.conf
+setsid -f ~/.local/bin/brasa-island >/dev/null 2>&1
 pkill -x rofi; pkill -x nwg-bar; pkill -x fuzzel                          # menus read their config when opened
 notify-send -a brasa-reload -u low -t 1500 "Programs reloaded" "Bar, notifications and menus"

@@ -13,3 +13,4 @@ config/swaync/menus.css
 remote.conf
 panel.conf
 keyboard.conf
+island.conf

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# The island on a screen edge: what is playing, with controls (Super+m, or the pointer on that edge).
+# Usage: brasa-island            start it (brasa-autostart does)
+#        brasa-island toggle     open or close the full view
+#        brasa-island peek       show the current track for a moment
+#        brasa-island hide
+# Settings in ~/.config/brasa/island.conf (see docs/brasa.md).
+lib=$(dirname "$(realpath "$0")")/../lib
+PYTHONPATH="$lib" LD_PRELOAD=libgtk4-layer-shell.so.0 exec -a brasa-island \
+  python3 -W ignore::DeprecationWarning -m brasa_island "$@"

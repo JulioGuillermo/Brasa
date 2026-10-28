@@ -25,6 +25,7 @@ here -f 'brasa-monitors watch' || \
 # config); on sway, the panel whose Layout menu has sway's layouts
 if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then run swaync; else run swaync -c ~/.config/swaync/config-sway.json; fi
 ~/.local/bin/brasa-bar   # one bar per monitor, folded on narrow ones
+here -f '^brasa-island' || setsid -f ~/.local/bin/brasa-island >/dev/null 2>&1   # the music island (Super+m)
 # sway: your keyboard layouts (brasa-keyboard; Hyprland loads them in hyprland.lua)
 [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -s ~/.config/brasa/keyboard.conf ] && ~/.local/bin/brasa-keyboard apply
 # sway: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)

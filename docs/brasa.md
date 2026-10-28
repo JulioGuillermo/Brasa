@@ -14,13 +14,14 @@
 11. [Window managers](#window-managers)
 12. [Effects and transparency](#effects-and-transparency)
 13. [On-screen indicators](#on-screen-indicators)
-14. [Lock screen](#lock-screen)
-15. [Login screen](#login-screen)
-16. [Shell: zsh and starship](#shell-zsh-and-starship)
-17. [Remote desktop (VNC)](#remote-desktop-vnc)
-18. [Colors](#colors)
-19. [Trying it inside GNOME](#trying-it-inside-gnome)
-20. [Known issues and untested bits](#known-issues-and-untested-bits)
+14. [Island](#island)
+15. [Lock screen](#lock-screen)
+16. [Login screen](#login-screen)
+17. [Shell: zsh and starship](#shell-zsh-and-starship)
+18. [Remote desktop (VNC)](#remote-desktop-vnc)
+19. [Colors](#colors)
+20. [Trying it inside GNOME](#trying-it-inside-gnome)
+21. [Known issues and untested bits](#known-issues-and-untested-bits)
 
 ## What it is
 
@@ -54,6 +55,8 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` (`Shift+Print`) picks the area | `~/.local/bin/` |
+| `bin/brasa-island` | The island on a screen edge: what is playing, with controls (`Super+m`) | `~/.local/bin/` |
+| `lib/brasa_island/` | The island itself: window, outline, springs, media module, `island.css` | (used in place) |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
 | `bin/brasa-kbd` | Keyboard backlight, for any `*kbd_backlight*` LED: up, down, toggle, set N, get, max | `~/.local/bin/` |
@@ -436,6 +439,30 @@ whenever something changes:
 
 Settings in `config/swayosd/config.toml` (height, duration, max volume); look in `style.css`.
 Without SwayOSD, `brasa-osd` falls back to a quiet notification.
+
+## Island
+
+A black shape that grows out of the screen edge, as if the screen bent inwards: black where it
+touches the edge, Brasa blue at the far end, a thin red rim. Every size moves on springs, so it flows
+from hidden to a one-line peek or to the full view and back, even when interrupted halfway.
+
+- **Full view**: cover, title, artist, album, progress (drag to seek), previous / play-pause / next and
+  the output volume. Any MPRIS player counts (browsers, Spotify, mpv...); the current one is the last
+  that started playing.
+- **Open it**: `Super+m` (again to close; it closes by itself after 5 s if the pointer never goes in),
+  or rest the pointer on the edge, in the middle. It closes when the pointer leaves.
+- **Peek**: a new track or play/pause shows one line for a moment.
+
+Settings in `~/.config/brasa/island.conf`, all optional; `Super+Ctrl+r` applies them:
+
+```
+edge=top            # top or bottom
+align=center        # left, center or right
+monitor=DP-2        # empty: the one the compositor picks
+hover=on            # off: only Super+m
+peek_seconds=2.5
+color=#0c1838       # the far end of the gradient
+```
 
 ## Lock screen
 

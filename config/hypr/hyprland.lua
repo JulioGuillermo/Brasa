@@ -124,6 +124,9 @@ end
 ---- The frozen screen behind an area screenshot shows up at once
 hl.layer_rule({ match = { namespace = "^brasa-freeze$" }, no_anim = true })
 
+---- The island animates its own shape
+hl.layer_rule({ match = { namespace = "^brasa-island$" }, no_anim = true })
+
 ---- Each workspace's window layout, chosen with Super+w (written by brasa-wm)
 BRASA_CENTERED = {}   -- the workspaces in a focus layout and their direction, set by workspace-layouts.lua
 pcall(dofile, state .. "workspace-layouts.lua")
