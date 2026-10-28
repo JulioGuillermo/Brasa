@@ -39,6 +39,23 @@ tooltip {
 }
 tooltip label { color: @text; padding: 4px 6px; }
 
+/* The menus of the tray icons, in the look of the tooltips and the panel */
+window.popup, window.popup decoration { background: transparent; box-shadow: none; }
+menu {
+  background: rgba(0, 6, 24, 0.97);
+  border: 1px solid #b00000;
+  border-radius: 12px;
+  padding: 6px;
+}
+menu menuitem { padding: 6px 14px 6px 10px; border-radius: 8px; color: @text; }
+menu menuitem label { color: inherit; }
+menu menuitem:hover { background: rgba(255, 0, 0, 0.18); color: #ff3030; }
+menu menuitem:disabled, menu menuitem:disabled label { color: @dim; }
+menu menuitem image { margin-right: 8px; }
+menu menuitem check, menu menuitem radio { min-width: 14px; min-height: 14px; margin-right: 8px; color: @accent; }
+menu menuitem arrow { min-width: 12px; color: @dim; }
+menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
+
 /* Segments */
 #clock                                    { background: @seg1; }
 #g-ctl, #workspaces, #g-net              { background: @seg2; }
