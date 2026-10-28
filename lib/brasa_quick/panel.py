@@ -18,6 +18,7 @@ from .pager import Pager
 from .sliders import sliders
 
 PADDING = 22
+OVERHANG = 2
 RADIUS = 34
 SHOULDER = 90
 CONTENT_FADE_SECONDS = 0.15
@@ -74,8 +75,6 @@ class Panel(Gtk.Window):
         LayerShell.set_namespace(self, "brasa-quick")
         LayerShell.set_layer(self, LayerShell.Layer.OVERLAY)
         LayerShell.set_exclusive_zone(self, -1)
-        for edge in (LayerShell.Edge.TOP, LayerShell.Edge.BOTTOM, LayerShell.Edge.LEFT, LayerShell.Edge.RIGHT):
-            LayerShell.set_anchor(self, edge, True)
 
     def listen(self):
         outside = Gtk.GestureClick()
@@ -100,9 +99,7 @@ class Panel(Gtk.Window):
         self.color = rgba(config.color)
         self.size = config.quick_size
         self.show_card(self.build())
-        monitor = find_monitor(focused_connector())
-        if monitor is not None:
-            LayerShell.set_monitor(self, monitor)
+        self.cover(find_monitor(focused_connector()) or Gdk.Display.get_default().get_monitors()[0])
         LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.EXCLUSIVE)
         self.is_open = True
         self.present()
@@ -111,6 +108,18 @@ class Panel(Gtk.Window):
         self.watch()
         self.pager.focus_tile(0)
         self.fit()
+
+    def cover(self, monitor):
+        """The monitor's size, moved OVERHANG past its bottom and side edges: with a fractional scale the
+        border of a window that fills the screen can be left undrawn."""
+        LayerShell.set_monitor(self, monitor)
+        geometry = monitor.get_geometry()
+        self.set_default_size(geometry.width, geometry.height)
+        sides = {LayerShell.Edge.RIGHT: self.on_right, LayerShell.Edge.LEFT: not self.on_right,
+                 LayerShell.Edge.BOTTOM: True, LayerShell.Edge.TOP: False}
+        for edge, anchored in sides.items():
+            LayerShell.set_anchor(self, edge, anchored)
+            LayerShell.set_margin(self, edge, -OVERHANG if anchored else 0)
 
     def close_panel(self):
         self.is_open = False
@@ -227,23 +236,31 @@ class Panel(Gtk.Window):
     def corner(self) -> Corner:
         return Corner(self.width.value, self.height.value, self.shoulder.value, self.radius.value)
 
+    def screen_corner(self) -> tuple[float, float]:
+        """The corner of the screen in the window, which reaches OVERHANG past the bottom and side edges so
+        its own border, which a fractional scale can leave half drawn, stays off screen."""
+        x = self.canvas.get_width() - OVERHANG if self.on_right else OVERHANG
+        return x, self.canvas.get_height() - OVERHANG
+
     def to_corner(self, x, y) -> tuple[float, float]:
-        frame_x = self.canvas.get_width() - x if self.on_right else x
-        return frame_x, self.canvas.get_height() - y
+        corner_x, corner_y = self.screen_corner()
+        frame_x = corner_x - x if self.on_right else x - corner_x
+        return frame_x, corner_y - y
 
     def place_content(self, _overlay, _clip, place):
         width, height = self.card_size()
-        screen_width, screen_height = self.canvas.get_width(), self.canvas.get_height()
-        place.x = screen_width - PADDING - width if self.on_right else PADDING
-        place.y = screen_height - PADDING - height
+        corner_x, corner_y = self.screen_corner()
+        place.x = corner_x - PADDING - width if self.on_right else corner_x + PADDING
+        place.y = corner_y - PADDING - height
         place.width, place.height = width, height
-        body_left = screen_width - self.width.value if self.on_right else 0
-        body_top = screen_height - self.height.value
+        body_left = corner_x - self.width.value if self.on_right else corner_x
+        body_top = corner_y - self.height.value
         self.clip.show_only(body_left - place.x, body_top - place.y, self.width.value, self.height.value)
         return True
 
     def draw(self, _area, cr, width, height):
         to_corner_frame(cr, width, height, self.on_right)
+        cr.translate(OVERHANG, OVERHANG)
         paint(cr, self.corner(), self.color)
 
     def retarget(self):

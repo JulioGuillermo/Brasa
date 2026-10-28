@@ -23,6 +23,7 @@ SHAPES = {  # body width, max body height, shoulder reach, corner radius
 PADDING = {LINE: (8, 18), CARD: (16, 24), "small": (14, 18), "medium": (16, 22), "large": (18, 26)}
 SECTION_SPACING = 12
 SLACK = 40
+OVERHANG = 2
 HOT_ZONE_HEIGHT = 3
 HOVER_DWELL_MS = 120
 LEAVE_DELAY_MS = 400
@@ -58,7 +59,7 @@ class Island(Gtk.Window):
         if launcher:
             self.shapes.append(config.launcher_size)
         self.window_width = max(SHAPES[s][0] + 2 * SHAPES[s][2] for s in self.shapes) + 2 * SLACK
-        self.window_height = max(SHAPES[s][1] for s in self.shapes) + SLACK
+        self.window_height = max(SHAPES[s][1] for s in self.shapes) + SLACK + OVERHANG
         super().__init__(application=app, css_classes=["brasa-island"],
                          default_width=self.window_width, default_height=self.window_height)
         self.color = rgba(config.color)
@@ -90,6 +91,12 @@ class Island(Gtk.Window):
         return self.place.edge == "top"
 
     @property
+    def edge_y(self) -> float:
+        """Where the screen edge is in the window. The window reaches OVERHANG past it, so its own border,
+        which a fractional scale can leave half drawn, stays off screen."""
+        return OVERHANG if self.at_top else self.window_height - OVERHANG
+
+    @property
     def is_open(self) -> bool:
         return self.mode is not None
 
@@ -109,6 +116,8 @@ class Island(Gtk.Window):
         }
         for edge, on in anchored.items():
             LayerShell.set_anchor(self, edge, on)
+        screen_edge = LayerShell.Edge.TOP if self.at_top else LayerShell.Edge.BOTTOM
+        LayerShell.set_margin(self, screen_edge, -OVERHANG)
         self.monitor = self.place.monitor
         if self.monitor:
             LayerShell.set_monitor(self, find_monitor(self.monitor))
@@ -167,10 +176,10 @@ class Island(Gtk.Window):
         width = self.content_width()
         height = self.content_height()
         place.x = round((self.window_width - width) / 2)
-        place.y = round(self.inset.value if self.at_top else self.window_height - self.inset.value - height)
+        place.y = round(self.edge_y + self.inset.value if self.at_top else self.edge_y - self.inset.value - height)
         place.width, place.height = width, height
         body = self.outline()
-        top = 0 if self.at_top else self.window_height - body.height
+        top = self.edge_y if self.at_top else self.edge_y - body.height
         self.clip.show_only(body.center - body.width / 2 - place.x, top - place.y, body.width, body.height)
         return True
 
@@ -179,8 +188,8 @@ class Island(Gtk.Window):
                        self.radius.value)
 
     def draw(self, _area, cr, _width, _height):
+        cr.translate(0, self.edge_y)
         if not self.at_top:
-            cr.translate(0, self.window_height)
             cr.scale(1, -1)
         paint(cr, self.outline(), self.color)
 
@@ -404,6 +413,7 @@ class Island(Gtk.Window):
         else:
             area = (0, 0, 0, 0)
         x, y, width, height = (round(value) for value in area)
+        height += OVERHANG
         if not self.at_top:
             y = self.window_height - height
         surface.set_input_region(cairo.Region(cairo.RectangleInt(x, y, width, height)))
