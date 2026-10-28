@@ -1,5 +1,6 @@
 /* Brasa · Redline for swaync (GTK4) */
 @import url("menus.css");   /* generated: the menu buttons' width */
+@import url("island.css");  /* generated: hides the popups while the island shows the notifications */
 * { font-family: "Hack Nerd Font Propo", "Hack Nerd Font", sans-serif; font-size: 13px; }
 
 /* The list's rows and groups never paint GTK's grey selection */

@@ -1,4 +1,4 @@
-"""brasa-island [toggle|peek|hide]: starts the island, or tells the running one what to do."""
+"""brasa-island [toggle|peek|hide|reload]: starts the island, or tells the running one what to do."""
 import os
 import sys
 
@@ -12,6 +12,7 @@ from gi.repository import Gdk, Gio, Gtk
 from . import config
 from .island import Island
 from .media import Media
+from .notifications import Notifications
 
 STYLE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "island.css")
 
@@ -32,13 +33,28 @@ class IslandApp(Gtk.Application):
         provider.load_from_path(STYLE)
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider,
                                                   Gtk.STYLE_PROVIDER_PRIORITY_USER)
-        media = Media(on_peek=lambda: self.island.peek(), on_resize=self.fit_island)
-        self.island = Island(self, config.load(), media)
+        settings = config.load()
+        media = Media(on_peek=lambda: self.tell_island("peek"), on_resize=lambda: self.tell_island("fit"))
+        notifications = Notifications(on_change=lambda: self.tell_island("relayout"),
+                                      on_close_island=lambda: self.tell_island("close_view"))
+        self.island = Island(self, settings, media, notifications)
         self.island.present()
+        self.switch_notifications(settings.notifications)
 
-    def fit_island(self):
+    def tell_island(self, method):
         if self.island is not None:
-            self.island.fit()
+            getattr(self.island, method)()
+
+    def switch_notifications(self, on: bool):
+        if on:
+            self.island.notifications.start()
+        else:
+            self.island.notifications.stop()
+
+    def reload(self):
+        settings = config.load()
+        self.switch_notifications(settings.notifications)
+        self.island.apply(settings)
 
     def do_command_line(self, command_line):
         if self.island is None:
@@ -47,8 +63,8 @@ class IslandApp(Gtk.Application):
         actions = {
             "toggle": self.island.toggle,
             "peek": self.island.peek,
-            "hide": self.island.hide_island,
-            "reload": lambda: self.island.apply(config.load()),
+            "hide": self.island.close_all,
+            "reload": self.reload,
         }
         if command in actions:
             actions[command]()

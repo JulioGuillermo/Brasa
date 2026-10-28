@@ -1,5 +1,5 @@
-"""The island's media module: what is playing, with cover, progress, controls and volume.
-Gives two views: `peek` (one line, shown for a moment when the track or play/pause changes) and `full`."""
+"""The island's media section: what is playing, with cover, progress, controls and volume.
+Its widget shows one of two views: "line" (one line: the peek, or next to notifications) or "full"."""
 import time
 
 from gi.repository import GLib, Gtk, Pango
@@ -65,8 +65,10 @@ class Media:
         self.volume_hold_until = 0.0
         self.cover_url = None
         self.covers = []
-        self.peek = self.build_peek()
-        self.full = self.build_full()
+        self.widget = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, interpolate_size=True,
+                                vhomogeneous=False, hhomogeneous=False)
+        self.widget.add_named(self.build_peek(), "line")
+        self.widget.add_named(self.build_full(), "full")
         self.players = Players(self.on_players_change)
         self.players.start()
         self.refresh()
@@ -127,6 +129,13 @@ class Media:
         for child in (top, progress, controls):
             full.append(child)
         return full
+
+    def set_view(self, view: str):
+        self.widget.set_visible_child_name(view)
+
+    def playing(self) -> bool:
+        player = self.players.current
+        return player is not None and player.props.playback_status == PLAYING
 
     def set_shown(self, shown: bool):
         if shown == self.shown:

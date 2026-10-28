@@ -25,3 +25,22 @@ scale.island-progress, scale.island-volume { padding: 6px 0; }
 .island-progress slider, .island-volume slider { min-width: 12px; min-height: 12px; margin: -5px;
                                                  background: #ffffff; border-radius: 999px; box-shadow: none; }
 .island-progress:not(:hover) slider { opacity: 0; }
+
+/* Notifications */
+scrolledwindow.island-notices, scrolledwindow.island-notices > viewport { background: transparent; }
+.island-notice { padding: 10px 12px; border-radius: 16px; background: rgba(12, 24, 56, 0.55); }
+.island-notice.critical { box-shadow: inset 0 0 0 1px rgba(255, 0, 0, 0.6); }
+.island-notice-icon { border-radius: 10px; color: #ff0000; }
+window.brasa-island label.island-notice-app { color: #5a6a90; font-size: 11px; }
+window.brasa-island label.island-notice-body { color: #c3cbe0; }
+.island-close { min-width: 22px; min-height: 22px; }
+.island-close image { -gtk-icon-size: 12px; }
+.island-notice-buttons { margin-top: 6px; }
+button.island-action { padding: 4px 10px; border-radius: 10px; border: none; box-shadow: none;
+                       background: rgba(255, 0, 0, 0.15); color: #ff3030; }
+button.island-action:hover { background: rgba(255, 0, 0, 0.30); }
+button.island-action:disabled { background: rgba(153, 204, 255, 0.06); color: #5a6a90; }
+button.island-action label { color: inherit; }
+.island-notices-header { margin: 0 2px; }
+.island-header-button { min-width: 28px; min-height: 28px; }
+.island-header-button.lit { background: #c00000; color: #ffffff; }

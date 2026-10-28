@@ -34,7 +34,7 @@ Undo it? `./install.sh --uninstall`.
 | `Super+n` | Notifications |
 | `Super+1…9` | Workspaces (with `Shift`, move the window) |
 | `Ctrl+Super+Space` `←` `→` `↑` `↓` | Music and volume |
-| `Super+m` | Music island (or rest the pointer on the top edge); `Super+Shift+m` its settings |
+| `Super+m` | Island: music and notifications (or rest the pointer on the top edge); `Super+Shift+m` its settings |
 | `Super+.` | Emoji |
 | `Super+Alt+r` | Screen refresh rate: dynamic or fixed |
 | `Super+Escape` | Lock the screen |

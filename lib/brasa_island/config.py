@@ -12,6 +12,8 @@ class Config:
     align: str = "center"
     monitor: str = ""
     hover: bool = True
+    media: bool = True
+    notifications: bool = True
     peek_seconds: float = 2.5
     color: str = "#0c1838"
 
@@ -29,6 +31,14 @@ def read_pairs(path):
     return pairs
 
 
+def switched_on(value: str) -> bool:
+    return value.lower() not in ("off", "no", "false", "0")
+
+
+def on_off(value: bool) -> str:
+    return "on" if value else "off"
+
+
 def load() -> Config:
     config = Config()
     if not os.path.exists(PATH):
@@ -39,7 +49,9 @@ def load() -> Config:
     if pairs.get("align") in ("left", "center", "right"):
         config.align = pairs["align"]
     config.monitor = pairs.get("monitor", config.monitor)
-    config.hover = pairs.get("hover", "on").lower() not in ("off", "no", "false", "0")
+    config.hover = switched_on(pairs.get("hover", "on"))
+    config.media = switched_on(pairs.get("media", "on"))
+    config.notifications = switched_on(pairs.get("notifications", "on"))
     try:
         config.peek_seconds = float(pairs.get("peek_seconds", config.peek_seconds))
     except ValueError:
@@ -55,7 +67,9 @@ def save(config: Config):
         f"edge={config.edge}",
         f"align={config.align}",
         f"monitor={config.monitor}",
-        f"hover={'on' if config.hover else 'off'}",
+        f"hover={on_off(config.hover)}",
+        f"media={on_off(config.media)}",
+        f"notifications={on_off(config.notifications)}",
         f"peek_seconds={config.peek_seconds:g}",
         f"color={config.color}",
     ]

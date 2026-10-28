@@ -9,6 +9,7 @@ config/waybar/compact.jsonc
 config/swaync/config.json
 config/swaync/config-sway.json
 config/swaync/menus.css
+config/swaync/island.css
 # Your own settings (~/.config/brasa is a link to this folder)
 remote.conf
 panel.conf

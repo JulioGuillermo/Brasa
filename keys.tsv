@@ -72,8 +72,8 @@ SUPER+SHIFT	s	exec ~/.local/bin/brasa-shot live	Screenshot of an area
 SHIFT	Print	exec ~/.local/bin/brasa-shot area	Screenshot of an area, screen frozen
 CTRL	Print	exec ~/.local/bin/brasa-shot full	Screenshot of the screen
 # --- Music and volume
-SUPER	m	exec ~/.local/bin/brasa-island toggle	Music island: what is playing, with controls (also: pointer on the top edge)
-SUPER+SHIFT	m	exec ~/.local/bin/brasa-island-settings	Island settings: monitor, edge, side
+SUPER	m	exec ~/.local/bin/brasa-island toggle	Island: music and notifications (also: pointer on its edge)
+SUPER+SHIFT	m	exec ~/.local/bin/brasa-island-settings	Island settings: music, notifications, monitor, edge, side
 CTRL+SUPER	space	exec swayosd-client --playerctl play-pause	Play / pause
 CTRL+SUPER	Left	exec swayosd-client --playerctl prev	Previous track
 CTRL+SUPER	Right	exec swayosd-client --playerctl next	Next track
