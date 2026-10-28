@@ -4,8 +4,11 @@
 for f in ~/.config/brasa/bin/brasa-*; do [ -e ~/.local/bin/"${f##*/}" ] || ln -s "$f" ~/.local/bin/ 2>/dev/null; done
 python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/null 2>&1   # bar + panel (panel.conf)
 ~/.local/bin/brasa-bar --reload                                                # bar: config and style
-swaync-client -R -sw >/dev/null 2>&1; swaync-client -rs -sw >/dev/null 2>&1   # notifications
+pkill -u "$(id -u)" -x swaync                                                  # the island serves the notifications
 island=$(~/.local/bin/brasa-here -f '^brasa-island') && { kill $island; sleep 0.3; }   # island: island.conf
 setsid -f ~/.local/bin/brasa-island >/dev/null 2>&1
+for _ in $(seq 30); do   # until it serves the notifications: one sent before would start swaync through D-Bus
+  busctl --user status org.freedesktop.Notifications >/dev/null 2>&1 && break; sleep 0.1
+done
 pkill -x rofi; pkill -x nwg-bar; pkill -x fuzzel                          # menus read their config when opened
 notify-send -a brasa-reload -u low -t 1500 "Programs reloaded" "Bar, notifications and menus"

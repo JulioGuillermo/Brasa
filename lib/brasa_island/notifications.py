@@ -1,14 +1,16 @@
-"""The island's notifications section. Closed, the island shows only the ones that just arrived (toasts),
-each leaving on its own or waiting for an answer. Open, it is a notification centre: every notification
-swaync still holds, newest first, with Do Not Disturb, Clear all and a button that closes the island."""
+"""The island's notifications section, and the notification server behind it. Closed, the island shows only
+the ones that just arrived (toasts), each leaving on its own or waiting for an answer. Open, it is the
+notification centre: every notification kept, newest first, with Do Not Disturb, Clear all and a button
+that closes the island."""
 import time
 
 from gi.repository import GLib, Gtk
 
+from .bell import ring
 from .notice import LOW, Notice
 from .notice_row import NoticeRow
-from .notify_watch import NotifyWatch
-from .swaync import Swaync
+from .notify_server import CLOSED_BY_APP, DISMISSED, EXPIRED, NotifyServer
+from .sound import chime
 
 TOASTS_MAX_HEIGHT = 320
 CENTRE_MAX_HEIGHT = 300
@@ -41,13 +43,13 @@ class Notifications:
         self.rows = {}
         self.toasts = set()
         self.deadlines = {}
+        self.last_id = 0
+        self.dnd = False
         self.centre = False
         self.hovered = False
         self.newest_first = True
         self.check_source = 0
-        self.running = False
-        self.swaync = Swaync(self.on_swaync_state)
-        self.watch = NotifyWatch(self.on_notice, self.on_finished)
+        self.server = NotifyServer(self.on_notify, self.on_take_back)
         self.widget = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.header = self.build_header(on_close_island)
         self.list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -61,7 +63,7 @@ class Notifications:
     def build_header(self, on_close_island):
         self.title = Gtk.Label(xalign=0, hexpand=True, css_classes=["island-title"])
         self.dnd_button = header_button("notifications-disabled-symbolic", "Do not disturb", self.toggle_dnd)
-        clear = header_button("edit-clear-all-symbolic", "Clear all", self.swaync.close_all)
+        clear = header_button("edit-clear-all-symbolic", "Clear all", self.clear_all)
         close = header_button("go-up-symbolic", "Close the island", on_close_island)
         self.close_icon = close
         header = Gtk.Box(spacing=4, css_classes=["island-notices-header"])
@@ -76,21 +78,8 @@ class Notifications:
         return bool(self.toasts)
 
     def start(self):
-        if self.running:
-            return
-        self.running = True
-        self.swaync.start()
-        self.watch.start()
-        self.show_dnd()
-
-    def stop(self):
-        if not self.running:
-            return
-        self.running = False
-        self.watch.stop()
-        for notice_id in list(self.rows):
-            self.forget(notice_id)
-        self.swaync.stop()
+        self.server.start()
+        self.refresh()
 
     def set_centre(self, centre: bool):
         self.centre = centre
@@ -120,8 +109,8 @@ class Notifications:
         self.scroller.set_visible(bool(self.rows) if self.centre else bool(self.toasts))
         for notice_id, row in self.rows.items():
             row.set_visible(self.centre or notice_id in self.toasts)
-            row.set_buttons_live(self.swaync.can_press(notice_id))
         GLib.idle_add(self.scroll_to_newest)
+        ring(count, self.dnd)
         self.on_change()
 
     def place(self, row):
@@ -137,24 +126,28 @@ class Notifications:
 
     # ---- Arrivals
 
-    def on_notice(self, notice: Notice):
-        if not self.running:
-            return
-        replaced = self.replaced_id(notice)
-        if replaced:
-            row = self.rows.pop(replaced)
-            self.toasts.discard(replaced)
-            self.deadlines.pop(replaced, None)
-            row.show_notice(notice)
-        else:
+    def on_notify(self, notice: Notice) -> int:
+        notice.id = self.replaced_id(notice) or self.new_id()
+        row = self.rows.get(notice.id)
+        if row is None:
             row = NoticeRow(notice, self.delete, self.press)
+            self.rows[notice.id] = row
             self.place(row)
-        self.rows[notice.id] = row
-        if self.swaync.floats(notice.critical):
-            self.swaync.added(notice.id, replaced)
+        else:
+            self.deadlines.pop(notice.id, None)
+            row.show_notice(notice)
+        if notice.critical or not self.dnd:
             self.toasts.add(notice.id)
             self.set_deadline(notice)
+            chime(notice)
+        else:
+            self.toasts.discard(notice.id)
         self.refresh()
+        return notice.id
+
+    def new_id(self) -> int:
+        self.last_id += 1
+        return self.last_id
 
     def replaced_id(self, notice: Notice) -> int:
         if notice.replaces_id in self.rows:
@@ -193,51 +186,46 @@ class Notifications:
     # ---- Departures
 
     def end_toast(self, notice_id):
-        """It stops being a toast; it stays in the centre and in the panel."""
+        """It stops being a toast and stays in the centre, unless its app asked not to keep it."""
         self.deadlines.pop(notice_id, None)
         self.toasts.discard(notice_id)
-        self.swaync.dismiss(notice_id)
+        if self.rows[notice_id].notice.transient:
+            self.close(notice_id, EXPIRED)
         self.refresh()
 
     def delete(self, notice_id):
-        self.swaync.close(notice_id)
-
-    def press(self, notice_id, button_index):
-        if not self.swaync.can_press(notice_id):
-            return
-        for hidden_id in self.swaync.press(notice_id, button_index):
-            self.toasts.discard(hidden_id)
-            self.deadlines.pop(hidden_id, None)
+        self.close(notice_id, DISMISSED)
         self.refresh()
 
-    def on_finished(self, notice_id):
-        """swaync closed it: answered, closed by its app, deleted here or in the panel."""
-        self.swaync.gone(notice_id)
-        self.forget(notice_id)
+    def press(self, notice_id, action_key):
+        self.server.invoked(notice_id, action_key)
+        if not self.rows[notice_id].notice.resident:
+            self.close(notice_id, DISMISSED)
         self.refresh()
 
-    def forget(self, notice_id):
-        row = self.rows.pop(notice_id, None)
+    def on_take_back(self, notice_id):
+        if notice_id in self.rows:
+            self.close(notice_id, CLOSED_BY_APP)
+            self.refresh()
+
+    def clear_all(self):
+        for notice_id in list(self.rows):
+            self.close(notice_id, DISMISSED)
+        self.refresh()
+
+    def close(self, notice_id, reason):
+        row = self.rows.pop(notice_id)
         self.toasts.discard(notice_id)
         self.deadlines.pop(notice_id, None)
-        if row is not None:
-            self.list.remove(row)
-
-    def on_swaync_state(self, _quiet, panel_open):
-        if panel_open:
-            self.toasts.clear()
-            self.deadlines.clear()
-        self.show_dnd()
-        self.refresh()
+        self.list.remove(row)
+        self.server.closed(notice_id, reason)
 
     # ---- Do Not Disturb
 
     def toggle_dnd(self):
-        self.swaync.set_dnd(not self.swaync.dnd)
-        self.show_dnd()
-
-    def show_dnd(self):
-        if self.swaync.dnd:
+        self.dnd = not self.dnd
+        if self.dnd:
             self.dnd_button.add_css_class("lit")
         else:
             self.dnd_button.remove_css_class("lit")
+        self.refresh()

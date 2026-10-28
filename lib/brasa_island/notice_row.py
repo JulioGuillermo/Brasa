@@ -3,13 +3,12 @@ import re
 
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 
-from .notice import Notice
+from .notice import DEFAULT_ACTION, Notice
 
 ICON_SIZE = 36
 BODY_LINES = 4
 FALLBACK_ICON = "dialog-information-symbolic"
 IMAGE_TAG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
-PANEL_HINT = "Only its first popup can be answered; open it in the panel"
 
 
 def texture_from_data(data: GLib.Variant) -> Gdk.Texture:
@@ -69,7 +68,8 @@ def safe_markup(text: str) -> str:
 
 
 class NoticeRow(Gtk.Box):
-    """on_close(notice_id) for the close button (deletes it); on_press(notice_id, button_index) for its buttons."""
+    """on_close(notice_id) for the close button (deletes it); on_press(notice_id, action_key) for its buttons
+    and for a click on it, when its app gave it a default action."""
 
     def __init__(self, notice: Notice, on_close, on_press):
         super().__init__(spacing=12, css_classes=["island-notice"])
@@ -95,6 +95,9 @@ class NoticeRow(Gtk.Box):
             texts.append(child)
         self.append(self.icon)
         self.append(texts)
+        click = Gtk.GestureClick()
+        click.connect("released", self.on_click)
+        self.add_controller(click)
         self.show_notice(notice)
 
     def show_notice(self, notice: Notice):
@@ -108,15 +111,13 @@ class NoticeRow(Gtk.Box):
         self.body.set_visible(bool(notice.body))
         while child := self.buttons.get_first_child():
             self.buttons.remove(child)
-        for index, (_key, label) in enumerate(notice.buttons):
+        for key, label in notice.buttons:
             button = Gtk.Button(label=label, css_classes=["island-action"])
-            button.connect("clicked", lambda _button, index=index: self.on_press(self.notice.id, index))
+            button.connect("clicked", lambda _button, key=key: self.on_press(self.notice.id, key))
             self.buttons.append(button)
         self.buttons.set_visible(bool(notice.buttons))
 
-    def set_buttons_live(self, live: bool):
-        button = self.buttons.get_first_child()
-        while button is not None:
-            button.set_sensitive(live)
-            button.set_tooltip_text(None if live else PANEL_HINT)
-            button = button.get_next_sibling()
+    def on_click(self, gesture, _presses, _x, _y):
+        if self.notice.has_default:
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            self.on_press(self.notice.id, DEFAULT_ACTION)

@@ -1,4 +1,4 @@
-"""brasa-island [toggle|launcher|peek|hide|reload]: starts the islands, or tells the running ones what to do.
+"""brasa-island [toggle|centre|dnd|launcher|peek|hide|reload]: starts the islands, or tells the running ones what to do.
 One island for the music and notifications and one for the app launcher, or a single one when both
 sit in the same place."""
 import os
@@ -46,21 +46,18 @@ class IslandApp(Gtk.Application):
         self.notifications = Notifications(on_change=lambda: self.tell_main("relayout"),
                                            on_close_island=lambda: self.tell_main("close_view"))
         self.launcher = Launcher(on_done=self.close_launcher)
+        self.notifications.start()
         self.build(config.load())
 
     def build(self, settings: config.Config):
-        if settings.notifications:
-            self.notifications.start()
-        else:
-            self.notifications.stop()
         self.launcher.set_style(settings.launcher_view, settings.launcher_size)
-        main = settings.place if settings.main else None
+        main = settings.place
         launcher = settings.launcher_place if settings.launcher else None
-        if main and main == launcher:
+        if main == launcher:
             shared = Island(self, main, settings, self.media, self.notifications, self.launcher)
             self.main_island = self.launcher_island = shared
         else:
-            self.main_island = Island(self, main, settings, self.media, self.notifications) if main else None
+            self.main_island = Island(self, main, settings, self.media, self.notifications)
             self.launcher_island = Island(self, launcher, settings, launcher=self.launcher) if launcher else None
         for island in self.islands():
             island.present()
@@ -104,6 +101,8 @@ class IslandApp(Gtk.Application):
         command = (command_line.get_arguments()[1:] or ["start"])[0]
         actions = {
             "toggle": lambda: self.tell_main("toggle"),
+            "centre": lambda: self.tell_main("toggle_centre"),
+            "dnd": self.notifications.toggle_dnd,
             "launcher": self.toggle_launcher,
             "peek": lambda: self.tell_main("peek"),
             "hide": self.hide,

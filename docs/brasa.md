@@ -9,7 +9,7 @@
 6. [Screen refresh rate](#screen-refresh-rate)
 7. [Several monitors](#several-monitors)
 8. [Bar (waybar)](#bar-waybar)
-9. [Notifications (swaync)](#notifications-swaync)
+9. [Notifications](#notifications)
 10. [Menus and dialogs](#menus-and-dialogs)
 11. [Window managers](#window-managers)
 12. [Effects and transparency](#effects-and-transparency)
@@ -81,7 +81,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-autostart` | What starts with the session | `~/.local/bin/` |
 | `bin/brasa-test` | Try it inside GNOME | `~/.local/bin/` |
 | `config/waybar/` | Bar: modules, style, sensors (`sens`) and real refresh rate (`hz`) | `~/.config/waybar` |
-| `config/swaync/` | Notifications, panel and sound (`sound.sh`) | `~/.config/swaync` |
+| `config/swaync/` | The old notification panel (swaync), no longer started | `~/.config/swaync` |
 | `config/swayosd/` | On-screen indicators: settings and style | `~/.config/swayosd` |
 | `config/fuzzel/` | Quick launcher | `~/.config/fuzzel` |
 | `config/rofi/drawer.rasi` | App grid: rofi config and theme (any `~/.config/rofi` is left alone) | read from `~/.config/brasa` |
@@ -200,7 +200,7 @@ search; Enter or a click runs it.
 | `Super+e` | Thunar |
 | `Super+Shift+n` | Nautilus |
 | `Super+z` | Zen |
-| `Super+n` | Notification panel |
+| `Super+n` | Notification centre (the island) |
 | `Super+F1` | Key bindings window |
 | `Super+Ctrl+s` | Sessions window |
 | `Super+Ctrl+c` | Clean: /tmp or RAM |
@@ -369,14 +369,18 @@ To change modules, edit `docs/gen-waybar-swaync.py` and run
 `python3 docs/gen-waybar-swaync.py config`, then `brasa-bar --reload` (or `Super+Ctrl+r`). Editing
 `config/waybar/config.jsonc` directly works too, until the generator runs again.
 
-## Notifications (swaync)
+## Notifications
 
-- Cards at the top right, night blue, red title, with icon/image and action buttons.
-- Critical ones: red border and glow, they do not go away by themselves.
+The island is the notification server (`org.freedesktop.Notifications`): swaync is no longer started.
+See [Island](#island) for how they look.
+
+- Critical ones: red border, they do not go away by themselves.
 - **Sound**: a bell (`bell.oga`) for normal ones, `dialog-warning.oga` for critical ones, nothing
-  for low-urgency ones (Brasa notices) or in "do not disturb". Script: `config/swaync/sound.sh`.
-- **Panel** (`Super+n` or click the bell): history, "do not disturb", wifi and bluetooth buttons
-  (red when on), mute, network; volume and brightness sliders; media player.
+  for low-urgency ones (Brasa notices) or in "do not disturb".
+- **Bell** in the bar: click opens the notification centre (like `Super+n`), right click switches
+  "do not disturb". The island writes its state to `$XDG_RUNTIME_DIR/brasa-bell.json` and sends the
+  bar signal `RTMIN+8`.
+- The list lives in the island's memory: restarting it (`Super+Ctrl+r`, logging out) empties it.
 
 ## Menus and dialogs
 
@@ -454,42 +458,33 @@ between states, even when interrupted halfway. It shows two things, each one can
   length), previous / play-pause / next and the output volume. Any MPRIS player counts (browsers,
   Spotify, mpv...); the current one is the last that started playing. A new track or play/pause peeks
   one line for a moment.
-- **Notifications**, instead of swaync's popups: one that arrives shows up in the island with its
+- **Notifications**: one that arrives shows up in the island with its
   buttons (Accept / Reject of a Bluetooth pairing...), next to the music line if something plays. It
   leaves on its own after a few seconds; critical ones and ones with buttons wait for an answer. The
   pointer on them keeps them.
 - **Open** (`Super+m`, or rest the pointer on the edge, in the middle): the full music view and, below
   it, the notification centre: every notification, newest nearest the music, scrolling, with Do Not
-  Disturb, Clear all and a button that closes the island. `x` on one deletes it. With the centre off,
-  notifications only pass by and the panel keeps them.
+  Disturb, Clear all and a button that closes the island. `x` on one deletes it; a click on it does
+  what its app offers (opens the chat, the mail...). `Super+n` and the bar's bell open it with the
+  centre even when the centre is off for `Super+m`.
 
 - **App launcher** (`Super+d`): a search over every installed app, as a grid
   of icons or a list, small, medium or large. Typing filters; arrows (Tab in the grid) move, Enter opens,
   Escape closes. It can sit on its own edge (by default the bottom one), with its own monitor and side;
-  in the same place as the music and notifications, they share one island and `Super` switches it to
+  in the same place as the music and notifications, they share one island and `Super+d` switches it to
   the launcher. The pointer on its own island's edge opens it too.
 - **Monitor**: with none chosen, each island shows up on the monitor that has the focus when it opens.
 
-swaync still keeps every notification: the panel (`Super+n`, the bell) shows them as before. While the
-island shows them, swaync's popups exist but are invisible.
-
-**Limit**: swaync lets other programs press a button only of its newest popup. Pressing one of an older
-notification hides the newer popups first, so their buttons go grey in the island; answer those in the
-panel. The centre's buttons work only while the notification is still a fresh popup.
-
-**Settings**: the **Island** window (`Super+Shift+m`, or the **Island** button of the panel) switches the
-music, the notifications and the launcher on or off, and picks for each island its monitor, edge (top or
+**Settings**: the **Island** window (`Super+Shift+m`) switches the music, the
+notification centre of `Super+m` and the launcher on or off, and picks for each island its monitor, edge (top or
 bottom) and side, plus the launcher's look, opening with the pointer (a switch for each island), peek
 time and colour. Each change is saved and the island shows up in its new place at once.
-Switching the notifications restarts swaync, which empties its list.
 
-They live in `~/.config/brasa/island.conf`; edited by hand, `Super+Ctrl+r` applies them (except
-`notifications`: use the window):
+They live in `~/.config/brasa/island.conf`; edited by hand, `Super+Ctrl+r` applies them:
 
 ```
 media=on            # the music
-notifications=on    # the notifications, instead of swaync's popups
-notification_centre=on  # off: opening the island shows no list
+notification_centre=on  # off: Super+m shows no list (Super+n still does)
 edge=top            # top or bottom
 align=center        # left, center or right
 monitor=DP-2        # empty: the focused one
@@ -676,7 +671,8 @@ brasa-remote on | off | status | setup | help
 
 ## Quick settings (notification panel)
 
-The panel (`Super+n` or the bell) has one grid of tiles, lit while on, and a row of menus whose current
+**Not started for now**: it is swaync's panel, and the island replaced swaync. A panel of its own is
+still to come. What it had: the panel has one grid of tiles, lit while on, and a row of menus whose current
 choice is lit:
 
 | Tile | Click |

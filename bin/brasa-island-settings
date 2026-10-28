@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """The Island window (Super+Shift+m, and the Island button of the panel): what the islands show (music,
 notifications, app launcher), which monitor, edge and side each sits on, and how they behave. Every
-change is saved to island.conf and the islands move at once; switching the notifications also switches
-swaync's own popups off or on (restarting it, which empties its list)."""
+change is saved to island.conf and the islands move at once."""
 import os
-import signal
 import subprocess
 import sys
-import time
 
 import gi
 
@@ -22,10 +19,6 @@ from brasa_island import config as island_config  # noqa: E402
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 ISLAND = os.path.join(HERE, "brasa-island")
-PANEL_GENERATOR = os.path.join(HERE, "..", "docs", "gen-waybar-swaync.py")
-CONFIG_DIR = os.path.join(HERE, "..", "config")
-HERE_COMMAND = os.path.join(HERE, "brasa-here")
-SWAY_PANEL = os.path.expanduser("~/.config/swaync/config-sway.json")
 EDGES = [("top", "Top"), ("bottom", "Bottom")]
 ALIGNS = [("left", "Left"), ("center", "Center"), ("right", "Right")]
 VIEWS = [("grid", "Grid of icons"), ("list", "List")]
@@ -42,17 +35,6 @@ def monitor_options():
         shape = "vertical" if geometry.height > geometry.width else "horizontal"
         options.append((monitor.get_connector(), f"{monitor.get_connector()} · {shape} · {name}".rstrip(" ·")))
     return options
-
-
-def restart_swaync():
-    """Its popups' place and look change with the island's notifications, and swaync reads them at start."""
-    subprocess.run([sys.executable, PANEL_GENERATOR, CONFIG_DIR], capture_output=True)
-    running = subprocess.run([HERE_COMMAND, "swaync"], capture_output=True, text=True).stdout.split()
-    for pid in running:
-        os.kill(int(pid), signal.SIGTERM)
-    time.sleep(0.3)
-    panel = [] if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") else ["-c", SWAY_PANEL]
-    subprocess.Popen(["swaync", *panel], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 def rgba(color):
@@ -115,16 +97,12 @@ class IslandWindow(Adw.ApplicationWindow):
 
     def build_main(self):
         group = Adw.PreferencesGroup(title="Music and notifications",
-                                     description="Super+m opens it · each change shows it at once where it is")
+                                     description="Super+m opens it, Super+n with the notification centre · each change shows it at once where it is")
         self.media = Adw.SwitchRow(title="Music", subtitle="What is playing, with its controls",
                                    active=self.config.media)
-        self.notifications = Adw.SwitchRow(title="Notifications",
-                                           subtitle="Instead of the popups; the panel still keeps them all. Switching it clears the list",
-                                           active=self.config.notifications)
-        self.centre = Adw.SwitchRow(title="Notification centre",
-                                    subtitle="Opening the island lists them all; off: they only pass by, the panel keeps them",
+        self.centre = Adw.SwitchRow(title="Notification centre with Super+m",
+                                    subtitle="Off: Super+m shows only the music; Super+n and the bell still list them",
                                     active=self.config.notification_centre)
-        sensitive_while(self.notifications, [self.centre])
         self.peek = Adw.SpinRow.new_with_range(0, 10, 0.5)
         self.peek.set_title("Peek on a new track or play/pause")
         self.peek.set_subtitle("Seconds · 0: never")
@@ -136,9 +114,9 @@ class IslandWindow(Adw.ApplicationWindow):
         self.hover = Adw.SwitchRow(title="Open with the pointer",
                                    subtitle="Resting it on the island's edge, in the middle",
                                    active=self.config.hover)
-        for row in (self.media, self.notifications, self.centre, self.hover):
+        for row in (self.media, self.centre, self.hover):
             row.connect("notify::active", self.changed)
-        for row in (self.media, self.peek, self.notifications, self.centre, *self.main_place.rows, self.hover):
+        for row in (self.media, self.peek, self.centre, *self.main_place.rows, self.hover):
             group.add(row)
         return group
 
@@ -173,10 +151,8 @@ class IslandWindow(Adw.ApplicationWindow):
         return group
 
     def changed(self, *_):
-        notifications_switched = self.config.notifications != self.notifications.get_active()
         self.config.place = self.main_place.value()
         self.config.media = self.media.get_active()
-        self.config.notifications = self.notifications.get_active()
         self.config.notification_centre = self.centre.get_active()
         self.config.peek_seconds = self.peek.get_value()
         self.config.launcher = self.launcher.get_active()
@@ -187,8 +163,6 @@ class IslandWindow(Adw.ApplicationWindow):
         self.config.launcher_hover = self.launcher_hover.get_active()
         self.config.color = hex_color(self.color.get_rgba())
         island_config.save(self.config)
-        if notifications_switched:
-            restart_swaync()
         subprocess.Popen([ISLAND, "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 

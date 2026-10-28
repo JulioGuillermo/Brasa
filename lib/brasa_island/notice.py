@@ -25,6 +25,9 @@ class Notice:
     expire_ms: int = -1
     synchronous: str = ""
     replaces_id: int = 0
+    has_default: bool = False
+    resident: bool = False
+    transient: bool = False
 
     @property
     def critical(self) -> bool:
@@ -49,21 +52,25 @@ def buttons_of(actions: list[str]) -> list[tuple[str, str]]:
     return [(key, label) for key, label in pairs if key != DEFAULT_ACTION]
 
 
-def from_notify(body: GLib.Variant, notice_id: int) -> Notice:
-    """body: the Notify call's arguments (susssasa{sv}i)."""
+def from_notify(body: GLib.Variant) -> Notice:
+    """body: the Notify call's arguments (susssasa{sv}i). Its id is given later."""
     hints = body.get_child_value(6)
+    actions = body.get_child_value(5).unpack()
     return Notice(
-        id=notice_id,
+        id=0,
         app=body.get_child_value(0).get_string(),
         replaces_id=body.get_child_value(1).get_uint32(),
         app_icon=body.get_child_value(2).get_string(),
         summary=body.get_child_value(3).get_string(),
         body=body.get_child_value(4).get_string(),
-        buttons=buttons_of(body.get_child_value(5).unpack()),
+        buttons=buttons_of(actions),
+        has_default=DEFAULT_ACTION in actions[0::2],
         image_data=hint(hints, IMAGE_DATA_HINTS, "(iiibiiay)"),
         image_path=unpacked_hint(hints, IMAGE_PATH_HINTS, "s", ""),
         desktop_entry=unpacked_hint(hints, ("desktop-entry",), "s", ""),
         urgency=unpacked_hint(hints, ("urgency",), "y", NORMAL),
         synchronous=unpacked_hint(hints, SYNCHRONOUS_HINTS, "s", ""),
+        resident=unpacked_hint(hints, ("resident",), "b", False),
+        transient=unpacked_hint(hints, ("transient",), "b", False),
         expire_ms=body.get_child_value(7).get_int32(),
     )

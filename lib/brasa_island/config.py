@@ -22,7 +22,6 @@ class Config:
     place: Place = field(default_factory=Place)
     hover: bool = True
     media: bool = True
-    notifications: bool = True
     notification_centre: bool = True
     peek_seconds: float = 2.5
     color: str = "#0c1838"
@@ -31,11 +30,6 @@ class Config:
     launcher_view: str = "grid"
     launcher_size: str = "medium"
     launcher_hover: bool = True
-
-    @property
-    def main(self) -> bool:
-        """Whether music or notifications are on: what the main island shows."""
-        return self.media or self.notifications
 
 
 def read_pairs(path):
@@ -80,7 +74,6 @@ def load() -> Config:
     config.launcher_place = place_from(pairs, "launcher_", config.launcher_place)
     config.hover = switched_on(pairs.get("hover", "on"))
     config.media = switched_on(pairs.get("media", "on"))
-    config.notifications = switched_on(pairs.get("notifications", "on"))
     config.notification_centre = switched_on(pairs.get("notification_centre", "on"))
     config.launcher = switched_on(pairs.get("launcher", "on"))
     config.launcher_view = one_of(pairs.get("launcher_view", ""), LAUNCHER_VIEWS, config.launcher_view)
@@ -103,7 +96,6 @@ def save(config: Config):
         f"align={config.place.align}",
         f"monitor={config.place.monitor}",
         f"media={on_off(config.media)}",
-        f"notifications={on_off(config.notifications)}",
         f"notification_centre={on_off(config.notification_centre)}",
         f"peek_seconds={config.peek_seconds:g}",
         f"hover={on_off(config.hover)}",

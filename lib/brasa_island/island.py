@@ -29,7 +29,7 @@ LEAVE_DELAY_MS = 400
 SHORTCUT_IDLE_MS = 5000
 CONTENT_FADE_SECONDS = 0.15
 MAX_FRAME_SECONDS = 1 / 30
-MAIN, LAUNCHER = "main", "launcher"
+MAIN, CENTRE, LAUNCHER = "main", "centre", "launcher"
 
 
 def find_monitor(connector):
@@ -195,9 +195,8 @@ class Island(Gtk.Window):
         if not self.media:
             self.show_shape(HIDDEN)
             return
-        open_main = self.mode == MAIN
-        centre_on = open_main and self.config.notification_centre
-        notices_on = self.config.notifications and (centre_on or self.notifications.has_toasts)
+        open_main = self.mode in (MAIN, CENTRE)
+        notices_on = self.showing_centre() or self.notifications.has_toasts
         media_on = self.config.media and (open_main or self.peeking or (notices_on and self.media.playing()))
         self.media.set_shown(media_on)
         self.media.widget.set_visible(media_on)
@@ -251,6 +250,19 @@ class Island(Gtk.Window):
         self.open_view(MAIN)
         self.close_when_idle()
 
+    def toggle_centre(self):
+        """Super+n and the bar's bell: music and notifications, with the centre even when it is off."""
+        if not self.media:
+            return
+        if self.mode == CENTRE:
+            self.close_view()
+            return
+        self.open_view(CENTRE)
+        self.close_when_idle()
+
+    def showing_centre(self) -> bool:
+        return self.mode == CENTRE or (self.mode == MAIN and self.config.notification_centre)
+
     def toggle_launcher(self, grab_keyboard=True):
         if not self.launcher:
             return
@@ -269,7 +281,7 @@ class Island(Gtk.Window):
         self.cancel("idle")
         self.mode = mode
         if self.notifications:
-            self.notifications.set_centre(mode == MAIN and self.config.notification_centre)
+            self.notifications.set_centre(self.showing_centre())
         if mode == LAUNCHER:
             self.launcher.opened()
         keyboard = LayerShell.KeyboardMode.EXCLUSIVE if mode == LAUNCHER and grab_keyboard else LayerShell.KeyboardMode.NONE
