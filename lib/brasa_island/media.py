@@ -35,21 +35,23 @@ def round_button(icon, css, on_click):
     return button
 
 
-class Cover(Gtk.Stack):
+class Cover(Gtk.Box):
     def __init__(self, size):
         super().__init__(css_classes=["island-cover"], overflow=Gtk.Overflow.HIDDEN,
-                         width_request=size, height_request=size, valign=Gtk.Align.CENTER)
-        self.picture = Gtk.Picture(content_fit=Gtk.ContentFit.COVER)
-        icon = Gtk.Image(icon_name=PLACEHOLDER_ICON, pixel_size=size // 2)
-        self.add_named(icon, "placeholder")
-        self.add_named(self.picture, "picture")
+                         width_request=size, height_request=size,
+                         halign=Gtk.Align.START, valign=Gtk.Align.CENTER, hexpand=False, vexpand=False)
+        self.size = size
+        self.image = Gtk.Image(hexpand=True, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        self.append(self.image)
+        self.show(None)
 
     def show(self, texture):
         if texture is None:
-            self.set_visible_child_name("placeholder")
+            self.image.set_from_icon_name(PLACEHOLDER_ICON)
+            self.image.set_pixel_size(self.size // 2)
             return
-        self.picture.set_paintable(texture)
-        self.set_visible_child_name("picture")
+        self.image.set_from_paintable(texture)
+        self.image.set_pixel_size(self.size)
 
 
 class Media:
@@ -157,7 +159,7 @@ class Media:
         state = "media-playback-pause-symbolic" if player.props.playback_status == PLAYING else "media-playback-start-symbolic"
         self.play.set_icon_name(state)
         self.peek_state.set_from_icon_name(state)
-        self.load_cover(data.get("mpris:artUrl", ""))
+        self.load_cover(cover.cover_url(data))
 
     def show_length(self, seconds):
         known = seconds > 0
