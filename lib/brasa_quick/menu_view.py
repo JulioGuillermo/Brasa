@@ -1,7 +1,7 @@
 """A menu tile opened: its choices in a list, the current one lit, and a way back to the tiles."""
 from gi.repository import Gtk, Pango
 
-from . import shell
+from . import glyphs, shell
 from .items import Menu
 
 MAX_LIST_HEIGHT = 300
@@ -14,7 +14,7 @@ class MenuView(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8, css_classes=["quick-menu"])
         self.on_chosen = on_chosen
         self.choice_buttons = []
-        self.back = Gtk.Button(icon_name="go-previous-symbolic", css_classes=["quick-round"], tooltip_text="Back")
+        self.back = Gtk.Button(label=glyphs.BACK, css_classes=["quick-round"], tooltip_text="Back")
         self.back.connect("clicked", lambda _button: on_back())
         self.title = Gtk.Label(xalign=0, hexpand=True, css_classes=["quick-title"])
         header = Gtk.Box(spacing=8)

@@ -678,14 +678,15 @@ corner of the focused monitor, joined to the bottom edge and to the side edge li
 same springs, colours and red rim. The bottom left corner instead: **Corner** in the Island window,
 `quick_side` in `island.conf`. Escape or a click anywhere else closes it.
 
-- **Tiles** in pages of six (three by two). One turn of the **mouse wheel**, or one swipe on the
-  touchpad, moves exactly one page; the dots on the side show which page, and a click on one jumps there.
-- **More tiles**: the grid button at the bottom shows four by four (all of them on most machines);
-  it stays that way (`quick_expanded`) until pressed again.
-- A **switch** tile is lit while on; a click turns it on or off.
-- A tile with **›** opens a menu in the card, the current choice lit; the arrow goes back.
-- Below: volume and, with a backlight, brightness; then the battery, the grid button, HyprMod
-  (Hyprland settings, when installed) and the power button (`brasa-exit`).
+- **Tiles**: square, icon and name inside, red. **Size** (Island window, `quick_size`): small, six a
+  page; medium, twelve a page; large, every tile at once. One turn of the **mouse wheel**, or one swipe
+  on the touchpad, moves exactly one page; the dots on the side show which page, a click on one jumps there.
+- A **switch** tile turns red while on; a click turns it on or off.
+- A **menu** tile has a **›** in its corner and a red line along its bottom: it opens its choices in
+  the card, the current one lit; the arrow goes back.
+- Icons are Nerd Font glyphs, so they look the same with any icon theme.
+- Below: volume and, with a backlight, brightness; then the battery, the settings button (the Island
+  window: corner, size), HyprMod (Hyprland settings, when installed) and the power button (`brasa-exit`).
 
 **Keyboard only**:
 

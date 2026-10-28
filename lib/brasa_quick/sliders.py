@@ -5,6 +5,8 @@ from gi.repository import Gtk
 
 from brasa_island import volume
 
+from . import glyphs
+
 KEY_STEP = 0.05
 
 
@@ -33,7 +35,7 @@ class Slider(Gtk.Box):
         self.scale.get_adjustment().set_step_increment(KEY_STEP)
         self.scale.get_adjustment().set_page_increment(KEY_STEP * 2)
         self.scale.connect("change-value", self.on_change)
-        self.append(Gtk.Image(icon_name=icon, pixel_size=18))
+        self.append(Gtk.Label(label=icon, css_classes=["quick-slider-icon"]))
         self.append(self.scale)
 
     def on_change(self, _scale, _scroll, value):
@@ -45,7 +47,7 @@ class Slider(Gtk.Box):
 
 
 def sliders(with_backlight: bool) -> list[Slider]:
-    found = [Slider("audio-volume-high-symbolic", volume.read, volume.write)]
+    found = [Slider(glyphs.VOLUME, volume.read, volume.write)]
     if with_backlight:
-        found.append(Slider("display-brightness-symbolic", screen_brightness, set_screen_brightness))
+        found.append(Slider(glyphs.BRIGHTNESS, screen_brightness, set_screen_brightness))
     return found

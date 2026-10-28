@@ -10,7 +10,7 @@ from brasa_island.clip import Clip
 from brasa_island.focus import focused_connector
 from brasa_island.spring import Spring
 
-from . import catalog, hardware, shell
+from . import catalog, glyphs, hardware, shell
 from .corner import Corner, paint, to_corner_frame
 from .keys import Keys
 from .menu_view import MenuView
@@ -23,6 +23,8 @@ SHOULDER = 90
 CONTENT_FADE_SECONDS = 0.15
 MAX_FRAME_SECONDS = 1 / 30
 EXIT = "~/.local/bin/brasa-exit"
+ISLAND_SETTINGS = "~/.local/bin/brasa-island-settings"
+BODY_DARKNESS = 0.5
 HYPRMOD = "hyprmod"
 
 
@@ -39,8 +41,15 @@ def rgba(color):
     return parsed
 
 
-def round_button(icon, tooltip, on_click):
-    button = Gtk.Button(icon_name=icon, tooltip_text=tooltip, css_classes=["quick-round"])
+def darker(color: Gdk.RGBA) -> Gdk.RGBA:
+    shade = Gdk.RGBA()
+    shade.red, shade.green, shade.blue = (part * BODY_DARKNESS for part in (color.red, color.green, color.blue))
+    shade.alpha = 1
+    return shade
+
+
+def round_button(glyph, tooltip, on_click):
+    button = Gtk.Button(label=glyph, tooltip_text=tooltip, css_classes=["quick-round"])
     button.connect("clicked", lambda _button: on_click())
     return button
 
@@ -93,8 +102,8 @@ class Panel(Gtk.Window):
     def open_panel(self):
         config = island_config.load()
         self.on_right = config.quick_side == "right"
-        self.color = rgba(config.color)
-        self.expanded = config.quick_expanded
+        self.color = darker(rgba(config.color))
+        self.size = config.quick_size
         self.show_card(self.build())
         monitor = find_monitor(focused_connector())
         if monitor is not None:
@@ -134,7 +143,7 @@ class Panel(Gtk.Window):
         self.layers.add_overlay(self.clip)
 
     def build(self):
-        self.pager = Pager(catalog.tiles(), self.expanded, self.run_action, self.show_menu)
+        self.pager = Pager(catalog.tiles(), self.size, self.run_action, self.show_menu)
         self.menu = MenuView(self.show_tiles, self.chosen)
         self.views = Gtk.Stack(vhomogeneous=False, hhomogeneous=True)
         self.views.add_named(self.pager, "tiles")
@@ -149,32 +158,18 @@ class Panel(Gtk.Window):
 
     def footer(self):
         footer = Gtk.Box(spacing=6, css_classes=["quick-footer"])
-        footer.append(Gtk.Image(icon_name="battery-level-80-symbolic", visible=hardware.has_battery(),
-                                css_classes=["quick-battery"]))
+        footer.append(Gtk.Label(label=glyphs.BATTERY, visible=hardware.has_battery(), css_classes=["quick-battery"]))
         footer.append(Gtk.Label(label=hardware.battery_percent(), xalign=0, hexpand=True))
-        more = ("view-restore-symbolic", "Fewer tiles") if self.expanded else ("view-app-grid-symbolic", "More tiles")
-        self.footer_buttons = [round_button(*more, self.toggle_expanded)]
+        self.footer_buttons = [round_button(glyphs.SETTINGS, "Panel and island settings: size, corner…",
+                                            lambda: self.close_and_run(ISLAND_SETTINGS))]
         if hardware.has_hyprmod() and hardware.in_hyprland():
-            self.footer_buttons.append(round_button("emblem-system-symbolic", "Hyprland settings",
+            self.footer_buttons.append(round_button(glyphs.HYPRLAND, "Hyprland settings",
                                                     lambda: self.close_and_run(HYPRMOD)))
-        self.footer_buttons.append(round_button("system-shutdown-symbolic", "Log out, lock, power off…",
+        self.footer_buttons.append(round_button(glyphs.POWER_OFF, "Log out, lock, power off…",
                                                 lambda: self.close_and_run(EXIT)))
         for button in self.footer_buttons:
             footer.append(button)
         return footer
-
-    def toggle_expanded(self):
-        config = island_config.load()
-        config.quick_expanded = not config.quick_expanded
-        island_config.save(config)
-        self.expanded = config.quick_expanded
-        self.show_card(self.build())
-        self.card.set_opacity(1)
-        self.pager.refresh()
-        for slider in self.sliders:
-            slider.refresh()
-        self.footer_buttons[0].grab_focus()
-        self.fit()
 
     @property
     def showing_menu(self) -> bool:

@@ -1,13 +1,15 @@
-"""The tiles in pages: three by two, or four by four when the panel is expanded. One turn of the mouse
-wheel, or one swipe on the touchpad, moves exactly one page; the dots show where you are."""
+"""The tiles in pages, as many per page as the panel's size holds: small three by two, medium four by
+three, large every tile at once. One turn of the mouse wheel, or one swipe on the touchpad, moves exactly
+one page; the dots show where you are."""
+import math
 import time
 
 from gi.repository import Gdk, Gtk
 
 from .tile import Tile
 
-COMPACT = (3, 2)
-EXPANDED = (4, 4)
+COLUMNS = {"small": 3, "medium": 4, "large": 4}
+ROWS = {"small": 2, "medium": 3}
 SLIDE_MS = 220
 WHEEL_PAUSE_SECONDS = 0.35
 SWIPE_PIXELS = 30
@@ -18,10 +20,11 @@ def chunks(items, size):
 
 
 class Pager(Gtk.Box):
-    def __init__(self, items, expanded: bool, on_action, on_menu):
+    def __init__(self, items, size: str, on_action, on_menu):
         super().__init__(spacing=10, css_classes=["quick-pager"])
-        self.columns, self.rows = EXPANDED if expanded else COMPACT
         self.tiles = [Tile(item, on_action, on_menu) for item in items]
+        self.columns = COLUMNS[size]
+        self.rows = ROWS.get(size) or math.ceil(len(self.tiles) / self.columns)
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.SLIDE_UP_DOWN,
                                transition_duration=SLIDE_MS, hexpand=True)
         self.dots = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER,
