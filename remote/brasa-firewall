@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Installed as root by brasa-remote (/usr/local/sbin/brasa-firewall). With ufw on, it opens to any
-# address the ports the remote desktop (wayvnc) and the SSH server are listening on, and closes the ones
-# it opened that nobody listens on any more. It takes no arguments, so sudo can let you run it without a
-# password and it cannot be made to open anything else.
+# Installed as root by brasa-remote (/usr/local/sbin/brasa-firewall). With ufw on, it opens exactly the
+# addresses and ports the remote desktop (wayvnc) and the SSH server listen on, to any source, and
+# closes the ones it opened that nobody listens on any more. It takes no arguments, so sudo can let you
+# run it without a password.
 set -u
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 TAG=brasa
@@ -10,33 +10,51 @@ TAG=brasa
 command -v ufw >/dev/null || exit 0
 ufw status | grep -q '^Status: active' || exit 0
 
-listening_ports() {
-  ss -ltnpH | awk '/users:\(\("(wayvnc|sshd)"/ { n = split($4, part, ":"); print part[n] }'
-  # SSH started by its socket (Ubuntu): systemd listens for it
+# "address port" per listening socket; address "any" for every address. IPv6-only addresses are left out.
+listening() {
+  ss -ltnpH | awk '/users:\(\("(wayvnc|sshd)"/ { print $4 }' | while read -r local; do
+    port=${local##*:} host=${local%:*}
+    case $host in
+      0.0.0.0|\*|"[::]") echo "any $port" ;;
+      \[*) ;;
+      *) echo "$host $port" ;;
+    esac
+  done
+  # SSH started by its socket (Ubuntu): systemd listens for it, on every address
   local socket
   for socket in ssh.socket sshd.socket; do
     systemctl -q is-active "$socket" 2>/dev/null || continue
-    systemctl show "$socket" -p Listen --value | grep -o '[0-9]\+ (Stream)' | cut -d' ' -f1
+    systemctl show "$socket" -p Listen --value | grep -o '[0-9]\+ (Stream)' | sed 's/ (Stream)//; s/^/any /'
   done
 }
 
-opened_by_us() {
-  ufw status | awk -v tag="# $TAG" 'index($0, tag) && $1 !~ /\(v6\)/ { sub("/tcp", "", $1); print $1 }'
+# Our rules, as "address port": "5900/tcp" is any address, "10.0.0.5 5900/tcp" one of them
+ours() {
+  ufw status | grep "# $TAG" | grep -v '(v6)' | awk '
+    $2 ~ /\/tcp$/ { sub("/tcp", "", $2); print $1, $2; next }
+    { sub("/tcp", "", $1); print "any", $1 }'
 }
 
-# A rule of yours already lets anyone in on that port: nothing to add, and nothing of yours is ever deleted
-open_to_anyone() {
+# A rule of yours already lets anyone in on that port: nothing to add (and nothing of yours is deleted)
+yours_cover() {
   ufw status | grep -v "# $TAG" | grep -Eq "^$1(/tcp)? +ALLOW( IN)? +Anywhere *$"
 }
 
-listening=$(listening_ports | sort -un)
-opened=$(opened_by_us | sort -un)
+to() {  # ADDRESS PORT: ufw's words for that destination
+  if [ "$1" = any ]; then echo "$2/tcp"; else echo "to $1 port $2 proto tcp"; fi
+}
 
-for port in $listening; do
-  grep -qx "$port" <<< "$opened" && continue
-  open_to_anyone "$port" && continue
-  ufw allow "$port/tcp" comment "$TAG" >/dev/null
-done
-for port in $opened; do
-  grep -qx "$port" <<< "$listening" || ufw delete allow "$port/tcp" >/dev/null
-done
+wanted=$(listening | sort -u)
+present=$(ours | sort -u)
+
+while read -r address port; do
+  [ -n "$port" ] || continue
+  grep -qxF "$address $port" <<< "$present" && continue
+  yours_cover "$port" && continue
+  ufw allow $(to "$address" "$port") comment "$TAG" >/dev/null
+done <<< "$wanted"
+
+while read -r address port; do
+  [ -n "$port" ] || continue
+  grep -qxF "$address $port" <<< "$wanted" || ufw delete allow $(to "$address" "$port") >/dev/null
+done <<< "$present"

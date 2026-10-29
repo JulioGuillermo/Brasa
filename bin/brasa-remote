@@ -30,6 +30,11 @@
 #   ssh [on|off|boot|noboot]     the SSH server: on / off now, start at boot or not (asks for sudo).
 #                                Turning it off keeps open connections; only new ones are refused
 #
+#   listen [vpn|any|IP...]       where the VNC servers listen: vpn (default) the VPN address; any every
+#                                network; or this machine's addresses, e.g. listen 10.0.0.5 192.168.1.20.
+#                                Without an argument it shows them. A running session follows at once
+#   port session|local N         the session's port (5900) or the local desktop's (5901)
+#
 # Commands
 #   on                           the default mode (REMOTE_DEFAULT, "session" unless changed)
 #   off                          stop screen / mirror / take (the session keeps running)
@@ -40,17 +45,17 @@
 #
 # Settings, optional, in ~/.config/brasa/remote.conf:
 #   REMOTE_DEFAULT=session   REMOTE_WM=sway|hyprland (default: sway, or Hyprland if it is the only one)   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
-#   REMOTE_ADDRESS=<ip>
+#   REMOTE_LISTEN=vpn|any|<ip> <ip>...   (REMOTE_ADDRESS=<ip>, the older form, is still read)
 #   Session size: it starts at REMOTE_SIZE and then takes the viewer's size (TigerVNC asks for its window
 #   size: full screen = one remote pixel per screen pixel) unless REMOTE_RESIZE=no. VNC tells the size
 #   but not the scale, so REMOTE_SCALE=auto picks it from the height (up to 1200 px: 1, 1500: 1.25,
 #   1900: 1.333, 2200: 1.5, more: 2); or set a fixed one, e.g. REMOTE_SCALE=1.5
 #   REMOTE_PORT=5900 (session)   REMOTE_LOCAL_PORT=5901 (screen / mirror / take)   REMOTE_TAKE_WAIT=180
 #
-# Security: it listens only on a VPN interface (ZeroTier, WireGuard, Tailscale, OpenVPN...) or on
-# REMOTE_ADDRESS, never on every network. You log in with your Linux user and password (PAM),
+# Security: by default it listens only on a VPN interface (ZeroTier, WireGuard, Tailscale, OpenVPN...),
+# never on every network unless "listen any". You log in with your Linux user and password (PAM),
 # encrypted with RSA-AES (TigerVNC, RealVNC) or TLS.
-# Firewall: with ufw on, the session's, the local desktop's and the SSH port are opened to any address
+# Firewall: with ufw on, exactly the addresses and ports the VNC servers and SSH listen on are opened
 # while they are on, and closed when they stop (brasa-firewall, installed once with sudo).
 set -u
 CONF_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc
@@ -65,7 +70,9 @@ installed_wm() {  # the remote session's window manager when none was chosen: sw
   if ! command -v sway >/dev/null && command -v Hyprland >/dev/null; then echo hyprland; else echo sway; fi
 }
 REMOTE_DEFAULT=session REMOTE_WM=$(installed_wm) REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
+REMOTE_ADDRESS=
 [ -f ~/.config/brasa/remote.conf ] && . ~/.config/brasa/remote.conf
+REMOTE_LISTEN=${REMOTE_LISTEN:-${REMOTE_ADDRESS:-vpn}}
 mkdir -p "$STATE"
 say() {  # TITLE [BODY]: a notification for 5 s (a click closes it); each one replaces the previous
   notify-send -a "Remote desktop" -i network-workgroup-symbolic -t 5000 \
@@ -93,10 +100,36 @@ vpn_address() {  # first IPv4 of a VPN interface
   ip -o -4 addr show 2>/dev/null | awk '$2 ~ /^(zt|wg|tailscale|tun|tap|ppp|nordlynx)/ { split($4, a, "/"); print a[1]; exit }'
 }
 
+own_addresses() {  # this machine's IPv4 addresses a viewer can reach, as "address interface"
+  ip -o -4 addr show 2>/dev/null |
+    awk '$2 !~ /^(lo|docker|br-|virbr|veth|vnet)/ { split($4, a, "/"); print a[1], $2 }'
+}
+listen_setting() {  # remote.conf as it is now: a running session re-reads it each time wayvnc starts
+  local listen; listen=$( (REMOTE_ADDRESS=; REMOTE_LISTEN=; . "$USER_CONF" 2>/dev/null; echo "${REMOTE_LISTEN:-${REMOTE_ADDRESS:-vpn}}") )
+  echo "${listen:-vpn}"
+}
+port_setting() {  # session|local: the port remote.conf sets now
+  local key=REMOTE_PORT default=5900
+  [ "$1" = local ] && { key=REMOTE_LOCAL_PORT; default=5901; }
+  ( . "$USER_CONF" 2>/dev/null; eval "echo \${$key:-$default}" )
+}
+listen_addresses() {  # the addresses to listen on, one per line
+  local word
+  for word in $(listen_setting); do
+    case $word in
+      vpn) vpn_address ;;
+      any) echo 0.0.0.0 ;;
+      *) echo "$word" ;;
+    esac
+  done
+}
+listen_args() {  # PORT: wayvnc's address arguments, ADDRESS:PORT for each
+  local addr; for addr in $(listen_addresses); do echo "$addr:$1"; done
+}
 setup() {
-  local addr=${REMOTE_ADDRESS:-$(vpn_address)}
+  local addr; addr=$(listen_addresses | head -1)
   if [ -z "$addr" ]; then
-    echo "No VPN interface found. Put REMOTE_ADDRESS=<ip> in ~/.config/brasa/remote.conf to choose where to listen." >&2
+    echo "No VPN interface found: choose where to listen, e.g. brasa-remote listen any (or a Sessions window choice)." >&2
     return 1
   fi
   mkdir -p "$CONF_DIR"; chmod 700 "$CONF_DIR"
@@ -107,7 +140,8 @@ setup() {
   [ -f "$CONF_DIR/rsa_key.pem" ] || openssl genrsa -traditional -out "$CONF_DIR/rsa_key.pem" 3072 2>/dev/null
   chmod 600 "$CONF_DIR"/*.pem
   cat > "$CONF_DIR/config" <<EOF
-# Written by brasa-remote: listen on the VPN only, log in with the Linux user and password (PAM).
+# Written by brasa-remote: where to listen comes from REMOTE_LISTEN (brasa-remote listen); log in with
+# the Linux user and password (PAM).
 use_relative_paths=true
 address=$addr
 port=$REMOTE_PORT
@@ -121,9 +155,10 @@ EOF
   chmod 600 "$CONF_DIR/config"
   echo "wayvnc set up: $addr:$REMOTE_PORT, user $USER (your Linux password)"
 }
-address() { sed -n 's/^address=//p' "$CONF_DIR/config"; }
-where() { echo "$(address):$(sed -n 's/^port=//p' "$CONF_DIR/config")"; }  # the session
-where_local() { echo "$(address):$REMOTE_LOCAL_PORT"; }
+address() { listen_addresses | paste -sd' '; }
+where_on() { listen_args "$1" | paste -sd' ' | sed 's/ /, /g'; }  # PORT -> "a:port, b:port"
+where() { where_on "$REMOTE_PORT"; }  # the session
+where_local() { where_on "$REMOTE_LOCAL_PORT"; }
 
 local_desktop() {  # over SSH, or from inside the remote session: point at the local Hyprland / sway
   [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${BRASA_REMOTE_SESSION:-}" ] && return 0
@@ -214,7 +249,7 @@ start_vnc() {  # mode output [extra wayvnc args...] -- runs wayvnc as a transien
     ${SWAYSOCK:+--setenv=SWAYSOCK="$SWAYSOCK"} \
     ${STOP_POST:+-p ExecStopPost="$STOP_POST"} \
     wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r -L info -S "$STATE/wayvnc.sock" "$@" \
-      "$(address)" "$REMOTE_LOCAL_PORT"
+      $(listen_args "$REMOTE_LOCAL_PORT")
   sleep 1.5
   if ! running; then
     say "$(mode_name "$mode") failed to start" "journalctl --user -u $UNIT"
@@ -224,6 +259,46 @@ start_vnc() {  # mode output [extra wayvnc args...] -- runs wayvnc as a transien
   firewall_sync
   say "$(mode_name "$mode") ON" "Port $REMOTE_LOCAL_PORT · $(where_local)
 $(also_on local)"
+}
+
+# ---------------------------------------------------------------- where the VNC servers listen
+is_own_address() { own_addresses | awk '{ print $1 }' | grep -qxF "$1"; }
+listen_cmd() {  # [vpn|any|IP...]
+  if [ $# -eq 0 ]; then
+    echo "listening on: $(listen_setting) ($(address))"
+    echo "this machine's addresses:"; own_addresses | sed 's/^/  /'
+    return
+  fi
+  local word
+  for word in "$@"; do
+    case $word in
+      vpn) [ -n "$(vpn_address)" ] || { echo "No VPN interface is up" >&2; exit 1; } ;;
+      any) [ $# -eq 1 ] || { echo "'any' already covers every address: use it alone" >&2; exit 1; } ;;
+      *) is_own_address "$word" || { echo "$word is not an address of this machine (brasa-remote listen shows them)" >&2; exit 1; } ;;
+    esac
+  done
+  conf_set REMOTE_LISTEN "\"$*\""
+  listen_changed "Listening on $(address)"
+}
+port_cmd() {  # session|local N
+  local which=${1:-} port=${2:-} other
+  case $which in session) other=$(port_setting local) ;; local) other=$(port_setting session) ;;
+    *) echo "brasa-remote port session|local N" >&2; exit 1 ;; esac
+  [[ $port =~ ^[0-9]+$ ]] && [ "$port" -ge 1024 ] && [ "$port" -le 65535 ] ||
+    { echo "A port between 1024 and 65535" >&2; exit 1; }
+  [ "$port" != "$other" ] || { echo "The session and the local desktop need different ports" >&2; exit 1; }
+  if [ "$which" = session ]; then conf_set REMOTE_PORT "$port"; REMOTE_PORT=$port
+  else conf_set REMOTE_LOCAL_PORT "$port"; REMOTE_LOCAL_PORT=$port; fi
+  listen_changed "$(mode_name "$which") on port $port"
+}
+listen_changed() {  # MESSAGE: the session's wayvnc starts again on the new addresses and ports (its loop
+  # re-reads remote.conf); a shared desktop keeps them until it is started again
+  [ -f "$CONF_DIR/config" ] && setup >/dev/null
+  session_running && wayvncctl -S "$STATE/session.sock" wayvnc-exit >/dev/null 2>&1
+  local note=""
+  running && note="The shared desktop takes it the next time it starts"
+  firewall_sync
+  say "$1" "$note"
 }
 
 # ---------------------------------------------------------------- firewall: ufw follows what is on
@@ -475,7 +550,8 @@ serve_session() {  # OUTPUT: wayvnc on the session's output for as long as the s
   while compositor_alive; do
     kb=$(cat "$STATE/session-layout" 2>/dev/null); kb=${kb:-$(layout)}
     firewall_sync
-    wayvnc -C "$CONF_DIR/config" -o "$1" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock"
+    wayvnc -C "$CONF_DIR/config" -o "$1" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock" \
+      $(listen_args "$(port_setting session)")
     sleep 0.5
   done
 }
@@ -503,6 +579,12 @@ ssh_state() {
     --argjson at_boot "$(systemctl -q is-enabled "$u" 2>/dev/null && echo true || echo false)" \
     --argjson port "${port:-22}" '{installed: true, $running, $at_boot, $port}'
 }
+network_state() {  # where it listens, and the addresses it could
+  local vpn; vpn=$(vpn_address)
+  own_addresses | jq -R -s -c --arg listen "$(listen_setting)" --arg vpn "$vpn" '
+    {listen: $listen,
+     addresses: [split("\n")[] | select(length > 0) | split(" ") | {address: .[0], interface: .[1], vpn: (.[0] == $vpn)}]}'
+}
 state_json() {  # everything the session window shows, as JSON
   local size=auto mode=off share_viewers=0 session_viewers=0
   [ "$REMOTE_RESIZE" = no ] && size=$REMOTE_SIZE
@@ -514,9 +596,9 @@ state_json() {  # everything the session window shows, as JSON
     --arg wm "$REMOTE_WM" --argjson wms "$(installed_wms)" --arg size "$size" --arg scale "$REMOTE_SCALE" \
     --arg address "$(address 2>/dev/null)" --argjson port "$REMOTE_PORT" --argjson viewers "$session_viewers" \
     --arg mode "${mode:-off}" --argjson local_port "$REMOTE_LOCAL_PORT" --argjson share_viewers "$share_viewers" \
-    --argjson ssh "$(ssh_state)" \
+    --argjson ssh "$(ssh_state)" --argjson network "$(network_state)" \
     '{session: {$running, $at_boot, $wm, $wms, $size, $scale, $address, $port, $viewers},
-      share: {$mode, port: $local_port, viewers: $share_viewers}, $ssh}'
+      share: {$mode, port: $local_port, viewers: $share_viewers}, $ssh, $network}'
 }
 
 session() {
@@ -593,6 +675,8 @@ case ${1:-help} in
   on) shift; exec "$0" "$REMOTE_DEFAULT" "$@" ;;
   session) shift; session "$@" ;;
   ssh) shift; ssh_cmd "$@" ;;
+  listen) shift; listen_cmd "$@" ;;
+  port) shift; port_cmd "$@" ;;
   screen)
     local_desktop; busy && exit 0
     v=$(create_virtual "${2:-$REMOTE_SIZE}"); echo "$v" > "$STATE/virtual"

@@ -608,11 +608,16 @@ by default. Two independent servers, which can run at the same time:
 All of it can be controlled over SSH: `session` does not need a local desktop at all, and the local
 modes find the running Hyprland or sway by themselves (also when run from inside the remote session).
 
-**Firewall**: with **ufw** on, each port is opened to any address while what serves it is on (the
-session, a local mode, the SSH server) and closed again when it stops. A rule of yours on that port is
-left alone. It is done by `/usr/local/sbin/brasa-firewall`, which `install.sh` (or the first
-`brasa-remote session` in a terminal) installs with sudo, together with a sudo rule to run it without
-a password and a hook on the SSH service. Its rules carry the comment `brasa` in `sudo ufw status`.
+**Where it listens**: by default only on the VPN's address. The **Network** group of the Sessions
+window (or `brasa-remote listen`, `brasa-remote port`) picks every network or some of this machine's
+addresses, and the two ports; a running session follows at once (its viewers reconnect), the shared
+desktop from its next start.
+
+**Firewall**: with **ufw** on, exactly the addresses and ports the VNC servers and the SSH server listen
+on are opened, to any source, while they are on, and closed again when they stop. A rule of yours on that
+port is left alone. It is done by `/usr/local/sbin/brasa-firewall`, which `install.sh` (or the first
+`brasa-remote session` in a terminal) installs with sudo, together with a sudo rule to run it without a
+password and a hook on the SSH service. Its rules carry the comment `brasa` in `sudo ufw status`.
 
 ```
 brasa-remote session [stop|boot|noboot]  an independent remote-only session (the default for "on")
@@ -625,6 +630,8 @@ brasa-remote screen [WxH]                a virtual second monitor in the current
 brasa-remote mirror                      share the physical screen (the focused monitor)
 brasa-remote take [WxH]                  take over the current session; the laptop goes dark
 brasa-remote ssh [on|off|boot|noboot]   the SSH server, now and at boot
+brasa-remote listen [vpn|any|IP...]      where to listen: the VPN (default), every network, or addresses
+brasa-remote port session|local N        the session's port (5900) or the local desktop's (5901)
 brasa-remote on | off | status | setup | help
 ```
 

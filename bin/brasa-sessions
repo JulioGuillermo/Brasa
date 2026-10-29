@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The Sessions window (Super+Ctrl+s, and the Sessions button of the panel): dialogs and the keyring in
-this session, the remote session, sharing this desktop and the SSH server. Everything it does goes
+this session, the remote session, sharing this desktop, where they listen and the SSH server. Everything it does goes
 through brasa-follow and brasa-remote."""
 import json
 import os
@@ -19,6 +19,8 @@ BIN = os.path.dirname(os.path.realpath(__file__))
 REMOTE = os.path.join(BIN, "brasa-remote")
 FOLLOW = os.path.join(BIN, "brasa-follow")
 REFRESH_SECONDS = 5
+PORT_TYPING_PAUSE_MS = 800
+ANY = "any"
 
 SIZES = ["auto", "1280x720", "1600x900", "1920x1080", "2560x1440", "3840x2160"]
 SCALES = ["auto", "1", "1.25", "1.5", "1.75", "2"]
@@ -76,6 +78,7 @@ class SessionsWindow(Adw.ApplicationWindow):
         page.add(self.build_here())
         page.add(self.build_remote_session())
         page.add(self.build_share())
+        page.add(self.build_network())
         page.add(self.build_ssh())
         view = Adw.ToolbarView(content=page)
         view.add_top_bar(brasa_ui.header())
@@ -128,6 +131,58 @@ class SessionsWindow(Adw.ApplicationWindow):
         self.share_mode.connect("notify::selected", self.on_share_mode)
         self.share_group.add(self.share_mode)
         return self.share_group
+
+    def build_network(self):
+        """Where the remote session and the shared desktop listen: every network, or some of this
+        machine's addresses (one switch each), and their two ports."""
+        group = Adw.PreferencesGroup(title="Network",
+                                     description="Where the remote session and the shared desktop can be reached. "
+                                                 "With ufw on, exactly these are opened while they are on")
+        self.listen_row = Adw.ExpanderRow(title="Listen on")
+        self.listen_any = Adw.SwitchRow(title="Every network", subtitle="Any address of this machine")
+        self.listen_any.connect("notify::active", self.on_listen)
+        self.listen_row.add_row(self.listen_any)
+        self.address_rows = {}
+        self.session_port = self.port_row("Remote session port", "session")
+        self.share_port = self.port_row("Shared desktop port", "local")
+        for row in (self.listen_row, self.session_port, self.share_port):
+            group.add(row)
+        return group
+
+    def port_row(self, title, which):
+        row = Adw.SpinRow.new_with_range(1024, 65535, 1)
+        row.set_title(title)
+        row.which = which
+        row.pending = 0
+        row.connect("notify::value", self.on_port)
+        return row
+
+    def on_port(self, row, _):
+        """Waits until the typing pauses, then applies it."""
+        if self.updating:
+            return
+        if row.pending:
+            GLib.source_remove(row.pending)
+
+        def apply():
+            row.pending = 0
+            self.act(row, [[REMOTE, "port", row.which, str(int(row.get_value()))]])
+            return GLib.SOURCE_REMOVE
+
+        row.pending = GLib.timeout_add(PORT_TYPING_PAUSE_MS, apply)
+
+    def on_listen(self, *_):
+        if self.updating:
+            return
+        chosen = [address for address, row in self.address_rows.items() if row.get_active()]
+        if self.listen_any.get_active():
+            words = [ANY]
+        elif chosen:
+            words = chosen
+        else:
+            self.refresh()
+            return
+        self.act(self.listen_row, [[REMOTE, "listen", *words]])
 
     def build_ssh(self):
         self.ssh_group = Adw.PreferencesGroup(title="SSH server")
@@ -207,6 +262,7 @@ class SessionsWindow(Adw.ApplicationWindow):
         self.show_session(state["session"])
         self.show_share(state["share"])
         self.show_ssh(state["ssh"])
+        self.show_network(state["network"], state["session"]["port"], state["share"]["port"])
         self.updating = False
 
     def show_session(self, session):
@@ -229,6 +285,31 @@ class SessionsWindow(Adw.ApplicationWindow):
         if self.share_mode not in self.busy:
             self.share_mode.show_value(share["mode"])
         self.share_mode.set_subtitle(viewers_text(share["viewers"]) if share["mode"] != "off" else "")
+
+    def show_network(self, network, session_port, share_port):
+        listen = network["listen"].split()
+        every = listen == [ANY]
+        for entry in network["addresses"]:
+            address = entry["address"]
+            if address not in self.address_rows:
+                label = f"{entry['interface']} · VPN" if entry["vpn"] else entry["interface"]
+                row = Adw.SwitchRow(title=address, subtitle=label)
+                row.connect("notify::active", self.on_listen)
+                self.listen_row.add_row(row)
+                self.address_rows[address] = row
+            row = self.address_rows[address]
+            on = address in listen or (entry["vpn"] and "vpn" in listen)
+            if self.listen_row not in self.busy:
+                row.set_active(on or every)
+            row.set_sensitive(not every)
+        if self.listen_row not in self.busy:
+            self.listen_any.set_active(every)
+        shown = "every network" if every else ", ".join(
+            entry["address"] for entry in network["addresses"] if self.address_rows[entry["address"]].get_active())
+        self.listen_row.set_subtitle(shown or "nowhere: choose an address")
+        for row, port in ((self.session_port, session_port), (self.share_port, share_port)):
+            if row not in self.busy and not row.pending:
+                row.set_value(port)
 
     def show_ssh(self, ssh):
         self.ssh_group.set_visible(ssh["installed"])
