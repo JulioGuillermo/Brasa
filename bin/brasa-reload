@@ -2,15 +2,18 @@
 # Reload Brasa's programs without touching the window manager (Super+Ctrl+r).
 # Brasa commands added by a later "git pull": link any that is missing (install.sh does the rest)
 for f in ~/.config/brasa/bin/brasa-*; do [ -e ~/.local/bin/"${f##*/}" ] || ln -s "$f" ~/.local/bin/ 2>/dev/null; done
+# ...and drop the links of commands it removed
+for f in ~/.local/bin/brasa-*; do [ -L "$f" ] && [ ! -e "$f" ] && rm "$f"; done
+# The islands are Rust: build what a pull changed (a moment when nothing did)
+(cd ~/.config/brasa/islands && cargo build --release --quiet) &&
+  ln -sfn ~/.config/brasa/islands/target/release/brasa-islands ~/.local/bin/brasa-islands
 python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/null 2>&1   # bar + panel (panel.conf)
 ~/.local/bin/brasa-bar --reload                                                # bar: config and style
 pkill -u "$(id -u)" -x swaync                                                  # the island serves the notifications
-island=$(~/.local/bin/brasa-here -f '^brasa-island|/brasa-islands( |$)') && { kill $island; sleep 0.3; }   # island: island.conf, new code
-setsid -f ~/.local/bin/brasa-island >/dev/null 2>&1
+islands=$(~/.local/bin/brasa-here brasa-islands) && { kill $islands; sleep 0.3; }   # islands: island.conf, new code
+setsid -f ~/.local/bin/brasa-islands >/dev/null 2>&1
 for _ in $(seq 30); do   # until it serves the notifications: one sent before would start swaync through D-Bus
   busctl --user status org.freedesktop.Notifications >/dev/null 2>&1 && break; sleep 0.1
 done
-quick=$(~/.local/bin/brasa-here -f '^brasa-quick') && kill $quick                # quick settings: new code
-setsid -f ~/.local/bin/brasa-quick start >/dev/null 2>&1
 pkill -x rofi; pkill -x nwg-bar; pkill -x fuzzel                          # menus read their config when opened
 notify-send -a brasa-reload -u low -t 1500 "Programs reloaded" "Bar, notifications and menus"

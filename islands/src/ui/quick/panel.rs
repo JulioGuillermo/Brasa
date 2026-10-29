@@ -169,7 +169,7 @@ impl Panel {
         self.state.borrow().card.clone()
     }
 
-    fn is_open(&self) -> bool {
+    pub fn is_open(&self) -> bool {
         self.state.borrow().is_open
     }
 
@@ -266,7 +266,7 @@ impl Panel {
         }
     }
 
-    fn close(&self) {
+    pub fn close(&self) {
         self.cancel_leaving();
         self.state.borrow_mut().is_open = false;
         self.stop_watching();
@@ -312,7 +312,7 @@ impl Panel {
         }
     }
 
-    fn close_soon_if_opened_by_pointer(&self) {
+    pub fn close_soon_if_opened_by_pointer(&self) {
         let state = self.state.borrow();
         if !state.is_open || !state.opened_by_pointer || state.leaving.is_some() {
             return;

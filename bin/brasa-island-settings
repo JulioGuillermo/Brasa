@@ -15,10 +15,10 @@ from gi.repository import Adw, Gdk, GObject, Gtk
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 import brasa_ui  # noqa: E402
-from brasa_island import config as island_config  # noqa: E402
+import brasa_island_config as island_config  # noqa: E402
 
 HERE = os.path.dirname(os.path.realpath(__file__))
-ISLAND = os.path.join(HERE, "brasa-island")
+ISLANDS = os.path.expanduser("~/.local/bin/brasa-islands")
 EDGES = [("top", "Top"), ("bottom", "Bottom")]
 ALIGNS = [("left", "Left"), ("center", "Center"), ("right", "Right")]
 VIEWS = [("grid", "Grid of icons"), ("list", "List")]
@@ -152,7 +152,7 @@ class IslandWindow(Adw.ApplicationWindow):
             row.connect("notify::selected", self.changed)
             group.add(row)
         self.quick_hover = Adw.SwitchRow(title="Open with the pointer",
-                                         subtitle="Resting it in the bottom corner · only the Rust islands",
+                                         subtitle="Resting it in the bottom corner",
                                          active=self.config.quick_hover)
         self.quick_hover.connect("notify::active", self.changed)
         group.add(self.quick_hover)
@@ -185,7 +185,7 @@ class IslandWindow(Adw.ApplicationWindow):
         self.config.quick_size = self.quick_size.value()
         self.config.color = hex_color(self.color.get_rgba())
         island_config.save(self.config)
-        subprocess.Popen([ISLAND, "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        subprocess.Popen([ISLANDS, "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 def main():

@@ -3,7 +3,6 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
 
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
@@ -21,8 +20,13 @@ use crate::ui::shell::monitors;
 
 const ISLAND_STYLE: &str = include_str!("../style/island.css");
 const QUICK_STYLE: &str = include_str!("../style/quick.css");
-/// Super+d, then releasing Super, asks twice in a row: the second one is ignored.
-const DOUBLE_TOGGLE: Duration = Duration::from_millis(600);
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Panel {
+    Main,
+    Launcher,
+    Quick,
+}
 
 pub struct App {
     gtk: gtk4::Application,
@@ -32,7 +36,6 @@ pub struct App {
     quick: Rc<Quick>,
     main_island: RefCell<Option<Rc<Island>>>,
     launcher_island: RefCell<Option<Rc<Island>>>,
-    last_launcher_toggle: RefCell<Option<Instant>>,
 }
 
 impl App {
@@ -63,25 +66,71 @@ impl App {
                 quick: Quick::new(gtk, &sender),
                 main_island: RefCell::new(None),
                 launcher_island: RefCell::new(None),
-                last_launcher_toggle: RefCell::new(None),
             }
         });
         app.build(&config::load());
         app.receive(receiver);
+        app.follow_monitors();
         app
+    }
+
+    /// A monitor plugged in or out: the hot zones go on the monitors there are now.
+    fn follow_monitors(self: &Rc<Self>) {
+        let Some(display) = gdk::Display::default() else { return };
+        let me = Rc::downgrade(self);
+        display.monitors().connect_items_changed(move |_, _, _, _| {
+            let Some(app) = me.upgrade() else { return };
+            for island in app.islands() {
+                island.place_hot_zones();
+            }
+            app.quick.place_hot_corners();
+        });
     }
 
     pub fn run(self: &Rc<Self>, command: Command) {
         match command {
             Command::Start => {}
-            Command::Toggle => self.tell_main(Island::toggle),
-            Command::Centre => self.tell_main(Island::toggle_centre),
+            Command::Toggle => self.toggle_panel(Panel::Main, Island::toggle),
+            Command::Centre => self.toggle_panel(Panel::Main, Island::toggle_centre),
             Command::Dnd => self.notices.toggle_dnd(),
-            Command::Launcher => self.toggle_launcher(),
+            Command::Launcher => self.toggle_panel(Panel::Launcher, Island::toggle_launcher),
             Command::Peek => self.tell_main(Island::peek),
             Command::Hide => self.islands().iter().for_each(|island| island.close_all()),
             Command::Reload => self.reload(),
-            Command::Quick => self.quick.toggle(),
+            Command::Quick => {
+                self.close_others(Panel::Quick);
+                self.quick.toggle();
+            }
+        }
+    }
+
+    /// Each key opens or closes its panel at once, even mid-animation. A panel the user opens takes the
+    /// keyboard, so the others he opened close first.
+    fn toggle_panel(&self, panel: Panel, toggle: impl FnOnce(&Island)) {
+        self.close_others(panel);
+        let island = match panel {
+            Panel::Launcher => self.launcher_island.borrow().clone(),
+            _ => self.main_island.borrow().clone(),
+        };
+        if let Some(island) = island {
+            toggle(&island);
+        }
+    }
+
+    fn close_others(&self, keep: Panel) {
+        if keep != Panel::Quick && self.quick.is_open() {
+            self.quick.close();
+        }
+        let keep_island = match keep {
+            Panel::Main => self.main_island.borrow().clone(),
+            Panel::Launcher => self.launcher_island.borrow().clone(),
+            Panel::Quick => None,
+        };
+        for island in self.islands() {
+            let kept = keep_island.as_ref().is_some_and(|kept| Rc::ptr_eq(kept, &island));
+            if !kept && island.is_open_by_user() {
+                island.close_view();
+            }
         }
     }
 
@@ -132,27 +181,13 @@ impl App {
         for island in self.islands() {
             island.show_off_soon();
         }
-        self.quick.reload();
+        self.quick.place_hot_corners();
     }
 
     fn tell_main(&self, action: impl FnOnce(&Island)) {
         let island = self.main_island.borrow().clone();
         if let Some(island) = island {
             action(&island);
-        }
-    }
-
-    fn toggle_launcher(&self) {
-        let now = Instant::now();
-        let mut last = self.last_launcher_toggle.borrow_mut();
-        if last.is_some_and(|last| now - last < DOUBLE_TOGGLE) {
-            return;
-        }
-        *last = Some(now);
-        drop(last);
-        let island = self.launcher_island.borrow().clone();
-        if let Some(island) = island {
-            island.toggle_launcher(true);
         }
     }
 

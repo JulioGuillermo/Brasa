@@ -9,7 +9,7 @@
 #            release (runs on key release and lets the key through, for Caps Lock / Num Lock).
 #
 # --- Apps
-SUPER	d	exec ~/.local/bin/brasa-island launcher	App launcher island
+SUPER	d	exec ~/.local/bin/brasa-islands launcher	App launcher island
 SUPER+SHIFT	d	exec brasa-drawer	App grid, full screen (rofi)
 SUPER	r	exec fuzzel	Quick launcher
 SUPER	Return	exec foot	Terminal (foot)
@@ -19,8 +19,8 @@ SUPER+SHIFT	t	exec ghostty	Terminal (Ghostty)
 SUPER	e	exec thunar	Files (Thunar)
 SUPER+SHIFT	n	exec nautilus	Files (Nautilus)
 SUPER	z	exec gtk-launch zen	Browser (Zen)
-SUPER	n	exec ~/.local/bin/brasa-island centre	Notification centre
-SUPER	a	exec ~/.local/bin/brasa-quick	Quick settings
+SUPER	n	exec ~/.local/bin/brasa-islands centre	Notification centre
+SUPER	a	exec ~/.local/bin/brasa-islands quick	Quick settings
 SUPER	F1	exec ~/.local/bin/brasa-keys	Key bindings cheat sheet
 SUPER	period	exec ~/.local/bin/brasa-emoji	Emoji picker
 SUPER	p	exec ~/.local/bin/brasa-display	Displays and monitors
@@ -74,7 +74,7 @@ SUPER+SHIFT	s	exec ~/.local/bin/brasa-shot live	Screenshot of an area
 SHIFT	Print	exec ~/.local/bin/brasa-shot area	Screenshot of an area, screen frozen
 CTRL	Print	exec ~/.local/bin/brasa-shot full	Screenshot of the screen
 # --- Music and volume
-SUPER	m	exec ~/.local/bin/brasa-island toggle	Island: music and notifications (also: pointer on its edge)
+SUPER	m	exec ~/.local/bin/brasa-islands toggle	Island: music and notifications (also: pointer on its edge)
 SUPER+SHIFT	m	exec ~/.local/bin/brasa-island-settings	Island settings: music, notifications, launcher, where each one sits
 CTRL+SUPER	space	exec swayosd-client --playerctl play-pause	Play / pause
 CTRL+SUPER	Left	exec swayosd-client --playerctl prev	Previous track

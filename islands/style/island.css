@@ -1,5 +1,7 @@
 /* The island (brasa-island): the colours of the bar and the panel */
 window.brasa-island { background: transparent; }
+/* Hot zones: all but invisible; a window that draws nothing is never shown */
+window.brasa-hot-zone { background: rgba(0, 0, 0, 0.01); }
 window.brasa-island label { font-family: "Hack Nerd Font Propo", "Hack Nerd Font", sans-serif; color: #ffffff; }
 
 window.brasa-island label.island-title { color: #ff0000; font-weight: bold; }

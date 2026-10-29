@@ -57,10 +57,8 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` (`Shift+Print`) picks the area | `~/.local/bin/` |
-| `bin/brasa-island` | The island on a screen edge: music and notifications (`Super+m`) | `~/.local/bin/` |
-| `bin/brasa-quick`, `lib/brasa_quick/` | Quick settings (`Super+a`, the bar's gear) | `~/.local/bin/` |
-| `bin/brasa-island-settings` | Island window (`Super+Shift+m`, quick settings tile **Island**): music, notifications, launcher, where each one sits | `~/.local/bin/` |
-| `lib/brasa_island/` | The island itself: window, outline, springs, music, notifications, `island.css` | (used in place) |
+| `islands/` | `brasa-islands`, in Rust: the island (music, notifications, `Super+m`), the app launcher (`Super+d`) and quick settings (`Super+a`), one process | `~/.local/bin/` (built by `install.sh` and `brasa-reload`) |
+| `bin/brasa-island-settings`, `lib/brasa_island_config.py` | Island window (`Super+Shift+m`, quick settings tile **Island**): music, notifications, launcher, quick settings, where each one sits | `~/.local/bin/` |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
 | `bin/brasa-kbd` | Keyboard backlight, for any `*kbd_backlight*` LED: up, down, toggle, set N, get, max | `~/.local/bin/` |
@@ -480,7 +478,11 @@ between states, even when interrupted halfway. It shows two things, each one can
   Escape closes. It can sit on its own edge (by default the bottom one), with its own monitor and side;
   in the same place as the music and notifications, they share one island and `Super+d` switches it to
   the launcher. The pointer on its own island's edge opens it too.
-- **Monitor**: with none chosen, each island shows up on the monitor that has the focus when it opens.
+- **Monitor**: with none chosen, each island shows up on the monitor that has the focus when it opens,
+  and its pointer edge works on every monitor: the island comes out on the one the pointer is on.
+- **Keys**: each panel's key opens and closes it at once, even halfway through its animation. A panel
+  opened with its key (or the bar) takes the keyboard, so Escape closes it, and closes the other one
+  you had open; one that opens on its own (a notification, the pointer) leaves the keyboard alone.
 
 **Settings**: the **Island** window (`Super+Shift+m`) switches the music, the
 notification centre of `Super+m` and the launcher on or off, and picks for each island its monitor, edge (top or
@@ -506,23 +508,15 @@ launcher_view=grid      # or list
 launcher_size=medium    # small, medium or large
 launcher_hover=on       # its own pointer switch; missing: same as hover
 quick_monitor=          # the quick settings' monitor; empty: the focused one
-quick_hover=off         # on: resting the pointer in its bottom corner opens it (Rust islands only)
+quick_hover=off         # on: resting the pointer in its bottom corner opens it
 ```
 
-### The islands in Rust (on trial)
+### Built in Rust
 
-`islands/` is the same island, launcher and quick settings in Rust, as one process (`brasa-islands`):
-less memory, no CPU while idle, the outlines drawn by the GPU. `install.sh` builds it when `cargo` is
-there. The Python ones stay in use until you switch:
-
-```
-touch ~/.config/brasa/rust-islands && brasa-reload     # the Rust ones
-rm ~/.config/brasa/rust-islands && brasa-reload        # back to Python
-```
-
-The keys, the bar and the Island window do not change: `brasa-island` and `brasa-quick` hand their
-commands to `brasa-islands` while the switch is there. Building it by hand:
-`cd ~/brasa/islands && cargo build --release`.
+The islands and quick settings are one Rust program, `islands/` (`brasa-islands`): one process, about
+50 MB, no CPU while idle, the outlines drawn by the GPU. `install.sh` builds it (it needs `cargo`), and
+`brasa-reload` rebuilds it after a `git pull`. By hand: `cd ~/brasa/islands && cargo build --release`.
+`brasa-islands toggle|centre|dnd|launcher|peek|hide|reload|quick` tells the running one what to do.
 
 ## Lock screen
 
@@ -695,10 +689,12 @@ brasa-remote on | off | status | setup | help
 
 ## Quick settings
 
-`brasa-quick` (`Super+a`, or the gear next to the bell in the bar): it grows out of the bottom right
-corner of the focused monitor, joined to the bottom edge and to the side edge like the island, with the
+`brasa-islands quick` (`Super+a`, or the gear next to the bell in the bar): it grows out of the bottom right
+corner of its monitor (**Monitor** in the Island window, `quick_monitor`; none: the focused one), joined to the bottom edge and to the side edge like the island, with the
 same springs, colours and red rim. The bottom left corner instead: **Corner** in the Island window,
-`quick_side` in `island.conf`. Escape or a click anywhere else closes it.
+`quick_side` in `island.conf`. Escape or a click anywhere else closes it. With **Open with the pointer**
+(`quick_hover`), resting the pointer in that corner of a monitor opens it there, and it closes when the
+pointer leaves it.
 
 - **Tiles**: square and black with a red line along the bottom, icon and name inside in red. **Size** (Island window, `quick_size`): small, six a
   page; medium, twelve a page; large, every tile at once. One turn of the **mouse wheel**, or one swipe

@@ -126,14 +126,14 @@ waybar = {
   "hyprland/language": {"format": "{short}", "on-click": "~/.local/bin/brasa-wm layout-next",
                         "on-click-right": "~/.local/bin/brasa-keyboard"},
   "tray": {"icon-size": 16, "spacing": 8},
-  "custom/quick": {"format": "\U000F062E", "tooltip": False, "on-click": "~/.local/bin/brasa-quick"},
-  # The island writes the bell's state to brasa-bell.json and sends this signal (lib/brasa_island/bell.py)
+  "custom/quick": {"format": "\U000F062E", "tooltip": False, "on-click": "~/.local/bin/brasa-islands quick"},
+  # The island writes the bell's state to brasa-bell.json and sends this signal (islands/src/services/notifications/bell.rs)
   "custom/notif": {"exec": "cat \"$XDG_RUNTIME_DIR/brasa-bell.json\" 2>/dev/null || echo '{\"alt\": \"none\"}'",
                    "return-type": "json", "format": "{icon}", "interval": "once", "signal": 8,
                    "format-icons": {"notification": ICON["bell_new"], "none": ICON["bell"],
                                     "dnd-notification": ICON["bell_off"], "dnd-none": ICON["bell_off"]},
-                   "tooltip": False, "on-click": "~/.local/bin/brasa-island centre",
-                   "on-click-right": "~/.local/bin/brasa-island dnd"},
+                   "tooltip": False, "on-click": "~/.local/bin/brasa-islands centre",
+                   "on-click-right": "~/.local/bin/brasa-islands dnd"},
 }
 
 # Blocks that fold, (unfolded, folded): right click switches. The bar of a narrow monitor starts folded

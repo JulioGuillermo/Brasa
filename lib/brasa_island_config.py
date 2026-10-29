@@ -117,7 +117,7 @@ def save(config: Config):
         f"launcher_view={config.launcher_view}",
         f"launcher_size={config.launcher_size}",
         f"launcher_hover={on_off(config.launcher_hover)}",
-        "# Quick settings (brasa-quick)",
+        "# Quick settings (Super+a)",
         f"quick_side={config.quick_side}",
         f"quick_size={config.quick_size}",
         f"quick_monitor={config.quick_monitor}",

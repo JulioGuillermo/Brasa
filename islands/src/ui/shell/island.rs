@@ -12,6 +12,7 @@ use gtk4::{cairo, gdk, glib, graphene};
 use gtk4_layer_shell::{Edge as LayerEdge, KeyboardMode, Layer, LayerShell};
 
 use super::frame::Frame;
+use super::hot_zone::{self, HotZone, Spot};
 use super::monitors;
 use super::outline::Outline;
 use super::shapes::Shape;
@@ -26,7 +27,7 @@ const SLACK: f64 = 40.0;
 /// The window reaches this far past the screen edge, so its own border, which a fractional scale can
 /// leave half drawn, stays off screen.
 const OVERHANG: f64 = 2.0;
-const HOT_ZONE_HEIGHT: f64 = 3.0;
+const HOT_ZONE_HEIGHT: i32 = 3;
 const HOVER_DWELL: Duration = Duration::from_millis(120);
 const LEAVE_DELAY: Duration = Duration::from_millis(400);
 const SHORTCUT_IDLE: Duration = Duration::from_millis(5000);
@@ -41,6 +42,15 @@ pub enum Mode {
     /// Super+n: the music and the notification centre, even when it is off.
     Centre,
     Launcher,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Opener {
+    /// A key or a click: it takes the keyboard.
+    User,
+    Pointer,
+    /// To show where it now is, after the settings changed.
+    Itself,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -99,10 +109,13 @@ struct State {
     ticking: bool,
     last_frame: Option<f64>,
     monitor: String,
+    /// Opened from a hot zone: it stays on that zone's monitor, and closes when the pointer goes away.
+    opened_by_pointer: bool,
 }
 
 pub struct Island {
     me: Weak<Island>,
+    app: gtk4::Application,
     window: gtk4::Window,
     frame: Frame,
     content: gtk4::Box,
@@ -114,6 +127,7 @@ pub struct Island {
     drawn: Rc<Cell<Outline>>,
     state: RefCell<State>,
     timers: RefCell<HashMap<Timer, glib::SourceId>>,
+    hot_zones: RefCell<Vec<HotZone>>,
 }
 
 impl Island {
@@ -162,6 +176,7 @@ impl Island {
         let first_shape = shapes.get(1).copied().unwrap_or(Shape::Hidden);
         let island = Rc::new_cyclic(|me| Island {
             me: me.clone(),
+            app: app.clone(),
             window,
             frame,
             content,
@@ -187,12 +202,16 @@ impl Island {
                 ticking: false,
                 last_frame: None,
                 monitor: String::new(),
+                opened_by_pointer: false,
             }),
             timers: RefCell::new(HashMap::new()),
+            hot_zones: RefCell::new(Vec::new()),
         });
         island.place_on_screen();
         island.take_sections();
         island.listen_to_pointer();
+        island.listen_to_keys();
+        island.place_hot_zones();
         let me = island.me.clone();
         island.window.connect_realize(move |_| {
             if let Some(island) = me.upgrade() {
@@ -247,16 +266,21 @@ impl Island {
 
     /// Without a monitor of its own, the island shows up on the focused one.
     fn follow_focus(&self) {
-        if !self.place.monitor.is_empty() {
+        if !self.place.monitor.is_empty() || self.state.borrow().opened_by_pointer {
             return;
         }
-        let connector = monitors::focused_connector();
-        let Some(monitor) = monitors::find(&connector) else { return };
+        if let Some(monitor) = monitors::find(&monitors::focused_connector()) {
+            self.move_to(&monitor);
+        }
+    }
+
+    fn move_to(&self, monitor: &gdk::Monitor) {
+        let connector = monitor.connector().map(|name| name.to_string()).unwrap_or_default();
         if connector == self.state.borrow().monitor {
             return;
         }
         self.state.borrow_mut().monitor = connector;
-        self.window.set_monitor(Some(&monitor));
+        self.window.set_monitor(Some(monitor));
     }
 
     /// Nearest the edge the music, then the notifications; the launcher stands alone.
@@ -275,6 +299,7 @@ impl Island {
 
     /// Gives the sections back before the window goes, for the next island to take.
     pub fn destroy(&self) {
+        self.hot_zones.borrow_mut().clear();
         self.close_all();
         for widget in self.sections.widgets() {
             self.content.remove(&widget);
@@ -405,7 +430,7 @@ impl Island {
             self.close_view();
             return;
         }
-        self.open_view(mode, false);
+        self.open_view(mode, Opener::User);
         self.close_when_idle();
     }
 
@@ -417,7 +442,8 @@ impl Island {
         }
     }
 
-    pub fn toggle_launcher(&self, grab_keyboard: bool) {
+    /// Super+d.
+    pub fn toggle_launcher(&self) {
         if !self.hosts_launcher() {
             return;
         }
@@ -425,10 +451,7 @@ impl Island {
             self.close_view();
             return;
         }
-        self.open_view(Mode::Launcher, grab_keyboard);
-        if !grab_keyboard {
-            self.close_when_idle();
-        }
+        self.open_view(Mode::Launcher, Opener::User);
     }
 
     fn close_when_idle(&self) {
@@ -437,9 +460,15 @@ impl Island {
         }
     }
 
-    fn open_view(&self, mode: Mode, grab_keyboard: bool) {
+    /// Opened by the user it takes the keyboard, so Escape closes it; opened by the pointer or to show
+    /// itself it leaves the keyboard where it is.
+    fn open_view(&self, mode: Mode, opener: Opener) {
         self.cancel(Timer::Idle);
-        self.state.borrow_mut().mode = Some(mode);
+        {
+            let mut state = self.state.borrow_mut();
+            state.mode = Some(mode);
+            state.opened_by_pointer = opener == Opener::Pointer;
+        }
         if let Some(notices) = &self.sections.notices {
             notices.set_centre(self.showing_centre());
         }
@@ -448,14 +477,18 @@ impl Island {
                 launcher.opened();
             }
         }
-        let keyboard = if mode == Mode::Launcher && grab_keyboard { KeyboardMode::Exclusive } else { KeyboardMode::None };
+        let keyboard = if opener == Opener::User { KeyboardMode::Exclusive } else { KeyboardMode::None };
         self.window.set_keyboard_mode(keyboard);
         self.relayout();
     }
 
     pub fn close_view(&self) {
         self.cancel(Timer::Idle);
-        self.state.borrow_mut().mode = None;
+        {
+            let mut state = self.state.borrow_mut();
+            state.mode = None;
+            state.opened_by_pointer = false;
+        }
         self.window.set_keyboard_mode(KeyboardMode::None);
         if let Some(notices) = &self.sections.notices {
             notices.set_centre(false);
@@ -488,12 +521,15 @@ impl Island {
     /// Opens for a moment, to show where it now is.
     pub fn show_off_soon(&self) {
         self.later(Timer::ShowOff, SHOW_OFF_DELAY, |island| {
-            if island.hosts_music() {
-                island.toggle();
-            } else {
-                island.toggle_launcher(false);
-            }
+            let mode = if island.hosts_music() { Mode::Main } else { Mode::Launcher };
+            island.open_view(mode, Opener::Itself);
+            island.close_when_idle();
         });
+    }
+
+    pub fn is_open_by_user(&self) -> bool {
+        let state = self.state.borrow();
+        state.mode.is_some() && !state.opened_by_pointer
     }
 
     // ---- Pointer
@@ -513,6 +549,94 @@ impl Island {
             }
         });
         self.window.add_controller(pointer);
+    }
+
+    fn listen_to_keys(&self) {
+        let keys = gtk4::EventControllerKey::new();
+        let me = self.me.clone();
+        keys.connect_key_pressed(move |_, key, _, _| {
+            let Some(island) = me.upgrade() else { return glib::Propagation::Proceed };
+            if key != gdk::Key::Escape || !island.is_open() {
+                return glib::Propagation::Proceed;
+            }
+            island.close_view();
+            glib::Propagation::Stop
+        });
+        self.window.add_controller(keys);
+    }
+
+    /// With the pointer opening it, a thin strip along the edge where the island comes out, on its
+    /// monitor or on every one when it has none.
+    pub fn place_hot_zones(&self) {
+        self.hot_zones.borrow_mut().clear();
+        if self.hover_opens().is_none() {
+            return;
+        }
+        for monitor in hot_zone::monitors_for(&self.place.monitor) {
+            let on_rest = self.me.clone();
+            let on_leave = self.me.clone();
+            let zone = HotZone::new(
+                &self.app,
+                &monitor,
+                self.hot_spot(),
+                move |monitor| {
+                    if let Some(island) = on_rest.upgrade() {
+                        island.open_by_pointer(monitor);
+                    }
+                },
+                move || {
+                    if let Some(island) = on_leave.upgrade() {
+                        island.close_soon_if_opened_by_pointer();
+                    }
+                },
+            );
+            self.hot_zones.borrow_mut().push(zone);
+        }
+    }
+
+    /// Where the hidden island's middle meets the edge.
+    fn hot_spot(&self) -> Spot {
+        let width = Shape::Line.dimensions().body_width as i32;
+        let side_margin = (self.window_width as i32 - width) / 2;
+        let screen_edge = if self.at_top() { LayerEdge::Top } else { LayerEdge::Bottom };
+        let mut margins = vec![(screen_edge, -(OVERHANG as i32))];
+        match self.place.align {
+            Align::Left => margins.push((LayerEdge::Left, side_margin)),
+            Align::Right => margins.push((LayerEdge::Right, side_margin)),
+            Align::Center => {}
+        }
+        Spot {
+            edges: [
+                (LayerEdge::Top, self.at_top()),
+                (LayerEdge::Bottom, !self.at_top()),
+                (LayerEdge::Left, self.place.align == Align::Left),
+                (LayerEdge::Right, self.place.align == Align::Right),
+            ],
+            width,
+            height: HOT_ZONE_HEIGHT + OVERHANG as i32,
+            margins,
+        }
+    }
+
+    fn open_by_pointer(&self, monitor: &gdk::Monitor) {
+        self.cancel(Timer::Leave);
+        if self.is_open() {
+            return;
+        }
+        let Some(mode) = self.hover_opens() else { return };
+        if self.place.monitor.is_empty() {
+            self.move_to(monitor);
+        }
+        self.open_view(mode, Opener::Pointer);
+    }
+
+    fn close_soon_if_opened_by_pointer(&self) {
+        let state = self.state.borrow();
+        let away = state.mode.is_some() && state.opened_by_pointer && !state.pointer_inside;
+        drop(state);
+        if away {
+            self.later(Timer::Leave, LEAVE_DELAY, |island| island.close_view());
+        }
     }
 
     fn hover_opens(&self) -> Option<Mode> {
@@ -535,7 +659,7 @@ impl Island {
         let showing_notices = self.state.borrow().shape == Shape::Card && !self.is_open();
         let Some(mode) = self.hover_opens() else { return };
         if !self.is_open() && !showing_notices {
-            self.later(Timer::Dwell, HOVER_DWELL, move |island| island.open_view(mode, false));
+            self.later(Timer::Dwell, HOVER_DWELL, move |island| island.open_view(mode, Opener::Pointer));
         }
     }
 
@@ -639,16 +763,12 @@ impl Island {
         self.frame.place_content(content_area, visible_area);
     }
 
-    /// Only the outline takes the pointer; with nothing shown, a thin line along the edge where the
-    /// pointer opens it.
+    /// Only the outline takes the pointer; hidden, nothing does (the hot zones open it).
     fn update_input_region(&self) {
         let Some(surface) = self.window.surface() else { return };
         let outline = self.outline();
         let (x, width, mut height) = if outline.height >= 1.0 {
             (outline.left() as f64, outline.full_width() as f64, outline.height as f64)
-        } else if self.hover_opens().is_some() {
-            let line_width = Shape::Line.dimensions().body_width;
-            (self.window_width / 2.0 - line_width / 2.0, line_width, HOT_ZONE_HEIGHT)
         } else {
             (0.0, 0.0, 0.0)
         };

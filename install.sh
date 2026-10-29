@@ -175,7 +175,7 @@ if [ $UNINSTALL = 1 ]; then
   say "Removing Brasa links (packages are not uninstalled)"
   for d in $DIRS; do unlink_ours ~/.config/$d; done
   for f in $FILES; do unlink_ours ~/.config/$f; done
-  for f in $BINS; do unlink_ours ~/.local/bin/$f; done
+  for f in $BINS brasa-islands; do unlink_ours ~/.local/bin/$f; done
   unlink_ours ~/.config/brasa
   unlink_ours ~/.config/gtk-3.0/gtk.css
   unlink_ours ~/.config/gtk-4.0/gtk.css
@@ -229,7 +229,11 @@ python-gi         python-gobject          python3-gi                  python3-go
 gtk4              gtk4                    gir1.2-gtk-4.0              gtk4                      typelib-1_0-Gtk-4_0       gtk4.0
 libadwaita        libadwaita              gir1.2-adw-1                libadwaita                typelib-1_0-Adw-1         libadwaita
 gtk4-layer-shell  gtk4-layer-shell        gir1.2-gtk4layershell-1.0   gtk4-layer-shell          typelib-1_0-Gtk4LayerShell-1_0 gtk4-layer-shell
-playerctl-gi      playerctl               gir1.2-playerctl-2.0        playerctl-libs            typelib-1_0-Playerctl-2_0 playerctl
+rust              rust                    cargo                       cargo                     cargo                     cargo
+pkg-config        pkgconf                 pkg-config                  pkgconf-pkg-config        pkg-config                pkgconf
+gtk4-dev          gtk4                    libgtk-4-dev                gtk4-devel                gtk4-devel                gtk4-dev
+layer-shell-dev   gtk4-layer-shell        libgtk4-layer-shell-dev     gtk4-layer-shell-devel    gtk4-layer-shell-devel    gtk4-layer-shell-dev
+curl              curl                    curl                        curl                      curl                      curl
 ss                iproute2                iproute2                    iproute                   iproute2                  iproute2
 xdg-user-dirs     xdg-user-dirs           xdg-user-dirs               xdg-user-dirs             xdg-user-dirs             xdg-user-dirs
 sounds            sound-theme-freedesktop sound-theme-freedesktop     sound-theme-freedesktop   sound-theme-freedesktop   sound-theme-freedesktop
@@ -276,16 +280,16 @@ nwg-hello         nwg-hello               nwg-hello                   nwg-hello 
 imagemagick       imagemagick             imagemagick                 ImageMagick               ImageMagick               imagemagick
 '
 
-build_islands() {  # the islands in Rust (islands/), tried with ~/.config/brasa/rust-islands
+build_islands() {  # the island, launcher, notifications and quick settings: one Rust program (islands/)
+  say "Building the islands (Rust: a minute the first time)"
   if ! command -v cargo >/dev/null; then
-    info "no cargo: the islands stay the Python ones"
+    problem "No cargo: the islands (music, notifications, launcher, quick settings) cannot be built"
     return
   fi
-  say "Building the islands (Rust)"
   if [ $DRY = 1 ] || (cd "$HERE/islands" && cargo build --release --quiet); then
     link "$HERE/islands/target/release/brasa-islands" ~/.local/bin/brasa-islands
   else
-    problem "the Rust islands did not build: the Python ones keep working"
+    problem "The islands did not build (cd $HERE/islands && cargo build --release shows why)"
   fi
 }
 

@@ -83,6 +83,3 @@ window.brasa-quick label.quick-slider-icon { color: #ff0000; font-size: 19px; mi
 .quick-footer { padding-top: 8px; border-top: 1px solid rgba(153, 204, 255, 0.12); }
 window.brasa-quick label.quick-battery { color: #99ccff; font-size: 19px; }
 window.brasa-quick .quick-footer label { color: #c3cbe0; font-size: 12px; }
-
-/* The hot corner: drawn, but all but invisible, or the compositor gives it no pointer */
-window.brasa-quick-corner { background: rgba(0, 0, 0, 0.01); }
