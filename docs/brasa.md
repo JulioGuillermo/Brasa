@@ -507,6 +507,21 @@ launcher_size=medium    # small, medium or large
 launcher_hover=on       # its own pointer switch; missing: same as hover
 ```
 
+### The islands in Rust (on trial)
+
+`islands/` is the same island, launcher and quick settings in Rust, as one process (`brasa-islands`):
+less memory, no CPU while idle, the outlines drawn by the GPU. `install.sh` builds it when `cargo` is
+there. The Python ones stay in use until you switch:
+
+```
+touch ~/.config/brasa/rust-islands && brasa-reload     # the Rust ones
+rm ~/.config/brasa/rust-islands && brasa-reload        # back to Python
+```
+
+The keys, the bar and the Island window do not change: `brasa-island` and `brasa-quick` hand their
+commands to `brasa-islands` while the switch is there. Building it by hand:
+`cd ~/brasa/islands && cargo build --release`.
+
 ## Lock screen
 
 `brasa-lock` (`Super+Escape`, the exit dialog's Lock, idle and suspend) uses **hyprlock** on both

@@ -276,6 +276,19 @@ nwg-hello         nwg-hello               nwg-hello                   nwg-hello 
 imagemagick       imagemagick             imagemagick                 ImageMagick               ImageMagick               imagemagick
 '
 
+build_islands() {  # the islands in Rust (islands/), tried with ~/.config/brasa/rust-islands
+  if ! command -v cargo >/dev/null; then
+    info "no cargo: the islands stay the Python ones"
+    return
+  fi
+  say "Building the islands (Rust)"
+  if [ $DRY = 1 ] || (cd "$HERE/islands" && cargo build --release --quiet); then
+    link "$HERE/islands/target/release/brasa-islands" ~/.local/bin/brasa-islands
+  else
+    problem "the Rust islands did not build: the Python ones keep working"
+  fi
+}
+
 detect_pm() {
   for pm in pacman apt-get dnf zypper apk; do command -v $pm >/dev/null && { echo $pm; return; }; done
   echo none
@@ -441,6 +454,7 @@ for f in $OBSOLETE; do
   [ -L ~/.config/$f ] && [[ "$(readlink ~/.config/$f)" == "$HERE"* ]] && run rm ~/.config/$f && info "removed old ~/.config/$f"
 done
 for f in $BINS; do link "$HERE/bin/$f" ~/.local/bin/$f; done
+build_islands
 # HyprMod's file (Settings in the panel), present before its first start so it does not add its own
 # require line to hyprland.lua, which belongs to the repository
 [ $DRY = 1 ] || touch "$HERE/config/hypr/hyprland-gui.lua"

@@ -1,0 +1,18 @@
+[package]
+name = "brasa-islands"
+version = "0.1.0"
+edition = "2024"
+description = "Brasa's islands in one process: music, notifications, app launcher and quick settings"
+
+[dependencies]
+gtk4 = { version = "0.11", features = ["v4_18"] }
+gtk4-layer-shell = "0.8"
+async-channel = "2"
+gio-unix = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+strip = true
+panic = "abort"

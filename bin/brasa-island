@@ -7,6 +7,8 @@
 #        brasa-island hide
 #        brasa-island reload     read island.conf again and show the island where it now is
 # Settings: the Island window (brasa-island-settings, Super+Shift+m) or ~/.config/brasa/island.conf.
+# With ~/.config/brasa/rust-islands, the Rust islands (brasa-islands) answer instead.
+[ -e ~/.config/brasa/rust-islands ] && exec ~/.local/bin/brasa-islands "$@"
 lib=$(dirname "$(realpath "$0")")/../lib
 PYTHONPATH="$lib" LD_PRELOAD=libgtk4-layer-shell.so.0 exec -a brasa-island \
   python3 -W ignore::DeprecationWarning -m brasa_island "$@"
