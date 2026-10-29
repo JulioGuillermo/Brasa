@@ -132,6 +132,7 @@ impl App {
         for island in self.islands() {
             island.show_off_soon();
         }
+        self.quick.reload();
     }
 
     fn tell_main(&self, action: impl FnOnce(&Island)) {

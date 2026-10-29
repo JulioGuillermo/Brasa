@@ -59,6 +59,10 @@ pub struct Config {
     pub launcher_hover: bool,
     pub quick_side: Side,
     pub quick_size: Size,
+    /// A connector such as DP-2; empty: the monitor that has the focus, or the one the pointer opened it on.
+    pub quick_monitor: String,
+    /// Opens when the pointer rests in its bottom corner.
+    pub quick_hover: bool,
 }
 
 impl Default for Config {
@@ -77,6 +81,8 @@ impl Default for Config {
             launcher_hover: true,
             quick_side: Side::Right,
             quick_size: Size::Small,
+            quick_monitor: String::new(),
+            quick_hover: false,
         }
     }
 }
@@ -121,6 +127,8 @@ pub fn parse(text: &str) -> Config {
             _ => default.quick_side,
         },
         quick_size: size_from(get("quick_size"), default.quick_size),
+        quick_monitor: get("quick_monitor").to_string(),
+        quick_hover: switched_on(get("quick_hover"), default.quick_hover),
     }
 }
 
@@ -204,6 +212,16 @@ mod tests {
         assert_eq!(config.launcher_size, Size::Large);
         assert_eq!(config.color, "#112233");
         assert_eq!(config.quick_side, Side::Left);
+    }
+
+    #[test]
+    fn quick_settings_open_on_the_focused_monitor_and_not_with_the_pointer_by_default() {
+        let config = parse("");
+        assert_eq!(config.quick_monitor, "");
+        assert!(!config.quick_hover);
+        let config = parse("quick_monitor=HDMI-A-2\nquick_hover=on\n");
+        assert_eq!(config.quick_monitor, "HDMI-A-2");
+        assert!(config.quick_hover);
     }
 
     #[test]

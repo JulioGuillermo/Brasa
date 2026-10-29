@@ -28,6 +28,7 @@ const CONTENT_FADE_SECONDS: f64 = 0.15;
 const MAX_FRAME_SECONDS: f64 = 1.0 / 30.0;
 const SLIDERS_EVERY: Duration = Duration::from_millis(400);
 const SWITCHES_EVERY: Duration = Duration::from_millis(2000);
+const LEAVE_DELAY: Duration = Duration::from_millis(400);
 
 #[derive(Clone, Copy)]
 struct Painted {
@@ -51,6 +52,9 @@ impl Springs {
 
 struct State {
     is_open: bool,
+    /// Opened by resting the pointer in the corner: it closes when the pointer leaves it.
+    opened_by_pointer: bool,
+    leaving: Option<glib::SourceId>,
     on_right: bool,
     card: Option<Rc<Card>>,
     springs: Springs,
@@ -98,6 +102,8 @@ impl Panel {
             painted,
             state: RefCell::new(State {
                 is_open: false,
+                opened_by_pointer: false,
+                leaving: None,
                 on_right: true,
                 card: None,
                 springs: Springs {
@@ -142,6 +148,21 @@ impl Panel {
             if used { glib::Propagation::Stop } else { glib::Propagation::Proceed }
         });
         self.window.add_controller(typing);
+
+        let pointer = gtk4::EventControllerMotion::new();
+        let me = self.me.clone();
+        pointer.connect_motion(move |_, x, y| {
+            if let Some(panel) = me.upgrade() {
+                panel.on_pointer_at(x, y);
+            }
+        });
+        let me = self.me.clone();
+        pointer.connect_leave(move |_| {
+            if let Some(panel) = me.upgrade() {
+                panel.close_soon_if_opened_by_pointer();
+            }
+        });
+        self.window.add_controller(pointer);
     }
 
     fn card(&self) -> Option<Rc<Card>> {
@@ -154,17 +175,27 @@ impl Panel {
 
     // ---- Opening and closing
 
+    /// Super+a and the bar's gear: on its own monitor, or the focused one.
     pub fn toggle(&self) {
         if self.is_open() {
             self.close();
-        } else {
-            self.open();
+            return;
+        }
+        let settings = config::load();
+        let monitor = monitors::find(&settings.quick_monitor).or_else(monitors::focused_or_first);
+        if let Some(monitor) = monitor {
+            self.open(&monitor, settings, false);
         }
     }
 
-    fn open(&self) {
-        let Some(monitor) = monitors::focused_or_first() else { return };
-        let settings = config::load();
+    /// The pointer rested in the hot corner of that monitor.
+    pub fn open_by_pointer(&self, monitor: &gdk::Monitor) {
+        if !self.is_open() {
+            self.open(monitor, config::load(), true);
+        }
+    }
+
+    fn open(&self, monitor: &gdk::Monitor, settings: config::Config, by_pointer: bool) {
         let on_right = settings.quick_side == Side::Right;
         let card = self.build_card(settings.quick_size);
         self.show_card(&card);
@@ -172,14 +203,16 @@ impl Panel {
             let mut state = self.state.borrow_mut();
             state.on_right = on_right;
             state.is_open = true;
+            state.opened_by_pointer = by_pointer;
             state.card = Some(Rc::clone(&card));
         }
         let mut painted = self.painted.get();
         painted.color = parse_color(&settings.color);
         self.painted.set(painted);
 
-        self.cover(&monitor, on_right);
-        self.window.set_keyboard_mode(KeyboardMode::Exclusive);
+        self.cover(monitor, on_right);
+        let keyboard = if by_pointer { KeyboardMode::OnDemand } else { KeyboardMode::Exclusive };
+        self.window.set_keyboard_mode(keyboard);
         self.window.present();
         card.pager.refresh();
         card.refresh_sliders();
@@ -234,6 +267,7 @@ impl Panel {
     }
 
     fn close(&self) {
+        self.cancel_leaving();
         self.state.borrow_mut().is_open = false;
         self.stop_watching();
         self.window.set_keyboard_mode(KeyboardMode::None);
@@ -265,6 +299,38 @@ impl Panel {
         let (corner_x, corner_y) = painted.placement.to_corner(x, y);
         if !painted.corner.holds(corner_x, corner_y) {
             self.close();
+        }
+    }
+
+    fn on_pointer_at(&self, x: f64, y: f64) {
+        let painted = self.painted.get();
+        let (corner_x, corner_y) = painted.placement.to_corner(x, y);
+        if painted.corner.holds(corner_x, corner_y) {
+            self.cancel_leaving();
+        } else {
+            self.close_soon_if_opened_by_pointer();
+        }
+    }
+
+    fn close_soon_if_opened_by_pointer(&self) {
+        let state = self.state.borrow();
+        if !state.is_open || !state.opened_by_pointer || state.leaving.is_some() {
+            return;
+        }
+        drop(state);
+        let me = self.me.clone();
+        let source = glib::timeout_add_local_once(LEAVE_DELAY, move || {
+            let Some(panel) = me.upgrade() else { return };
+            panel.state.borrow_mut().leaving = None;
+            panel.close();
+        });
+        self.state.borrow_mut().leaving = Some(source);
+    }
+
+    fn cancel_leaving(&self) {
+        let leaving = self.state.borrow_mut().leaving.take();
+        if let Some(source) = leaving {
+            source.remove();
         }
     }
 

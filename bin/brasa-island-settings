@@ -145,11 +145,17 @@ class IslandWindow(Adw.ApplicationWindow):
 
     def build_quick(self):
         group = Adw.PreferencesGroup(title="Quick settings", description="Super+a or the bar's gear opens it")
+        self.quick_monitor = Choice("Monitor", monitor_options(), self.config.quick_monitor)
         self.quick_side = Choice("Corner", SIDES, self.config.quick_side)
         self.quick_size = Choice("Size", QUICK_SIZES, self.config.quick_size)
-        for row in (self.quick_side, self.quick_size):
+        for row in (self.quick_monitor, self.quick_side, self.quick_size):
             row.connect("notify::selected", self.changed)
             group.add(row)
+        self.quick_hover = Adw.SwitchRow(title="Open with the pointer",
+                                         subtitle="Resting it in the bottom corner · only the Rust islands",
+                                         active=self.config.quick_hover)
+        self.quick_hover.connect("notify::active", self.changed)
+        group.add(self.quick_hover)
         return group
 
     def build_both(self):
@@ -173,6 +179,8 @@ class IslandWindow(Adw.ApplicationWindow):
         self.config.launcher_size = self.size.value()
         self.config.hover = self.hover.get_active()
         self.config.launcher_hover = self.launcher_hover.get_active()
+        self.config.quick_monitor = self.quick_monitor.value()
+        self.config.quick_hover = self.quick_hover.get_active()
         self.config.quick_side = self.quick_side.value()
         self.config.quick_size = self.quick_size.value()
         self.config.color = hex_color(self.color.get_rgba())

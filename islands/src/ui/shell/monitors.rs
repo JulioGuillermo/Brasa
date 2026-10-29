@@ -17,12 +17,20 @@ pub fn focused_connector() -> String {
     FOCUSED.with(|focused| focused.borrow().clone())
 }
 
-pub fn find(connector: &str) -> Option<gdk::Monitor> {
-    let display = gdk::Display::default()?;
+pub fn all() -> Vec<gdk::Monitor> {
+    let Some(display) = gdk::Display::default() else { return Vec::new() };
     let monitors = display.monitors();
     (0..monitors.n_items())
         .filter_map(|index| monitors.item(index)?.downcast::<gdk::Monitor>().ok())
-        .find(|monitor| monitor.connector().as_deref() == Some(connector))
+        .collect()
+}
+
+/// None for an empty connector, or one that is not plugged in.
+pub fn find(connector: &str) -> Option<gdk::Monitor> {
+    if connector.is_empty() {
+        return None;
+    }
+    all().into_iter().find(|monitor| monitor.connector().as_deref() == Some(connector))
 }
 
 pub fn focused_or_first() -> Option<gdk::Monitor> {

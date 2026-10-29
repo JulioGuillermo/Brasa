@@ -99,7 +99,8 @@ class Panel(Gtk.Window):
         self.color = rgba(config.color)
         self.size = config.quick_size
         self.show_card(self.build())
-        self.cover(find_monitor(focused_connector()) or Gdk.Display.get_default().get_monitors()[0])
+        monitor = find_monitor(config.quick_monitor) or find_monitor(focused_connector())
+        self.cover(monitor or Gdk.Display.get_default().get_monitors()[0])
         LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.EXCLUSIVE)
         self.is_open = True
         self.present()

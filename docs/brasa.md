@@ -505,6 +505,8 @@ launcher_monitor=
 launcher_view=grid      # or list
 launcher_size=medium    # small, medium or large
 launcher_hover=on       # its own pointer switch; missing: same as hover
+quick_monitor=          # the quick settings' monitor; empty: the focused one
+quick_hover=off         # on: resting the pointer in its bottom corner opens it (Rust islands only)
 ```
 
 ### The islands in Rust (on trial)
