@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Installed as root by brasa-remote (/usr/local/sbin/brasa-firewall). With ufw on, it opens to any
+# address the ports the remote desktop (wayvnc) and the SSH server are listening on, and closes the ones
+# it opened that nobody listens on any more. It takes no arguments, so sudo can let you run it without a
+# password and it cannot be made to open anything else.
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+TAG=brasa
+
+command -v ufw >/dev/null || exit 0
+ufw status | grep -q '^Status: active' || exit 0
+
+listening_ports() {
+  ss -ltnpH | awk '/users:\(\("(wayvnc|sshd)"/ { n = split($4, part, ":"); print part[n] }'
+  # SSH started by its socket (Ubuntu): systemd listens for it
+  local socket
+  for socket in ssh.socket sshd.socket; do
+    systemctl -q is-active "$socket" 2>/dev/null || continue
+    systemctl show "$socket" -p Listen --value | grep -o '[0-9]\+ (Stream)' | cut -d' ' -f1
+  done
+}
+
+opened_by_us() {
+  ufw status | awk -v tag="# $TAG" 'index($0, tag) && $1 !~ /\(v6\)/ { sub("/tcp", "", $1); print $1 }'
+}
+
+# A rule of yours already lets anyone in on that port: nothing to add, and nothing of yours is ever deleted
+open_to_anyone() {
+  ufw status | grep -v "# $TAG" | grep -Eq "^$1(/tcp)? +ALLOW( IN)? +Anywhere *$"
+}
+
+listening=$(listening_ports | sort -un)
+opened=$(opened_by_us | sort -un)
+
+for port in $listening; do
+  grep -qx "$port" <<< "$opened" && continue
+  open_to_anyone "$port" && continue
+  ufw allow "$port/tcp" comment "$TAG" >/dev/null
+done
+for port in $opened; do
+  grep -qx "$port" <<< "$listening" || ufw delete allow "$port/tcp" >/dev/null
+done

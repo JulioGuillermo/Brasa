@@ -447,6 +447,12 @@ install_vkms() {  # the virtual screen of the remote session on Hyprland (brasa-
 }
 [ $DEPS = 1 ] && { install_deps; install_font; }
 [ $DEPS = 1 ] && case $WM in hyprland|both) install_vkms ;; esac
+# ufw: the remote desktop's and SSH's ports open to any address while they are on (brasa-firewall)
+if [ $DEPS = 1 ] && command -v ufw >/dev/null; then
+  say "Letting ufw open the remote desktop and SSH ports while they are on"
+  if [ $DRY = 1 ]; then info "[dry run] $HERE/bin/brasa-remote _firewall"
+  else "$HERE/bin/brasa-remote" _firewall || problem "Could not install brasa-firewall: open the ports in ufw by hand"; fi
+fi
 [ $DRY = 1 ] || verify
 check_hyprland
 

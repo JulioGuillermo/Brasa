@@ -50,6 +50,8 @@
 # Security: it listens only on a VPN interface (ZeroTier, WireGuard, Tailscale, OpenVPN...) or on
 # REMOTE_ADDRESS, never on every network. You log in with your Linux user and password (PAM),
 # encrypted with RSA-AES (TigerVNC, RealVNC) or TLS.
+# Firewall: with ufw on, the session's, the local desktop's and the SSH port are opened to any address
+# while they are on, and closed when they stop (brasa-firewall, installed once with sudo).
 set -u
 CONF_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc
 STATE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote
@@ -219,8 +221,33 @@ start_vnc() {  # mode output [extra wayvnc args...] -- runs wayvnc as a transien
     [ "$mode" = take ] || { remove_virtual; rm -f "$STATE/mode" "$STATE/output"; }
     exit 1
   fi
+  firewall_sync
   say "$(mode_name "$mode") ON" "Port $REMOTE_LOCAL_PORT · $(where_local)
 $(also_on local)"
+}
+
+# ---------------------------------------------------------------- firewall: ufw follows what is on
+FIREWALL=/usr/local/sbin/brasa-firewall
+SUDOERS=/etc/sudoers.d/brasa-firewall
+firewall_installed() { cmp -s "$B/remote/brasa-firewall" "$FIREWALL" && sudo -n -l "$FIREWALL" >/dev/null 2>&1; }
+firewall_install() {  # the helper, sudo for it without a password, and a hook on the SSH server
+  command -v ufw >/dev/null || return 0
+  firewall_installed && return 0
+  [ -t 0 ] || [ "$(id -u)" = 0 ] || return 0
+  echo "Letting ufw follow the remote desktop and SSH: installing $FIREWALL (sudo)"
+  local sudo rule u; sudo=$(sudo_prefix)
+  $sudo install -Dm755 "$B/remote/brasa-firewall" "$FIREWALL" || return 1
+  rule=$(mktemp); echo "$USER ALL=(root) NOPASSWD: $FIREWALL \"\"" > "$rule"
+  visudo -cqf "$rule" && $sudo install -Dm440 "$rule" "$SUDOERS"; rm -f "$rule"
+  u=$(ssh_unit 2>/dev/null) && printf '[Service]\nExecStartPost=-%s\nExecStopPost=-%s\n' "$FIREWALL" "$FIREWALL" |
+    $sudo install -Dm644 /dev/stdin "/etc/systemd/system/$u.service.d/brasa-firewall.conf" && $sudo systemctl daemon-reload
+  $sudo "$FIREWALL"
+}
+firewall_sync() {  # [now]: by default a moment later, in the background: wayvnc and sshd take a moment
+  firewall_install  # to listen, or to go
+  [ -x "$FIREWALL" ] || return 0
+  if [ "${1:-}" = now ]; then sudo -n "$FIREWALL" >/dev/null 2>&1; return 0; fi
+  ( sleep 2; sudo -n "$FIREWALL" >/dev/null 2>&1 ) &
 }
 
 # ---------------------------------------------------------------- take: hand the session over, safely
@@ -246,6 +273,7 @@ take_restore() {  # runs when the take service stops, whatever the reason
   remove_virtual
   systemctl --user stop brasa-take-watch.timer 2>/dev/null
   rm -f "$STATE/take-outputs" "$STATE/take-devices" "$STATE/mode" "$STATE/output"
+  firewall_sync now
   say "Take over OFF" "Port $REMOTE_LOCAL_PORT closed; screens, keyboard and mouse are back, session locked
 $(also_on local)"
   ~/.local/bin/brasa-lock
@@ -286,8 +314,8 @@ ssh_cmd() {
   local u; u=$(ssh_unit)
   local sudo; sudo=$(sudo_prefix)
   case ${1:-status} in
-    on)     working SSH; $sudo systemctl start "$u" && say "SSH ON" "$(ssh_info "$u")" ;;
-    off)    working SSH; $sudo systemctl stop "$u" && say "SSH OFF" "Open connections stay; new ones are refused
+    on)     working SSH; $sudo systemctl start "$u" && firewall_sync && say "SSH ON" "$(ssh_info "$u")" ;;
+    off)    working SSH; $sudo systemctl stop "$u" && firewall_sync && say "SSH OFF" "Open connections stay; new ones are refused
 $(ssh_info "$u")" ;;
     boot)   working SSH; $sudo systemctl enable "$u" >/dev/null 2>&1 && say "SSH starts at boot" "$(ssh_info "$u")" ;;
     noboot) working SSH; $sudo systemctl disable "$u" >/dev/null 2>&1 && say "SSH does not start at boot" "$(ssh_info "$u")" ;;
@@ -446,6 +474,7 @@ serve_session() {  # OUTPUT: wayvnc on the session's output for as long as the s
   local kb
   while compositor_alive; do
     kb=$(cat "$STATE/session-layout" 2>/dev/null); kb=${kb:-$(layout)}
+    firewall_sync
     wayvnc -C "$CONF_DIR/config" -o "$1" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock"
     sleep 0.5
   done
@@ -519,6 +548,7 @@ session() {
     start)
       if session_running; then echo "The remote session is already running on $(where)"; return; fi
       [ -f "$CONF_DIR/config" ] || setup || exit 1
+      firewall_install
       if [ "$REMOTE_WM" = hyprland ]; then
         command -v Hyprland >/dev/null || { echo "The remote session needs Hyprland installed." >&2; exit 1; }
         hypr_install
@@ -537,7 +567,7 @@ $(also_on session)"
       if ! session_running; then echo "The remote session is not running"; return; fi
       working "Remote session"
       if [ "$REMOTE_WM" = hyprland ]; then systemctl stop "$HYPR_UNIT"; else systemctl --user stop "$SESSION_UNIT"; fi &&
-        say "Remote session OFF" "Port $REMOTE_PORT closed, its windows too
+        firewall_sync && say "Remote session OFF" "Port $REMOTE_PORT closed, its windows too
 $(also_on session)" ;;
     boot)
       if [ "$REMOTE_WM" = hyprland ]; then
@@ -576,6 +606,7 @@ case ${1:-help} in
     running && local_desktop
     if running; then systemctl --user stop "$UNIT"; fi   # take restores itself (ExecStopPost)
     [ "$(cat "$STATE/mode" 2>/dev/null)" = take ] || { remove_virtual; rm -f "$STATE/mode" "$STATE/output"; }
+    firewall_sync
     if [ -n "$was" ]; then [ "$was" = take ] || say "$(mode_name "$was") OFF" "Port $REMOTE_LOCAL_PORT closed
 $(also_on local)"
     else echo "No screen / mirror / take was on"; fi
@@ -619,6 +650,7 @@ $(also_on local)"
     fi
     serve_session "$out" ;;
   _vkms) vkms_install ;;   # used by install.sh
+  _firewall) firewall_install ;;   # used by install.sh
   _take-restore) take_restore ;;
   _take-watch)    # nobody connected to "take" in time: stop it (which restores everything)
     clients=$(wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null | grep -c '^[[:space:]]*[0-9]')

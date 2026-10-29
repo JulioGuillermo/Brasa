@@ -608,6 +608,12 @@ by default. Two independent servers, which can run at the same time:
 All of it can be controlled over SSH: `session` does not need a local desktop at all, and the local
 modes find the running Hyprland or sway by themselves (also when run from inside the remote session).
 
+**Firewall**: with **ufw** on, each port is opened to any address while what serves it is on (the
+session, a local mode, the SSH server) and closed again when it stops. A rule of yours on that port is
+left alone. It is done by `/usr/local/sbin/brasa-firewall`, which `install.sh` (or the first
+`brasa-remote session` in a terminal) installs with sudo, together with a sudo rule to run it without
+a password and a hook on the SSH service. Its rules carry the comment `brasa` in `sudo ufw status`.
+
 ```
 brasa-remote session [stop|boot|noboot]  an independent remote-only session (the default for "on")
 brasa-remote session wm sway|hyprland    its window manager (sway, or Hyprland if it is the only one)
