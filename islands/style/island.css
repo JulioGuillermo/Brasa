@@ -18,15 +18,17 @@ window.brasa-island label.island-album, window.brasa-island label.island-time { 
 .island-button { min-width: 34px; min-height: 34px; padding: 0; border-radius: 999px;
                  background: transparent; color: #ff0000; box-shadow: none; border: none; }
 .island-button:hover { background: rgba(255, 0, 0, 0.18); color: #ff3030; }
-.island-play { min-width: 44px; min-height: 44px; background: #c00000; color: #ffffff;
-               box-shadow: 0 0 14px rgba(255, 0, 0, 0.55), inset 0 0 0 2px rgba(255, 90, 90, 0.35); }
-.island-play:hover { background: #ff0000; color: #ffffff; box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
+.island-play { min-width: 40px; min-height: 40px; background: #c00000; color: #ffffff; }
+.island-play:hover { background: #ff0000; color: #ffffff; }
 
-/* The music card: times over a bar as wide as the texts; one dock for the controls and the volume */
+/* The music card: times over a bar as wide as the texts, then a row of small controls */
 .island-times { margin: 0 6px; }
-.island-dock { padding: 6px 14px 6px 8px; border-radius: 999px; background: rgba(12, 24, 56, 0.6);
-               box-shadow: inset 0 -2px 0 rgba(255, 32, 32, 0.45), inset 0 0 0 1px rgba(153, 204, 255, 0.06); }
-separator.island-dock-divider { min-width: 1px; margin: 8px 2px; background: rgba(153, 204, 255, 0.15); }
+.island-controls { margin-top: 2px; }
+.island-controls .island-button { min-width: 28px; min-height: 28px; }
+.island-controls .island-button image { -gtk-icon-size: 14px; }
+.island-controls .island-play { min-width: 32px; min-height: 32px; box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+.island-controls .island-play:hover { box-shadow: 0 0 14px rgba(255, 0, 0, 0.75); }
+.island-controls .island-volume-icon { -gtk-icon-size: 14px; }
 
 scale.island-progress, scale.island-volume { padding: 6px; }
 .island-progress trough, .island-volume trough { min-height: 4px; border-radius: 4px; background: rgba(153, 204, 255, 0.15); }

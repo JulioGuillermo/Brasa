@@ -1,5 +1,5 @@
-//! The full card: the cover, and beside it the texts and the progress (times above a bar as wide as
-//! the texts); below, one dock with the play controls and the volume.
+//! The full card: a big cover, and beside it the texts, the progress (times above a bar as wide as the
+//! texts) and a row of small controls with the volume.
 
 use gtk4::gdk;
 use gtk4::prelude::*;
@@ -9,8 +9,8 @@ use super::cover::CoverView;
 use super::label::label;
 use crate::ui::components::round_button::round_button;
 
-const COVER_SIDE: i32 = 84;
-const VOLUME_WIDTH: i32 = 110;
+const COVER_SIDE: i32 = 128;
+const VOLUME_WIDTH: i32 = 90;
 
 pub struct Controls {
     pub play_pause: Box<dyn Fn()>,
@@ -61,9 +61,11 @@ impl Card {
         let play = round_button("media-playback-start-symbolic", &["island-play"], play_pause);
 
         let progress_block = progress_block(&position, &length, &progress);
-        let root = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).spacing(12).css_classes(["island-full"]).build();
-        root.append(&top_row(&cover, &[&title, &artist, &album], &progress_block));
-        root.append(&dock(&play, previous, next, &volume_icon, &volume));
+        let controls = controls_row(&play, previous, next, &volume_icon, &volume);
+        let column = beside_cover(&[&title, &artist, &album], &progress_block, &controls);
+        let root = gtk4::Box::builder().spacing(16).css_classes(["island-full"]).build();
+        root.append(cover.widget());
+        root.append(&column);
         Card { root, cover, title, artist, album, position, length, progress, progress_block, play, volume, volume_icon }
     }
 
@@ -158,40 +160,36 @@ fn progress_block(position: &gtk4::Label, length: &gtk4::Label, progress: &gtk4:
     block
 }
 
-fn top_row(cover: &CoverView, texts: &[&gtk4::Label], progress_block: &gtk4::Box) -> gtk4::Box {
+/// The texts at the top, the progress, and the controls at the foot, as tall as the cover.
+fn beside_cover(texts: &[&gtk4::Label], progress_block: &gtk4::Box, controls: &gtk4::Box) -> gtk4::Box {
     let column = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).spacing(2).valign(gtk4::Align::Center).hexpand(true).build();
     for text in texts {
         column.append(*text);
     }
     column.append(progress_block);
-    let top = gtk4::Box::builder().spacing(14).build();
-    top.append(cover.widget());
-    top.append(&column);
-    top
+    column.append(controls);
+    column
 }
 
-/// One capsule: previous, play and next on the left, the volume on the right, a red line along its foot.
-fn dock(
+/// Previous, play and next on the left, the volume on the right.
+fn controls_row(
     play: &gtk4::Button,
     previous: Box<dyn Fn()>,
     next: Box<dyn Fn()>,
     volume_icon: &gtk4::Image,
     volume: &gtk4::Scale,
 ) -> gtk4::Box {
-    let buttons = gtk4::Box::builder().spacing(4).valign(gtk4::Align::Center).build();
+    let buttons = gtk4::Box::builder().spacing(2).valign(gtk4::Align::Center).build();
     buttons.append(&round_button("media-skip-backward-symbolic", &[], previous));
     buttons.append(play);
     buttons.append(&round_button("media-skip-forward-symbolic", &[], next));
 
-    let divider = gtk4::Separator::builder().orientation(gtk4::Orientation::Vertical).css_classes(["island-dock-divider"]).build();
-
-    let sound = gtk4::Box::builder().spacing(6).halign(gtk4::Align::End).valign(gtk4::Align::Center).hexpand(true).build();
+    let sound = gtk4::Box::builder().spacing(4).halign(gtk4::Align::End).valign(gtk4::Align::Center).hexpand(true).build();
     sound.append(volume_icon);
     sound.append(volume);
 
-    let dock = gtk4::Box::builder().spacing(10).css_classes(["island-dock"]).build();
-    dock.append(&buttons);
-    dock.append(&divider);
-    dock.append(&sound);
-    dock
+    let row = gtk4::Box::builder().css_classes(["island-controls"]).build();
+    row.append(&buttons);
+    row.append(&sound);
+    row
 }
