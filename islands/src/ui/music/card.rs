@@ -1,15 +1,16 @@
-//! The full card: a big cover, and beside it the texts, the progress (times above a bar as wide as the
-//! texts) and a row of small controls with the volume.
+//! The full card: a big cover melting into the island and reaching under the texts, and beside it the
+//! texts, the progress (times above a bar as wide as the texts) and a row of small controls.
 
 use gtk4::gdk;
 use gtk4::prelude::*;
 
 use super::clock::clock;
-use super::cover::CoverView;
+use super::backdrop::Backdrop;
 use super::label::label;
 use crate::ui::components::round_button::round_button;
 
 const COVER_SIDE: i32 = 128;
+const PLACEHOLDER_ICON: &str = "audio-x-generic-symbolic";
 const VOLUME_WIDTH: i32 = 90;
 
 pub struct Controls {
@@ -21,8 +22,9 @@ pub struct Controls {
 }
 
 pub struct Card {
-    root: gtk4::Box,
-    cover: CoverView,
+    root: Backdrop,
+    cover_slot: gtk4::Box,
+    placeholder: gtk4::Image,
     title: gtk4::Label,
     artist: gtk4::Label,
     album: gtk4::Label,
@@ -37,7 +39,6 @@ pub struct Card {
 
 impl Card {
     pub fn new(controls: Controls) -> Card {
-        let cover = CoverView::new(COVER_SIDE);
         let title = label(&["island-title", "island-big"], 0.0, 28);
         let artist = label(&["island-artist"], 0.0, 32);
         let album = label(&["island-album"], 0.0, 32);
@@ -63,13 +64,19 @@ impl Card {
         let progress_block = progress_block(&position, &length, &progress);
         let controls = controls_row(&play, previous, next, &volume_icon, &volume);
         let column = beside_cover(&[&title, &artist, &album], &progress_block, &controls);
-        let root = gtk4::Box::builder().spacing(16).css_classes(["island-full"]).build();
-        root.append(cover.widget());
+        let placeholder = gtk4::Image::builder().icon_name(PLACEHOLDER_ICON).pixel_size(COVER_SIDE / 2).hexpand(true).build();
+        let cover_slot = gtk4::Box::builder().width_request(COVER_SIDE).height_request(COVER_SIDE).valign(gtk4::Align::Center).build();
+        cover_slot.append(&placeholder);
+        let root = Backdrop::new(16);
+        root.add_css_class("island-full");
+        root.append(&cover_slot);
         root.append(&column);
-        Card { root, cover, title, artist, album, position, length, progress, progress_block, play, volume, volume_icon }
+        let card = Card { root, cover_slot, placeholder, title, artist, album, position, length, progress, progress_block, play, volume, volume_icon };
+        card.show_cover(None);
+        card
     }
 
-    pub fn widget(&self) -> &gtk4::Box {
+    pub fn widget(&self) -> &Backdrop {
         &self.root
     }
 
@@ -82,8 +89,15 @@ impl Card {
         self.play.set_icon_name(state_icon);
     }
 
+    /// Without a picture, a music icon on a plain tile holds the cover's place.
     pub fn show_cover(&self, picture: Option<&gdk::Texture>) {
-        self.cover.show(picture);
+        self.root.show(picture);
+        self.placeholder.set_visible(picture.is_none());
+        if picture.is_some() {
+            self.cover_slot.remove_css_class("island-cover");
+        } else {
+            self.cover_slot.add_css_class("island-cover");
+        }
     }
 
     /// 0 hides the progress; the texts then sit alone beside the cover. Returns whether it appeared or

@@ -1,6 +1,7 @@
 //! The music section: what is playing, with cover, progress, controls and volume. Its widget shows one
 //! of two views: a line (the peek, or beside notifications) or the full card.
 
+mod backdrop;
 mod card;
 mod clock;
 mod cover;
