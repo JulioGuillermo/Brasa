@@ -1,4 +1,5 @@
-//! The full card: cover, texts, progress, play controls and volume.
+//! The full card: the cover, and beside it the texts and the progress (times above a bar as wide as
+//! the texts); below, one dock with the play controls and the volume.
 
 use gtk4::gdk;
 use gtk4::prelude::*;
@@ -9,7 +10,7 @@ use super::label::label;
 use crate::ui::components::round_button::round_button;
 
 const COVER_SIDE: i32 = 84;
-const VOLUME_WIDTH: i32 = 120;
+const VOLUME_WIDTH: i32 = 110;
 
 pub struct Controls {
     pub play_pause: Box<dyn Fn()>,
@@ -28,9 +29,10 @@ pub struct Card {
     position: gtk4::Label,
     length: gtk4::Label,
     progress: gtk4::Scale,
-    progress_row: gtk4::Box,
+    progress_block: gtk4::Box,
     play: gtk4::Button,
     volume: gtk4::Scale,
+    volume_icon: gtk4::Image,
 }
 
 impl Card {
@@ -39,32 +41,30 @@ impl Card {
         let title = label(&["island-title", "island-big"], 0.0, 28);
         let artist = label(&["island-artist"], 0.0, 32);
         let album = label(&["island-album"], 0.0, 32);
-        let position = label(&["island-time"], 1.0, 0);
-        let length = label(&["island-time"], 0.0, 0);
+        let position = label(&["island-time"], 0.0, 0);
+        let length = label(&["island-time"], 1.0, 0);
         let progress = gtk4::Scale::builder().hexpand(true).css_classes(["island-progress"]).draw_value(false).build();
         let volume = volume_scale();
+        let volume_icon = gtk4::Image::builder().icon_name(volume_icon_name(0.0)).css_classes(["island-volume-icon"]).build();
 
         let Controls { play_pause, previous, next, seek, volume_moved } = controls;
         progress.connect_change_value(move |_, _, seconds| {
             seek(seconds);
             gtk4::glib::Propagation::Proceed
         });
-        volume.connect_change_value(move |_, _, _| {
+        let icon_for_moves = volume_icon.clone();
+        volume.connect_change_value(move |_, _, level| {
+            icon_for_moves.set_icon_name(Some(volume_icon_name(level)));
             volume_moved();
             gtk4::glib::Propagation::Proceed
         });
         let play = round_button("media-playback-start-symbolic", &["island-play"], play_pause);
 
-        let progress_row = gtk4::Box::builder().spacing(8).build();
-        progress_row.append(&position);
-        progress_row.append(&progress);
-        progress_row.append(&length);
-
-        let root = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).spacing(6).css_classes(["island-full"]).build();
-        root.append(&top_row(&cover, &title, &artist, &album));
-        root.append(&progress_row);
-        root.append(&controls_row(&play, previous, next, &volume));
-        Card { root, cover, title, artist, album, position, length, progress, progress_row, play, volume }
+        let progress_block = progress_block(&position, &length, &progress);
+        let root = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).spacing(12).css_classes(["island-full"]).build();
+        root.append(&top_row(&cover, &[&title, &artist, &album], &progress_block));
+        root.append(&dock(&play, previous, next, &volume_icon, &volume));
+        Card { root, cover, title, artist, album, position, length, progress, progress_block, play, volume, volume_icon }
     }
 
     pub fn widget(&self) -> &gtk4::Box {
@@ -75,6 +75,8 @@ impl Card {
         self.title.set_text(title);
         self.artist.set_text(artist);
         self.album.set_text(album);
+        self.artist.set_visible(!artist.is_empty());
+        self.album.set_visible(!album.is_empty());
         self.play.set_icon_name(state_icon);
     }
 
@@ -82,7 +84,8 @@ impl Card {
         self.cover.show(picture);
     }
 
-    /// 0 hides the progress row. Returns whether the row appeared or disappeared.
+    /// 0 hides the progress; the texts then sit alone beside the cover. Returns whether it appeared or
+    /// disappeared.
     pub fn show_length(&self, seconds: f64) -> bool {
         let known = seconds > 0.0;
         self.progress.set_sensitive(known);
@@ -92,8 +95,8 @@ impl Card {
         if !known {
             self.progress.set_value(0.0);
         }
-        let changed = self.progress_row.is_visible() != known;
-        self.progress_row.set_visible(known);
+        let changed = self.progress_block.is_visible() != known;
+        self.progress_block.set_visible(known);
         changed
     }
 
@@ -120,6 +123,7 @@ impl Card {
 
     pub fn set_volume(&self, level: f64) {
         self.volume.set_value(level);
+        self.volume_icon.set_icon_name(Some(volume_icon_name(level)));
     }
 }
 
@@ -133,29 +137,61 @@ fn volume_scale() -> gtk4::Scale {
         .build()
 }
 
-fn top_row(cover: &CoverView, title: &gtk4::Label, artist: &gtk4::Label, album: &gtk4::Label) -> gtk4::Box {
-    let texts = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).spacing(2).valign(gtk4::Align::Center).hexpand(true).build();
-    texts.append(title);
-    texts.append(artist);
-    texts.append(album);
+fn volume_icon_name(level: f64) -> &'static str {
+    match level {
+        level if level <= 0.0 => "audio-volume-muted-symbolic",
+        level if level < 0.34 => "audio-volume-low-symbolic",
+        level if level < 0.67 => "audio-volume-medium-symbolic",
+        _ => "audio-volume-high-symbolic",
+    }
+}
+
+/// The times on one line, the elapsed on the left and the length on the right, over the bar.
+fn progress_block(position: &gtk4::Label, length: &gtk4::Label, progress: &gtk4::Scale) -> gtk4::Box {
+    position.set_hexpand(true);
+    let times = gtk4::Box::builder().css_classes(["island-times"]).build();
+    times.append(position);
+    times.append(length);
+    let block = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).margin_top(6).build();
+    block.append(&times);
+    block.append(progress);
+    block
+}
+
+fn top_row(cover: &CoverView, texts: &[&gtk4::Label], progress_block: &gtk4::Box) -> gtk4::Box {
+    let column = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).spacing(2).valign(gtk4::Align::Center).hexpand(true).build();
+    for text in texts {
+        column.append(*text);
+    }
+    column.append(progress_block);
     let top = gtk4::Box::builder().spacing(14).build();
     top.append(cover.widget());
-    top.append(&texts);
+    top.append(&column);
     top
 }
 
-fn controls_row(play: &gtk4::Button, previous: Box<dyn Fn()>, next: Box<dyn Fn()>, volume: &gtk4::Scale) -> gtk4::Box {
-    let buttons = gtk4::Box::builder().spacing(6).build();
+/// One capsule: previous, play and next on the left, the volume on the right, a red line along its foot.
+fn dock(
+    play: &gtk4::Button,
+    previous: Box<dyn Fn()>,
+    next: Box<dyn Fn()>,
+    volume_icon: &gtk4::Image,
+    volume: &gtk4::Scale,
+) -> gtk4::Box {
+    let buttons = gtk4::Box::builder().spacing(4).valign(gtk4::Align::Center).build();
     buttons.append(&round_button("media-skip-backward-symbolic", &[], previous));
     buttons.append(play);
     buttons.append(&round_button("media-skip-forward-symbolic", &[], next));
 
-    let sound = gtk4::Box::builder().spacing(4).halign(gtk4::Align::End).hexpand(true).build();
-    sound.append(&gtk4::Image::builder().icon_name("audio-volume-high-symbolic").css_classes(["island-volume-icon"]).build());
+    let divider = gtk4::Separator::builder().orientation(gtk4::Orientation::Vertical).css_classes(["island-dock-divider"]).build();
+
+    let sound = gtk4::Box::builder().spacing(6).halign(gtk4::Align::End).valign(gtk4::Align::Center).hexpand(true).build();
+    sound.append(volume_icon);
     sound.append(volume);
 
-    let controls = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-    controls.append(&buttons);
-    controls.append(&sound);
-    controls
+    let dock = gtk4::Box::builder().spacing(10).css_classes(["island-dock"]).build();
+    dock.append(&buttons);
+    dock.append(&divider);
+    dock.append(&sound);
+    dock
 }
