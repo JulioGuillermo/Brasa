@@ -11,6 +11,8 @@ use crate::ui::components::round_button::round_button;
 use crate::ui::shell::shapes::Shape;
 
 const COVER_SIDE: i32 = 128;
+/// Above and below the texts and controls, so they sit well inside the cover's height.
+const COLUMN_MARGIN: i32 = 16;
 const PLACEHOLDER_ICON: &str = "audio-x-generic-symbolic";
 const VOLUME_WIDTH: i32 = 90;
 
@@ -69,7 +71,7 @@ impl Card {
         let placeholder = gtk4::Image::builder().icon_name(PLACEHOLDER_ICON).pixel_size(COVER_SIDE / 2).hexpand(true).build();
         let cover_slot = gtk4::Box::builder().width_request(COVER_SIDE).height_request(COVER_SIDE).valign(gtk4::Align::Center).build();
         cover_slot.append(&placeholder);
-        let root = Backdrop::new(16, Shape::Card.dimensions().padding.1 as f32);
+        let root = Backdrop::new(16, Shape::Card.dimensions().padding.1 as f32, COVER_SIDE as f32);
         root.add_css_class("island-full");
         root.append(&cover_slot);
         root.append(&column);
@@ -182,7 +184,14 @@ fn progress_block(times: &gtk4::Box, progress: &gtk4::Scale) -> gtk4::Box {
 
 /// The texts at the top, the progress, and the controls at the foot, as tall as the cover.
 fn beside_cover(texts: &[&gtk4::Label], progress_block: &gtk4::Box, controls: &gtk4::Box) -> gtk4::Box {
-    let column = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).spacing(2).valign(gtk4::Align::Center).hexpand(true).build();
+    let column = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Vertical)
+        .spacing(2)
+        .valign(gtk4::Align::Center)
+        .hexpand(true)
+        .margin_top(COLUMN_MARGIN)
+        .margin_bottom(COLUMN_MARGIN)
+        .build();
     for text in texts {
         column.append(*text);
     }

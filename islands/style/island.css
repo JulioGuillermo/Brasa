@@ -23,6 +23,9 @@ window.brasa-island label.island-album, window.brasa-island label.island-time { 
 
 /* The music card: times over a bar as wide as the texts, then a row of small controls */
 .island-times { margin: 0 6px; }
+/* The cover reaches under the texts: a dark halo keeps them readable on a bright one */
+.island-full label { text-shadow: 0 0 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.7); }
+window.brasa-island .island-full label.island-time, window.brasa-island .island-full label.island-album { color: #c3cbe0; }
 .island-controls { margin-top: 2px; }
 .island-controls .island-button { min-width: 28px; min-height: 28px; }
 .island-controls .island-button image { -gtk-icon-size: 14px; }
