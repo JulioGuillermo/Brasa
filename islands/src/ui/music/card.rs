@@ -8,6 +8,7 @@ use super::clock::clock;
 use super::backdrop::Backdrop;
 use super::label::label;
 use crate::ui::components::round_button::round_button;
+use crate::ui::shell::shapes::Shape;
 
 const COVER_SIDE: i32 = 128;
 const PLACEHOLDER_ICON: &str = "audio-x-generic-symbolic";
@@ -31,7 +32,7 @@ pub struct Card {
     position: gtk4::Label,
     length: gtk4::Label,
     progress: gtk4::Scale,
-    progress_block: gtk4::Box,
+    times: gtk4::Box,
     play: gtk4::Button,
     volume: gtk4::Scale,
     volume_icon: gtk4::Image,
@@ -61,17 +62,18 @@ impl Card {
         });
         let play = round_button("media-playback-start-symbolic", &["island-play"], play_pause);
 
-        let progress_block = progress_block(&position, &length, &progress);
+        let times = times_row(&position, &length);
+        let progress_block = progress_block(&times, &progress);
         let controls = controls_row(&play, previous, next, &volume_icon, &volume);
         let column = beside_cover(&[&title, &artist, &album], &progress_block, &controls);
         let placeholder = gtk4::Image::builder().icon_name(PLACEHOLDER_ICON).pixel_size(COVER_SIDE / 2).hexpand(true).build();
         let cover_slot = gtk4::Box::builder().width_request(COVER_SIDE).height_request(COVER_SIDE).valign(gtk4::Align::Center).build();
         cover_slot.append(&placeholder);
-        let root = Backdrop::new(16);
+        let root = Backdrop::new(16, Shape::Card.dimensions().padding.1 as f32);
         root.add_css_class("island-full");
         root.append(&cover_slot);
         root.append(&column);
-        let card = Card { root, cover_slot, placeholder, title, artist, album, position, length, progress, progress_block, play, volume, volume_icon };
+        let card = Card { root, cover_slot, placeholder, title, artist, album, position, length, progress, times, play, volume, volume_icon };
         card.show_cover(None);
         card
     }
@@ -100,8 +102,8 @@ impl Card {
         }
     }
 
-    /// 0 hides the progress; the texts then sit alone beside the cover. Returns whether it appeared or
-    /// disappeared.
+    /// 0 hides the times and greys the bar, which stays to keep the controls apart from the texts.
+    /// Returns whether the times appeared or disappeared.
     pub fn show_length(&self, seconds: f64) -> bool {
         let known = seconds > 0.0;
         self.progress.set_sensitive(known);
@@ -111,8 +113,8 @@ impl Card {
         if !known {
             self.progress.set_value(0.0);
         }
-        let changed = self.progress_block.is_visible() != known;
-        self.progress_block.set_visible(known);
+        let changed = self.times.is_visible() != known;
+        self.times.set_visible(known);
         changed
     }
 
@@ -162,14 +164,18 @@ fn volume_icon_name(level: f64) -> &'static str {
     }
 }
 
-/// The times on one line, the elapsed on the left and the length on the right, over the bar.
-fn progress_block(position: &gtk4::Label, length: &gtk4::Label, progress: &gtk4::Scale) -> gtk4::Box {
+/// The elapsed on the left and the length on the right.
+fn times_row(position: &gtk4::Label, length: &gtk4::Label) -> gtk4::Box {
     position.set_hexpand(true);
     let times = gtk4::Box::builder().css_classes(["island-times"]).build();
     times.append(position);
     times.append(length);
+    times
+}
+
+fn progress_block(times: &gtk4::Box, progress: &gtk4::Scale) -> gtk4::Box {
     let block = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).margin_top(6).build();
-    block.append(&times);
+    block.append(times);
     block.append(progress);
     block
 }

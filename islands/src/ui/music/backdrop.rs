@@ -1,7 +1,7 @@
-//! The music card's row, with the cover painted behind it: from the left edge it reaches under the
-//! texts, melting into the island on every side, a long fade to the right and short ones elsewhere.
+//! The music card's row, with the cover painted behind it: from the island's left side it reaches
+//! under the texts, melting into the island, a long fade to the right and short ones elsewhere.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
@@ -10,7 +10,7 @@ use gtk4::{gdk, glib, graphene, gsk};
 /// How much wider than the row is tall the cover is painted, so it reaches under the texts.
 const REACH: f32 = 1.45;
 /// Parts of the cover's width: the fade in from the left edge, and where the long fade to the right starts.
-const LEFT_FADE: f32 = 0.08;
+const LEFT_FADE: f32 = 0.04;
 const RIGHT_FADE_START: f32 = 0.42;
 const TOP_BOTTOM_FADE_PIXELS: f32 = 16.0;
 
@@ -20,6 +20,7 @@ mod imp {
     #[derive(Default)]
     pub struct Backdrop {
         pub picture: RefCell<Option<gdk::Texture>>,
+        pub bleed_left: Cell<f32>,
     }
 
     #[glib::object_subclass]
@@ -35,7 +36,8 @@ mod imp {
         fn snapshot(&self, snapshot: &gtk4::Snapshot) {
             if let Some(picture) = self.picture.borrow().as_ref() {
                 let widget = self.obj();
-                paint_faded(snapshot, picture, widget.width() as f32, widget.height() as f32);
+                let bleed = self.bleed_left.get();
+                paint_faded(snapshot, picture, bleed, widget.width() as f32, widget.height() as f32);
             }
             self.parent_snapshot(snapshot);
         }
@@ -51,8 +53,11 @@ glib::wrapper! {
 }
 
 impl Backdrop {
-    pub fn new(spacing: i32) -> Self {
-        glib::Object::builder().property("spacing", spacing).build()
+    /// bleed_left: how far past its left edge the cover is painted, to reach the island's side.
+    pub fn new(spacing: i32, bleed_left: f32) -> Self {
+        let backdrop: Backdrop = glib::Object::builder().property("spacing", spacing).build();
+        backdrop.imp().bleed_left.set(bleed_left);
+        backdrop
     }
 
     pub fn show(&self, picture: Option<&gdk::Texture>) {
@@ -63,18 +68,18 @@ impl Backdrop {
 
 /// A square of the picture as wide as REACH times the row's height, cropped to the row, under two
 /// masks: one across (fading in at the left, out to the right) and one down (fading at top and bottom).
-fn paint_faded(snapshot: &gtk4::Snapshot, picture: &gdk::Texture, width: f32, height: f32) {
+fn paint_faded(snapshot: &gtk4::Snapshot, picture: &gdk::Texture, bleed: f32, width: f32, height: f32) {
     let side = height * REACH;
-    let square = graphene::Rect::new(0.0, (height - side) / 2.0, side, side);
-    let row = graphene::Rect::new(0.0, 0.0, width, height);
+    let square = graphene::Rect::new(-bleed, (height - side) / 2.0, side, side);
+    let row = graphene::Rect::new(-bleed, 0.0, width + bleed, height);
 
     snapshot.push_clip(&row);
     snapshot.push_mask(gsk::MaskMode::Alpha);
-    snapshot.append_linear_gradient(&row, &point(0.0, 0.0), &point(side, 0.0), &across_stops());
+    snapshot.append_linear_gradient(&row, &point(-bleed, 0.0), &point(side - bleed, 0.0), &across_stops());
     snapshot.pop();
 
     snapshot.push_mask(gsk::MaskMode::Alpha);
-    snapshot.append_linear_gradient(&row, &point(0.0, 0.0), &point(0.0, height), &down_stops(height));
+    snapshot.append_linear_gradient(&row, &point(-bleed, 0.0), &point(-bleed, height), &down_stops(height));
     snapshot.pop();
 
     snapshot.append_scaled_texture(picture, gsk::ScalingFilter::Linear, &square);

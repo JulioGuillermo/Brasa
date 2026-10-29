@@ -36,6 +36,9 @@ scale.island-progress, scale.island-volume { padding: 6px; }
 .island-progress slider, .island-volume slider { min-width: 12px; min-height: 12px; margin: -5px;
                                                  background: #ffffff; border-radius: 999px; box-shadow: none; }
 .island-progress:not(:hover) slider { opacity: 0; }
+/* No length: a plain grey line, between the texts and the controls */
+.island-progress:disabled highlight, .island-progress:disabled slider { opacity: 0; }
+.island-progress:disabled trough { background: rgba(153, 204, 255, 0.10); }
 
 /* Notifications */
 scrolledwindow.island-notices, scrolledwindow.island-notices > viewport { background: transparent; }

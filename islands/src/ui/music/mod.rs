@@ -232,10 +232,11 @@ impl Music {
 
 fn build_stack() -> gtk4::Stack {
     gtk4::Stack::builder()
-        .transition_type(gtk4::StackTransitionType::Crossfade)
+        .transition_type(gtk4::StackTransitionType::None)
         .interpolate_size(true)
         .vhomogeneous(false)
         .hhomogeneous(false)
+        .overflow(gtk4::Overflow::Visible)
         .build()
 }
 
