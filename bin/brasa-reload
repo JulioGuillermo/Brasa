@@ -7,6 +7,13 @@ for f in ~/.local/bin/brasa-*; do [ -L "$f" ] && [ ! -e "$f" ] && rm "$f"; done
 # The islands are Rust: build what a pull changed (a moment when nothing did)
 (cd ~/.config/brasa/islands && cargo build --release --quiet) &&
   ln -sfn ~/.config/brasa/islands/target/release/brasa-islands ~/.local/bin/brasa-islands
+# Key bindings: keys.tsv may have changed with a pull; the window manager reads them again only then
+binds_before=$(cat ~/.config/brasa/config/hypr/binds.lua ~/.config/brasa/config/sway/binds.conf 2>/dev/null | md5sum)
+~/.local/bin/brasa-gen >/dev/null
+if [ "$(cat ~/.config/brasa/config/hypr/binds.lua ~/.config/brasa/config/sway/binds.conf 2>/dev/null | md5sum)" != "$binds_before" ]; then
+  if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprctl reload config-only >/dev/null
+  elif [ -n "${SWAYSOCK:-}" ]; then swaymsg reload >/dev/null; fi
+fi
 python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/null 2>&1   # bar + panel (panel.conf)
 ~/.local/bin/brasa-bar --reload                                                # bar: config and style
 pkill -u "$(id -u)" -x swaync                                                  # the island serves the notifications
