@@ -6,9 +6,10 @@ import hashlib
 import json
 import os
 
-from gi.repository import GdkPixbuf, GLib
+from gi.repository import GLib
 
 from .notice import Notice
+from .picture import pixbuf_from_data
 
 FOLDER = os.path.join(GLib.get_user_state_dir(), "brasa")
 PATH = os.path.join(FOLDER, "notifications.json")
@@ -25,16 +26,13 @@ class Saved:
 
 def picture_file(data: GLib.Variant) -> str:
     """Writes raw pixels (the image-data hint) as a PNG, once; returns its path, or "" if it fails."""
-    width, height, rowstride, has_alpha, bits, _channels, _pixels = data.unpack()
     pixels = data.get_child_value(6).get_data_as_bytes()
     path = os.path.join(PICTURES, hashlib.sha1(pixels.get_data()).hexdigest() + ".png")
     if os.path.exists(path):
         return path
     try:
         os.makedirs(PICTURES, exist_ok=True)
-        picture = GdkPixbuf.Pixbuf.new_from_bytes(pixels, GdkPixbuf.Colorspace.RGB, has_alpha, bits,
-                                                  width, height, rowstride)
-        picture.savev(path, "png", [], [])
+        pixbuf_from_data(data).savev(path, "png", [], [])
         return path
     except GLib.Error:
         return ""

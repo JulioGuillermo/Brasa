@@ -1,23 +1,16 @@
 """How one notification looks in the island: icon, app, title, text and its buttons."""
 import re
 
-from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
+from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 from .notice import DEFAULT_ACTION, Notice
+from .picture import pixbuf_from_data
 
 ICON_SIZE = 36
 BODY_LINES = 4
 FALLBACK_ICON = "dialog-information-symbolic"
 IMAGE_TAG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 STALE_HINT = "Its app no longer answers this one"
-
-
-def texture_from_data(data: GLib.Variant) -> Gdk.Texture:
-    width, height, rowstride, has_alpha, bits, _channels, _pixels = data.unpack()
-    pixels = data.get_child_value(6).get_data_as_bytes()
-    image = GdkPixbuf.Pixbuf.new_from_bytes(pixels, GdkPixbuf.Colorspace.RGB, has_alpha, bits,
-                                            width, height, rowstride)
-    return Gdk.Texture.new_for_pixbuf(image)
 
 
 def show_source(image: Gtk.Image, source: str) -> bool:
@@ -49,7 +42,7 @@ def show_desktop_icon(image: Gtk.Image, entry: str) -> bool:
 
 def show_icon(image: Gtk.Image, notice: Notice):
     if notice.image_data is not None:
-        image.set_from_paintable(texture_from_data(notice.image_data))
+        image.set_from_paintable(Gdk.Texture.new_for_pixbuf(pixbuf_from_data(notice.image_data)))
         return
     for source in (notice.image_path, notice.app_icon):
         if show_source(image, source):

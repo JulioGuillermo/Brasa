@@ -19,7 +19,7 @@ window.brasa-island label.island-album, window.brasa-island label.island-time { 
 .island-play { min-width: 40px; min-height: 40px; background: #c00000; color: #ffffff; }
 .island-play:hover { background: #ff0000; color: #ffffff; }
 
-scale.island-progress, scale.island-volume { padding: 6px 0; }
+scale.island-progress, scale.island-volume { padding: 6px; }
 .island-progress trough, .island-volume trough { min-height: 4px; border-radius: 4px; background: rgba(153, 204, 255, 0.15); }
 .island-progress highlight, .island-volume highlight { border-radius: 4px; background: #ff0000; }
 .island-progress slider, .island-volume slider { min-width: 12px; min-height: 12px; margin: -5px;
