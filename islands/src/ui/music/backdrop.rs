@@ -1,6 +1,7 @@
 //! The music card's row, with the cover painted behind it: from the island's left side it reaches
-//! under the texts. Where the cover sits it is fully opaque; around it, it melts into the island: soft
-//! fades at the left and right, shorter ones at the top and bottom.
+//! under the texts. Most of the cover is fully opaque; around it, it melts into the island: a soft fade
+//! at the left, one at the right that is all but gone where the texts start, shorter ones at the top
+//! and bottom.
 
 use std::cell::{Cell, RefCell};
 
@@ -9,7 +10,11 @@ use gtk4::subclass::prelude::*;
 use gtk4::{gdk, glib, graphene, gsk};
 
 const LEFT_FADE_PIXELS: f32 = 44.0;
-const RIGHT_FADE_PIXELS: f32 = 120.0;
+/// The right fade starts this far inside the cover, so by where the texts start little of it is left.
+const RIGHT_FADE_INSIDE_PIXELS: f32 = 36.0;
+const RIGHT_FADE_OUTSIDE_PIXELS: f32 = 80.0;
+/// What is left of the cover where the texts start.
+const UNDER_TEXT_ALPHA: f32 = 0.18;
 const TOP_BOTTOM_FADE_PIXELS: f32 = 22.0;
 
 mod imp {
@@ -20,6 +25,7 @@ mod imp {
         pub picture: RefCell<Option<gdk::Texture>>,
         pub bleed_left: Cell<f32>,
         pub cover_width: Cell<f32>,
+        pub texts_start: Cell<f32>,
     }
 
     #[glib::object_subclass]
@@ -38,6 +44,7 @@ mod imp {
                 let area = Area {
                     bleed: self.bleed_left.get(),
                     cover_width: self.cover_width.get(),
+                    texts_start: self.texts_start.get(),
                     width: widget.width() as f32,
                     height: widget.height() as f32,
                 };
@@ -58,11 +65,12 @@ glib::wrapper! {
 
 impl Backdrop {
     /// bleed_left: how far past its left edge the cover is painted, to reach the island's side.
-    /// cover_width: the cover's place at the row's start, where it is fully opaque.
+    /// cover_width: the cover's place at the row's start. The texts start a spacing after it.
     pub fn new(spacing: i32, bleed_left: f32, cover_width: f32) -> Self {
         let backdrop: Backdrop = glib::Object::builder().property("spacing", spacing).build();
         backdrop.imp().bleed_left.set(bleed_left);
         backdrop.imp().cover_width.set(cover_width);
+        backdrop.imp().texts_start.set(cover_width + spacing as f32);
         backdrop
     }
 
@@ -76,6 +84,7 @@ impl Backdrop {
 struct Area {
     bleed: f32,
     cover_width: f32,
+    texts_start: f32,
     width: f32,
     height: f32,
 }
@@ -84,14 +93,22 @@ struct Area {
 /// cropped to it, under two masks: one across and one down.
 fn paint_faded(snapshot: &gtk4::Snapshot, picture: &gdk::Texture, area: &Area) {
     let left = -area.bleed;
-    let right = area.cover_width + RIGHT_FADE_PIXELS;
+    let right = area.cover_width + RIGHT_FADE_OUTSIDE_PIXELS;
     let side = right - left;
     let square = graphene::Rect::new(left, (area.height - side) / 2.0, side, side);
     let row = graphene::Rect::new(left, 0.0, area.width - left, area.height);
 
     snapshot.push_clip(&row);
     snapshot.push_mask(gsk::MaskMode::Alpha);
-    let across = [(0.0, transparent()), (LEFT_FADE_PIXELS, opaque()), (side - RIGHT_FADE_PIXELS, opaque()), (side, transparent())];
+    let fade_from = area.cover_width - RIGHT_FADE_INSIDE_PIXELS - left;
+    let under_texts = area.texts_start - left;
+    let across = [
+        (0.0, transparent()),
+        (LEFT_FADE_PIXELS, opaque()),
+        (fade_from, opaque()),
+        (under_texts, faint(UNDER_TEXT_ALPHA)),
+        (side, transparent()),
+    ];
     snapshot.append_linear_gradient(&row, &point(left, 0.0), &point(right, 0.0), &stops(&across, side));
     snapshot.pop();
 
@@ -118,7 +135,11 @@ fn opaque() -> gdk::RGBA {
 }
 
 fn transparent() -> gdk::RGBA {
-    gdk::RGBA::new(1.0, 1.0, 1.0, 0.0)
+    faint(0.0)
+}
+
+fn faint(alpha: f32) -> gdk::RGBA {
+    gdk::RGBA::new(1.0, 1.0, 1.0, alpha)
 }
 
 fn point(x: f32, y: f32) -> graphene::Point {
