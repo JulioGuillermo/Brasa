@@ -218,6 +218,7 @@ search; Enter or a click runs it.
 | `Super+1…9` | Go to workspace |
 | `Super+Shift+1…9` | Move the window to a workspace |
 | `Super+Escape` | Lock the screen |
+| `Super+Shift+Escape` | Suspend (it locks first) |
 | `Ctrl+Super+Escape` | Remote keyboard on/off: every key goes to the focused window (automatic in VNC/RDP viewers) |
 | `Super+Shift+e` | Exit dialog: lock, log out, suspend, reboot, power off, cancel |
 | `Super+Shift+r` | Reload the window manager (and regenerate bindings) |
