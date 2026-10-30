@@ -8,10 +8,12 @@ import shlex
 import subprocess
 from dataclasses import dataclass, field
 
-BRASA = os.path.realpath(os.path.expanduser("~/.config/brasa"))
+from brasa_keys_tsv import merged_rows, my_combos
+
 HOME_BIN = os.path.expanduser("~/.local/bin")
 
-CATEGORIES = ["Apps", "Brasa", "Commands", "Windows", "Workspaces", "Sound", "Brightness", "Media",
+YOUR_OWN = "Your own"
+CATEGORIES = [YOUR_OWN, "Apps", "Brasa", "Commands", "Windows", "Workspaces", "Sound", "Brightness", "Media",
               "Mouse", "Window manager"]
 
 HYPR_MODMASK = [(64, "Super"), (4, "Ctrl"), (8, "Alt"), (1, "Shift"), (2, "Caps"), (16, "Mod2"), (32, "Mod3"),
@@ -185,21 +187,9 @@ def matching_phrase(action, phrases):
 
 
 def keys_tsv_descriptions():
-    """{combo: description} from Brasa's keys.tsv (sway's config has no descriptions)."""
-    found = {}
-    try:
-        lines = open(os.path.join(BRASA, "keys.tsv"), encoding="utf-8").read().splitlines()
-    except OSError:
-        return found
-    for line in lines:
-        if not line.strip() or line.startswith("#"):
-            continue
-        mods, key, _, description, *_ = line.split("\t")
-        mods = normal_mods([m for m in mods.split("+") if m != "-"])
-        keys = [(str(n), str(n)) for n in range(1, 10)] if key == "1..9" else [(key, None)]
-        for k, n in keys:
-            found[combo_id(mods, k)] = description.replace("{n}", n) if n else description
-    return found
+    """{combo: description} from keys.tsv and my-keys.tsv (sway's config has no descriptions)."""
+    rows, _ = merged_rows()
+    return {combo_id(normal_mods(row.mods), row.key): row.description for row in rows}
 
 
 # ---- Hyprland
@@ -372,7 +362,13 @@ def sway_bind(combo, command, mode, apps, described):
 
 def current_binds():
     if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
-        return hypr_binds()
-    if os.environ.get("SWAYSOCK"):
-        return sway_binds_from(sway_config_text())
-    return []
+        binds = hypr_binds()
+    elif os.environ.get("SWAYSOCK"):
+        binds = sway_binds_from(sway_config_text())
+    else:
+        return []
+    mine = {combo_id(normal_mods(mods), key) for mods, key in my_combos()}
+    for bind in binds:
+        if not bind.mode and combo_id(bind.mods, bind.key) in mine:
+            bind.category = YOUR_OWN
+    return binds

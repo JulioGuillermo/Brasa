@@ -16,6 +16,7 @@ panel.conf
 keyboard.conf
 island.conf
 apps.conf
+my-keys.tsv
 
 # The Rust islands: build output, and the switch that makes them the ones in use
 islands/target/

@@ -1,5 +1,7 @@
 # Brasa key bindings: one source for sway/SwayFX, Hyprland and the cheat sheet (Super+F1).
 # After editing: Super+Shift+r (runs brasa-gen and reloads the window manager).
+# Your own bindings: ~/.config/brasa/my-keys.tsv, same format; they add to these or replace them (action
+# "none" removes one). Better there than here: git leaves that file alone.
 # TAB-separated columns: modifiers  key  action  description  [options]
 #   modifiers: SUPER, SHIFT, CTRL, ALT joined with +, or "-" for none.
 #   key: xkb name (d, Return, space, Left, F1, Print, XF86AudioMute...); "1..9" repeats the line with {n}.

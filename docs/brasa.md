@@ -190,6 +190,19 @@ CTRL+SUPER  Up    exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+   Volume u
 - **Options**: `locked` (works on the lock screen), `repeat` (repeats while held), `release` (runs when
   the key is released and lets the key through: used for Caps Lock and Num Lock).
 
+**Your own bindings** go in `~/.config/brasa/my-keys.tsv`, same format, not in `keys.tsv`: git ignores
+that file, so a pull never touches it. Each of its lines adds a binding, or replaces Brasa's with the same
+keys; the action `none` removes Brasa's. The description can be left out (the command is shown instead).
+
+```
+SUPER        b   exec firefox            Firefox instead of the browser brasa-app picks
+SUPER+ALT    o   exec obs                OBS
+SUPER+SHIFT  n   none
+```
+
+`Super+Shift+r` applies it. A wrong line is skipped and reported in a notification, with its number.
+The key bindings window shows them first, under **Your own**.
+
 After editing: `Super+Shift+r` (regenerates with `brasa-gen` and reloads the window manager).
 The key bindings window (`Super+F1`) does not read this file: it asks the running window manager for
 every binding it really has (Hyprland: `hyprctl binds` plus the `hl.bind` calls of `~/.config/hypr/*.lua`;

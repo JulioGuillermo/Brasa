@@ -42,7 +42,8 @@ Undo it? `./install.sh --uninstall`.
 | `Super+Ctrl+s` | Sessions: remote session, sharing, SSH, dialogs and keyring here |
 
 Special keys (volume, brightness, keyboard light, microphone, camera, emoji, displays, airplane…)
-work on any laptop that has them. Key bindings live in `keys.tsv`; after editing, press `Super+Shift+r`.
+work on any laptop that has them. Key bindings live in `keys.tsv`; your own, in `my-keys.tsv` (same format,
+they add to or replace Brasa's). After editing, press `Super+Shift+r`.
 Which terminal, browser, file manager… they open: `~/.config/brasa/apps.conf` (see the docs).
 
 Everything else (what each file does, colors, the bar, how to add things) is in
