@@ -27,9 +27,9 @@ Undo it? `./install.sh --uninstall`.
 |---|---|
 | `Super+F1` | **All key bindings** the window manager has, searchable, with what each one does |
 | `Super+d` (or `Super` alone) / `Super+Shift+d` / `Super+r` | App launcher island / full-screen app grid / quick launcher |
-| `Super+Enter` or `Super+t` | Terminal (foot); with `Shift`, Ghostty |
-| `Super+e` / `Super+Shift+n` | Files: Thunar / Nautilus |
-| `Super+z` | Zen |
+| `Super+Enter` or `Super+t` | Terminal; with `Shift`, the second one; with `Ctrl`, btop |
+| `Super+e` / `Super+Shift+n` | Files / second file manager |
+| `Super+b` / `Super+c` / `Super+x` | Browser / calculator / draw on the screen |
 | `Super+q` / `Super+Shift+q` | Close / kill the window |
 | `Super+n` | Notifications |
 | `Super+1…9` | Workspaces (with `Shift`, move the window) |
@@ -43,6 +43,7 @@ Undo it? `./install.sh --uninstall`.
 
 Special keys (volume, brightness, keyboard light, microphone, camera, emoji, displays, airplane…)
 work on any laptop that has them. Key bindings live in `keys.tsv`; after editing, press `Super+Shift+r`.
+Which terminal, browser, file manager… they open: `~/.config/brasa/apps.conf` (see the docs).
 
 Everything else (what each file does, colors, the bar, how to add things) is in
 [docs/brasa.md](docs/brasa.md).

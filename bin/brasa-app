@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Opens the app chosen for a role in ~/.config/brasa/apps.conf (lines like "terminal=kitty", "none" for no
+# app), or else the first installed one. Usage: brasa-app ROLE [command...]
+# A command after "terminal" or "terminal2" runs inside that terminal: brasa-app terminal btop
+CONF=~/.config/brasa/apps.conf
+
+declare -A CANDIDATES=(
+  [terminal]="foot kitty ghostty"
+  [terminal2]="ghostty kitty foot"
+  [browser]="zen-browser firefox google-chrome-stable chromium"
+  [files]="thunar nautilus nemo pcmanfm dolphin"
+  [files2]="nautilus nemo pcmanfm dolphin thunar"
+  [calculator]="qalculate-gtk gnome-calculator"
+  [whiteboard]="wayscriber"
+)
+
+chosen() {  # role: apps.conf's app, else the first installed one the main role (for terminal2, files2) does not use
+  local role=$1 configured main="" app
+  configured=$(sed -n "s/^$role=//p" "$CONF" 2>/dev/null | tail -1)
+  if [ -n "$configured" ]; then
+    echo "$configured"
+    return
+  fi
+  case $role in terminal2|files2) main=$(chosen "${role%2}") ;; esac
+  for app in ${CANDIDATES[$role]}; do
+    if [ "$app" != "$main" ] && command -v "$app" >/dev/null; then
+      echo "$app"
+      return
+    fi
+  done
+}
+
+fail() {
+  notify-send -a Brasa -i dialog-warning-symbolic "$1" "Choose one in ~/.config/brasa/apps.conf" 2>/dev/null
+  echo "brasa-app: $1" >&2
+  exit 1
+}
+
+open_whiteboard() {
+  if systemctl --user -q is-active wayscriber.service; then
+    exec wayscriber --daemon-toggle
+  fi
+  exec wayscriber --active
+}
+
+role=${1:-}
+if [ -z "$role" ] || [ -z "${CANDIDATES[$role]:-}" ]; then
+  echo "Usage: brasa-app terminal|terminal2|browser|files|files2|calculator|whiteboard [command...]" >&2
+  exit 2
+fi
+shift
+
+app=$(chosen "$role")
+if [ -z "$app" ] || [ "$app" = none ]; then
+  fail "No app set up for \"$role\""
+fi
+if ! command -v "$app" >/dev/null; then
+  fail "$app is not installed"
+fi
+
+if [ "$app" = wayscriber ]; then
+  open_whiteboard
+fi
+if [ "$app" = ghostty ] && [ $# -gt 0 ]; then
+  set -- -e "$@"
+fi
+exec "$app" "$@"

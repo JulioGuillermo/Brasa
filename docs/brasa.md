@@ -194,15 +194,33 @@ search; Enter or a click runs it.
 | `Super+d` | App launcher island |
 | `Super+Shift+d` | App grid, full screen (rofi) |
 | `Super+r` | Quick launcher (fuzzel) |
-| `Super+Enter`, `Super+t` | foot |
-| `Super+Shift+Enter`, `Super+Shift+t` | Ghostty |
-| `Super+e` | Thunar |
-| `Super+Shift+n` | Nautilus |
-| `Super+z` | Zen |
+| `Super+Enter`, `Super+t` | Terminal (foot) |
+| `Super+Shift+Enter`, `Super+Shift+t` | Second terminal (Ghostty) |
+| `Super+Ctrl+Enter` | System monitor (btop, in the terminal) |
+| `Super+e` | Files (Thunar) |
+| `Super+Shift+n` | Second file manager (Nautilus) |
+| `Super+b` | Browser (Zen) |
+| `Super+c` | Calculator |
+| `Super+x` | Draw on the screen (Wayscriber) |
 | `Super+n` | Notification centre (the island) |
 | `Super+a` | Quick settings |
 | `Super+F1` | Key bindings window |
 | `Super+Ctrl+s` | Sessions window |
+
+**Which app each one opens** (terminal, browser, files...) is `brasa-app`'s choice: the one set in
+`~/.config/brasa/apps.conf`, or else the first installed of its list. One line per role, `none` for no app:
+
+```
+terminal=kitty        # foot, kitty, ghostty (a command after it runs inside: brasa-app terminal btop)
+terminal2=foot        # the second terminal: by default, another of those three
+browser=firefox       # zen-browser, firefox, google-chrome-stable, chromium
+files=thunar          # thunar, nautilus, nemo, pcmanfm, dolphin
+files2=none           # the second file manager: by default, another of those
+calculator=qalculate-gtk   # qalculate-gtk, gnome-calculator
+whiteboard=wayscriber      # toggles its daemon (wayscriber.service) when it runs, or opens it
+```
+
+Any other program works too. The change applies on the next key press, with no reload.
 | `Super+Ctrl+c` | Clean: /tmp or RAM |
 | `Super+.` | Emoji picker |
 | `Super+p` | Displays and monitors |
@@ -247,7 +265,7 @@ those keys; if a machine lacks a key, its binding is simply unused.
 | Camera (`XF86WebCam`) | `brasa-cam`: which app uses it (blocking, if any, is done by the laptop) |
 | Airplane (`XF86RFKill`, `XF86WLAN`) | `brasa-radio` |
 | Touchpad (`XF86TouchpadToggle`) | on/off |
-| `XF86Launch1` (MyASUS and similar) | System monitor (btop) |
+| `XF86Launch1` (MyASUS and similar) | Draw on the screen (Wayscriber) |
 | Calculator, search, explorer, browser, mail, sleep, power | What they say |
 
 **On the Zenbook S 14 (UX5406)**, checked with a key capture: F1-F3 volume, F4-F5 brightness,

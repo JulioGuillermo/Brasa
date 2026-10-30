@@ -12,13 +12,16 @@
 SUPER	d	exec ~/.local/bin/brasa-islands launcher	App launcher island
 SUPER+SHIFT	d	exec brasa-drawer	App grid, full screen (rofi)
 SUPER	r	exec fuzzel	Quick launcher
-SUPER	Return	exec foot	Terminal (foot)
-SUPER	t	exec foot	Terminal (foot)
-SUPER+SHIFT	Return	exec ghostty	Terminal (Ghostty)
-SUPER+SHIFT	t	exec ghostty	Terminal (Ghostty)
-SUPER	e	exec thunar	Files (Thunar)
-SUPER+SHIFT	n	exec nautilus	Files (Nautilus)
-SUPER	z	exec gtk-launch zen	Browser (Zen)
+SUPER	Return	exec ~/.local/bin/brasa-app terminal	Terminal
+SUPER	t	exec ~/.local/bin/brasa-app terminal	Terminal
+SUPER+SHIFT	Return	exec ~/.local/bin/brasa-app terminal2	Second terminal
+SUPER+SHIFT	t	exec ~/.local/bin/brasa-app terminal2	Second terminal
+SUPER+CTRL	Return	exec ~/.local/bin/brasa-app terminal btop	System monitor (btop)
+SUPER	e	exec ~/.local/bin/brasa-app files	Files
+SUPER+SHIFT	n	exec ~/.local/bin/brasa-app files2	Second file manager
+SUPER	b	exec ~/.local/bin/brasa-app browser	Browser
+SUPER	c	exec ~/.local/bin/brasa-app calculator	Calculator
+SUPER	x	exec ~/.local/bin/brasa-app whiteboard	Draw on the screen (whiteboard)
 SUPER	n	exec ~/.local/bin/brasa-islands centre	Notification centre
 SUPER	a	exec ~/.local/bin/brasa-islands quick	Quick settings
 SUPER	F1	exec ~/.local/bin/brasa-keys	Key bindings cheat sheet
@@ -102,10 +105,10 @@ CTRL+SUPER	Down	exec swayosd-client --output-volume lower	Volume down	repeat
 -	XF86RFKill	exec ~/.local/bin/brasa-radio	Airplane mode (key)
 -	XF86WLAN	exec ~/.local/bin/brasa-radio	Airplane mode (key)
 -	XF86TouchpadToggle	wm touchpad	Touchpad on/off (key)
--	XF86Launch1	exec foot -e btop	System monitor (MyASUS / Launch1 key)
--	XF86Calculator	exec gnome-calculator	Calculator (key)
+-	XF86Launch1	exec ~/.local/bin/brasa-app whiteboard	Draw on the screen (MyASUS / Launch1 key)
+-	XF86Calculator	exec ~/.local/bin/brasa-app calculator	Calculator (key)
 -	XF86Search	exec fuzzel	Search apps (key)
--	XF86Explorer	exec thunar	Files (key)
+-	XF86Explorer	exec ~/.local/bin/brasa-app files	Files (key)
 -	XF86HomePage	exec xdg-open about:home	Browser (key)
 -	XF86Mail	exec xdg-open mailto:	Mail (key)
 -	XF86Sleep	exec ~/.local/bin/brasa-session suspend	Suspend (key)
