@@ -203,6 +203,18 @@ SUPER+SHIFT  n   none
 `Super+Shift+r` applies it. A wrong line is skipped and reported in a notification, with its number.
 The key bindings window shows them first, under **Your own**.
 
+**Brasa settings** (`Super+Ctrl+F1`, or the keyboard button of the quick settings panel) edits both files
+without opening them, in sway and Hyprland alike:
+
+- **Key bindings**: your own, with add (+), edit (click the row) and remove. To set the keys, press
+  **Record** and then the keys: while it listens the window manager's own bindings are paused, so
+  `Super+...` reaches the window too. It says whether those keys are free or replace one of Brasa's.
+  What they do: **open an app** (picked from a searchable list of the installed ones, with their icons;
+  runs `gtk-launch` with its id), **run a file** (picked in a file dialog), **run a command**, or
+  **nothing** (turns off Brasa's binding on those keys). Each change is saved and applied at once.
+- **Apps**: which app each `brasa-app` key opens, as in `apps.conf`. **Automatic** follows the list
+  (the row says which one it opens now); an app not installed says so (`./install.sh` installs it).
+
 After editing: `Super+Shift+r` (regenerates with `brasa-gen` and reloads the window manager).
 The key bindings window (`Super+F1`) does not read this file: it asks the running window manager for
 every binding it really has (Hyprland: `hyprctl binds` plus the `hl.bind` calls of `~/.config/hypr/*.lua`;
@@ -226,6 +238,7 @@ search; Enter or a click runs it.
 | `Super+n` | Notification centre (the island) |
 | `Super+a` | Quick settings |
 | `Super+F1` | Key bindings window |
+| `Super+Ctrl+F1` | Brasa settings: your own key bindings, the apps the keys open |
 | `Super+Ctrl+s` | Sessions window |
 
 | `Super+Ctrl+c` | Clean: /tmp or RAM |
@@ -765,7 +778,8 @@ pointer leaves it.
 - While open it follows changes made elsewhere: the sliders when you use the volume or brightness keys,
   the switches (Wi-Fi, mute…) within two seconds.
 - Below: volume and, with a backlight, brightness; then the battery, the settings button (the Island
-  window: corner, size), HyprMod (Hyprland settings, when installed) and the power button (`brasa-exit`).
+  window: corner, size), Brasa settings (`brasa-settings`: your key bindings and the apps the keys open),
+  HyprMod (Hyprland settings, when installed, only in Hyprland) and the power button (`brasa-exit`).
 
 **Keyboard only**:
 

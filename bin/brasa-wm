@@ -118,6 +118,7 @@ if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
     remote-keys) if [ "$(hyprctl submap | head -1)" = remote ]; then d 'hl.dsp.submap("reset")'; msg=off
                  else d 'hl.dsp.submap("remote")'; msg="on · Ctrl+Super+Esc to leave"; fi
                  ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard $msg" ;;
+    keys-capture) if [ "$arg" = on ]; then d 'hl.dsp.submap("remote")'; else d 'hl.dsp.submap("reset")'; fi ;;
     exit)        command -v hyprshutdown >/dev/null && hyprshutdown || d 'hl.dsp.exit()' ;;
     touchpad)    st=${XDG_RUNTIME_DIR:-/tmp}/brasa-touchpad-off
                  tp=$(hyprctl devices -j | jq -r '[.mice[] | select(.name | test("touchpad"; "i"))][0].name')
@@ -171,6 +172,7 @@ else
     remote-keys) if [ "$(swaymsg -t get_binding_state -r | jq -r .name)" = remote ]; then swaymsg -q mode default; msg=off
                  else swaymsg -q mode remote; msg="on · Ctrl+Super+Esc to leave"; fi
                  ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard $msg" ;;
+    keys-capture) if [ "$arg" = on ]; then swaymsg -q mode remote; else swaymsg -q mode default; fi ;;
     remote-watch) # sway has no focus hook in its config: follow focus changes, remote mode in viewers
                  swaymsg -m -t subscribe '["window"]' | jq --unbuffered -r 'select(.change == "focus") |
                      (.container.app_id // .container.window_properties.class // "")' | while read -r app; do

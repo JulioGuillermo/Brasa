@@ -3,6 +3,7 @@
 # app), or else the first installed one. Usage: brasa-app ROLE [command...]
 # A command after "terminal" or "terminal2" runs inside that terminal: brasa-app terminal btop
 # brasa-app --options ROLE: the apps it knows for that role, in order of preference (for the installer).
+# brasa-app --which ROLE: the app it would open, empty when none.
 CONF=~/.config/brasa/apps.conf
 
 ROLES="terminal terminal2 browser files files2 calculator whiteboard"
@@ -49,10 +50,14 @@ if [ "${1:-}" = --options ] && [ -n "${CANDIDATES[${2:-}]:-}" ]; then
   echo "${CANDIDATES[$2]}"
   exit 0
 fi
+if [ "${1:-}" = --which ] && [ -n "${CANDIDATES[${2:-}]:-}" ]; then
+  chosen "$2"
+  exit 0
+fi
 
 role=${1:-}
 if [ -z "$role" ] || [ -z "${CANDIDATES[$role]:-}" ]; then
-  echo "Usage: brasa-app ${ROLES// /|} [command...]   or   brasa-app --options ROLE" >&2
+  echo "Usage: brasa-app ${ROLES// /|} [command...]   or   brasa-app --options|--which ROLE" >&2
   exit 2
 fi
 shift

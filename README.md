@@ -44,7 +44,8 @@ Undo it? `./install.sh --uninstall`.
 Special keys (volume, brightness, keyboard light, microphone, camera, emoji, displays, airplane…)
 work on any laptop that has them. Key bindings live in `keys.tsv`; your own, in `my-keys.tsv` (same format,
 they add to or replace Brasa's). After editing, press `Super+Shift+r`.
-Which terminal, browser, file manager… they open: `~/.config/brasa/apps.conf` (see the docs).
+Which terminal, browser, file manager… they open: `~/.config/brasa/apps.conf`. Both, without editing
+files: **Brasa settings** (`Super+Ctrl+F1`, or the keyboard button of the quick settings panel).
 
 Everything else (what each file does, colors, the bar, how to add things) is in
 [docs/brasa.md](docs/brasa.md).

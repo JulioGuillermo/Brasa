@@ -20,6 +20,7 @@ pub const LOCK: &str = "\u{F033E}";
 pub const CHEVRON: &str = "\u{F0142}";
 pub const BACK: &str = "\u{F0141}";
 pub const SETTINGS: &str = "\u{F062E}";
+pub const KEYS_SETTINGS: &str = "\u{F09F9}";
 pub const HYPRLAND: &str = "\u{F0493}";
 pub const POWER_OFF: &str = "\u{F0425}";
 pub const VOLUME: &str = "\u{F057E}";

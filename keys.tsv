@@ -27,6 +27,7 @@ SUPER	x	exec ~/.local/bin/brasa-app whiteboard	Draw on the screen (whiteboard)
 SUPER	n	exec ~/.local/bin/brasa-islands centre	Notification centre
 SUPER	a	exec ~/.local/bin/brasa-islands quick	Quick settings
 SUPER	F1	exec ~/.local/bin/brasa-keys	Key bindings cheat sheet
+SUPER+CTRL	F1	exec ~/.local/bin/brasa-settings	Brasa settings: your own key bindings, the apps the keys open
 SUPER	period	exec ~/.local/bin/brasa-emoji	Emoji picker
 SUPER	p	exec ~/.local/bin/brasa-display	Displays and monitors
 SUPER+ALT	r	exec ~/.local/bin/brasa-refresh menu	Screen refresh rate (dynamic / fixed)

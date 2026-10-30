@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""Brasa settings: your own key bindings (my-keys.tsv) and the apps the keys open (apps.conf).
+Usage: brasa-settings [keys|apps], the page to open."""
+import os
+import sys
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+import brasa_ui  # noqa: E402
+from brasa_settings_apps import AppsPage  # noqa: E402
+from brasa_settings_keys import KeysPage  # noqa: E402
+
+
+class SettingsWindow(Adw.ApplicationWindow):
+    def __init__(self, app, page):
+        super().__init__(application=app, title="Brasa settings", default_width=620, default_height=720)
+        stack = Adw.ViewStack()
+        stack.add_titled_with_icon(KeysPage(), "keys", "Key bindings", "input-keyboard-symbolic")
+        stack.add_titled_with_icon(AppsPage(), "apps", "Apps", "view-app-grid-symbolic")
+        stack.set_visible_child_name(page)
+        switcher = Adw.ViewSwitcher(stack=stack, policy=Adw.ViewSwitcherPolicy.WIDE)
+        view = Adw.ToolbarView(content=stack)
+        view.add_top_bar(brasa_ui.header(switcher))
+        self.set_content(view)
+        brasa_ui.make_brasa(self)
+
+
+def main():
+    page = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] in ("keys", "apps") else "keys"
+    app = Adw.Application(application_id="org.brasa.Settings")
+    app.connect("startup", lambda _: brasa_ui.load_style())
+    app.connect("activate", lambda app: (app.get_active_window() or SettingsWindow(app, page)).present())
+    app.run([])
+
+
+if __name__ == "__main__":
+    main()

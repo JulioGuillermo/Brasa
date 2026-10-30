@@ -1,4 +1,4 @@
-//! The bottom row: battery level, then round buttons for the island settings, Hyprland's and power.
+//! The bottom row: battery level, then round buttons for the island settings, Brasa's, Hyprland's and power.
 
 use std::rc::Rc;
 
@@ -9,6 +9,7 @@ use crate::services::hardware;
 
 const EXIT: &str = "~/.local/bin/brasa-exit";
 const ISLAND_SETTINGS: &str = "~/.local/bin/brasa-island-settings";
+const BRASA_SETTINGS: &str = "~/.local/bin/brasa-settings";
 const HYPRMOD: &str = "hyprmod";
 
 pub struct Footer {
@@ -30,6 +31,7 @@ impl Footer {
         root.append(&gtk4::Label::builder().label(hardware::battery_percent()).xalign(0.0).hexpand(true).build());
 
         let mut buttons = vec![round_button(glyphs::SETTINGS, "Panel and island settings: size, corner…", &on_command, ISLAND_SETTINGS)];
+        buttons.push(round_button(glyphs::KEYS_SETTINGS, "Your key bindings and the apps the keys open", &on_command, BRASA_SETTINGS));
         if hardware::has_hyprmod() && hardware::in_hyprland() {
             buttons.push(round_button(glyphs::HYPRLAND, "Hyprland settings", &on_command, HYPRMOD));
         }
