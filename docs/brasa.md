@@ -103,7 +103,7 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
 
 ```
 ./install.sh [--wm swayfx|hyprland|both] [--greeter|--no-greeter] [--zsh|--no-zsh] [--no-gtk] [--no-prompt]
-             [--root-prompt] [--no-deps] [--dry-run]
+             [--root-prompt] [--no-deps] [--dry-run] [--apps] [--yes]
 ./install.sh --uninstall
 ```
 
@@ -130,6 +130,14 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
   as they were). `QT_QPA_PLATFORMTHEME=qt5ct`
   turns it on: set by `hyprland.lua`, by the login screen (`env-vars` in `greeter/nwg-hello.json`, which
   covers sway too) and by `~/.config/environment.d/90-brasa-qt.conf`. Qt 6 apps take it for qt6ct as well.
+- **Apps:** the first time, it asks which app each key opens: terminal, second terminal, browser, file
+  manager, second file manager, calculator and whiteboard (see `apps.conf` under [Key bindings](#key-bindings)).
+  Each question lists the known ones, marks the installed ones, and Enter keeps the one shown; any other
+  command can be typed. The answers go to `~/.config/brasa/apps.conf` and the chosen apps get installed
+  (Zen, Chrome and Wayscriber from the AUR). Later runs ask nothing and install what is missing, except
+  for a role Brasa added since. `--apps` asks again, with the current choice as Enter.
+- `--yes`: asks nothing: no login screen or zsh unless they are already Brasa's, and the default apps
+  (the ones already set, else the first installed).
 - `--no-deps`: only links, installs no packages. Running it again is safe (it adds new links).
 - `--dry-run`: shows what it would do without doing it.
 - `--uninstall`: removes the links, restores the backups (`*.bak-brasa-DATE`) and, if the greeter was installed, switches back to the previous display manager. Packages stay.
@@ -207,20 +215,6 @@ search; Enter or a click runs it.
 | `Super+F1` | Key bindings window |
 | `Super+Ctrl+s` | Sessions window |
 
-**Which app each one opens** (terminal, browser, files...) is `brasa-app`'s choice: the one set in
-`~/.config/brasa/apps.conf`, or else the first installed of its list. One line per role, `none` for no app:
-
-```
-terminal=kitty        # foot, kitty, ghostty (a command after it runs inside: brasa-app terminal btop)
-terminal2=foot        # the second terminal: by default, another of those three
-browser=firefox       # zen-browser, firefox, google-chrome-stable, chromium
-files=thunar          # thunar, nautilus, nemo, pcmanfm, dolphin
-files2=none           # the second file manager: by default, another of those
-calculator=qalculate-gtk   # qalculate-gtk, gnome-calculator
-whiteboard=wayscriber      # toggles its daemon (wayscriber.service) when it runs, or opens it
-```
-
-Any other program works too. The change applies on the next key press, with no reload.
 | `Super+Ctrl+c` | Clean: /tmp or RAM |
 | `Super+.` | Emoji picker |
 | `Super+p` | Displays and monitors |
@@ -250,6 +244,27 @@ Any other program works too. The change applies on the next key press, with no r
 | `Ctrl+Super+←` / `→` | Previous / next track |
 | `Ctrl+Super+↑` / `↓` | Volume up / down |
 | `Super` + drag / + right button | Move / resize (Hyprland; in sway, `Super`+drag) |
+
+**Which app each one opens** (terminal, browser, files...) is `brasa-app`'s choice: the one set in
+`~/.config/brasa/apps.conf`, or else the first installed of its list. One line per role, `none` for no app:
+
+```
+terminal=kitty
+files2=none
+```
+
+| Role | Keys | Known apps, in order of preference |
+|---|---|---|
+| `terminal` | `Super+Enter`, `Super+t` | foot, kitty, ghostty. A command after it runs inside: `brasa-app terminal btop` |
+| `terminal2` | `Super+Shift+Enter`, `Super+Shift+t` | another of those three |
+| `browser` | `Super+b` | zen-browser, firefox, google-chrome-stable, chromium |
+| `files` | `Super+e` | thunar, nautilus, nemo, pcmanfm, dolphin |
+| `files2` | `Super+Shift+n` | another of those |
+| `calculator` | `Super+c`, Calculator key | qalculate-gtk, gnome-calculator |
+| `whiteboard` | `Super+x`, `XF86Launch1` | wayscriber: toggles its daemon (`wayscriber.service`) when it runs, else opens it |
+
+Any other program works too. The change applies on the next key press, with no reload. The installer
+writes this file: it asks once for each role, and again with `./install.sh --apps`.
 
 ## Special keys
 

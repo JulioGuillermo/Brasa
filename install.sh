@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Brasa installer: dependencies (for your package manager) and config links.
 # Usage: ./install.sh [--wm swayfx|hyprland|both] [--greeter|--no-greeter] [--zsh|--no-zsh] [--no-gtk] [--no-prompt]
-#                     [--root-prompt] [--no-deps] [--dry-run]
+#                     [--root-prompt] [--no-deps] [--dry-run] [--apps] [--yes]
 #        --root-prompt: the same starship prompt for root too (asks for sudo).
 #        Without --greeter/--no-greeter or --zsh/--no-zsh it asks about the login screen and zsh.
+#        It asks which terminal, browser, file manager... the keys open, once (apps.conf);
+#        --apps asks again. --yes asks nothing and takes the defaults.
 #      ./install.sh --uninstall
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
-WM=both GTK=1 PROMPT=1 ROOT_PROMPT=0 GREETER=ask ZSH=ask DEPS=1 DRY=0 UNINSTALL=0
+WM=both GTK=1 PROMPT=1 ROOT_PROMPT=0 GREETER=ask ZSH=ask DEPS=1 DRY=0 UNINSTALL=0 ASK_APPS=0 YES=0
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 while [ $# -gt 0 ]; do
@@ -24,12 +26,16 @@ while [ $# -gt 0 ]; do
     --dry-run) DRY=1 ;;
     --uninstall) UNINSTALL=1 ;;
     --root-prompt) ROOT_PROMPT=1 ;;
-    -h|--help) sed -n 2,7p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --apps) ASK_APPS=1 ;;
+    --yes) YES=1 ;;
+    -h|--help) sed -n 2,9p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
   shift
 done
 case $WM in swayfx|hyprland|both) ;; *) echo "--wm must be swayfx, hyprland or both" >&2; exit 1 ;; esac
+ASK=0
+[ -t 0 ] && [ $YES = 0 ] && ASK=1
 
 r=$'\e[1;31m' b=$'\e[1;34m' g=$'\e[0;37m' n=$'\e[0m'
 say()  { printf '%s▶%s %s\n' "$r" "$n" "$*"; }
@@ -38,6 +44,7 @@ warn() { printf '%s!%s %s\n' "$r" "$n" "$*"; }
 run()  { if [ $DRY = 1 ]; then info "[dry run] $*"; else "$@"; fi; }
 PROBLEMS=()                               # everything that went wrong, summarized at the end
 problem() { PROBLEMS+=("$*"); warn "$*"; }
+source "$HERE/lib/install-apps.sh"
 
 # ---------------------------------------------------------------- links
 # Config Brasa owns entirely (directories) and single files inside other apps' directories
@@ -332,6 +339,7 @@ install_deps() {
   case $WM in swayfx) list+="$PKGS_SWAY" ;; hyprland) list+="$PKGS_HYPR" ;; both) list+="$PKGS_SWAY$PKGS_HYPR" ;; esac
   [ $GREETER = 1 ] && list+="$PKGS_GREETER"
   [ $ZSH = 1 ] && list+="$PKGS_ZSH"
+  list+=$'\n'"$(app_package_lines)"$'\n'
   # The greeter runs on sway: add it when no sway/SwayFX is coming with the window manager
   [ $GREETER = 1 ] && [ "$WM" = hyprland ] && ! command -v sway >/dev/null && list+=$'\nsway sway sway sway sway sway\n'
   local repo=() aur=() missing=()
@@ -356,7 +364,8 @@ install_deps() {
         fi
         done_=""
         for alt in ${want//|/ }; do
-          say "Installing from the AUR: $alt (if sway is installed it will ask to replace it: say yes)"
+          say "Installing from the AUR: $alt"
+          [[ $alt == swayfx* ]] && info "If sway is installed it will ask to replace it: say yes"
           if run $AUR -S --needed "$alt"; then done_=$alt; break; fi
           warn "$alt did not install; trying the next alternative"
         done
@@ -393,6 +402,8 @@ verify() {  # are the pieces Brasa relies on really there?
     command -v $c >/dev/null || miss+=($c)
   done
   [ ${#miss[@]} -gt 0 ] && problem "Missing commands after installing: ${miss[*]}"
+  miss=$(missing_apps | paste -sd, | sed 's/,/, /g')
+  [ -n "$miss" ] && problem "Chosen apps not installed: $miss  ->  install them, or ./install.sh --apps to choose others"
   python3 -c 'import gi; gi.require_version("Gtk", "4.0"); gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk' 2>/dev/null ||
     problem "Python cannot load GTK 4 and libadwaita (python-gobject, gtk4, libadwaita): the Sessions, Clean and Keys windows need them"
@@ -425,7 +436,7 @@ if [ "$GREETER" = ask ]; then
   dm=$(basename "$(readlink -f /etc/systemd/system/display-manager.service 2>/dev/null)" .service)
   if [ "$dm" = greetd ] && [ -f /etc/nwg-hello/brasa-sway-config ]; then
     GREETER=1   # already Brasa's: keep it up to date
-  elif [ -t 0 ] && [ "$dm" != greetd ]; then
+  elif [ $ASK = 1 ] && [ "$dm" != greetd ]; then
     read -r -p "Also use the Brasa login screen (greetd + nwg-hello)${dm:+ instead of $dm}? It applies from the next boot. [y/N] " a
     [[ $a == [yY]* ]] && GREETER=1
   fi
@@ -434,11 +445,13 @@ if [ "$ZSH" = ask ]; then
   ZSH=0
   if head -1 ~/.zshrc 2>/dev/null | grep -qF "$ZSH_MARK"; then
     ZSH=1   # already Brasa's: keep it up to date
-  elif [ -t 0 ]; then
+  elif [ $ASK = 1 ]; then
     read -r -p "Set up zsh with Brasa's config and make it your login shell? Your ~/.zshrc is backed up. [y/N] " a
     [[ $a == [yY]* ]] && ZSH=1
   fi
 fi
+if [ $ASK_APPS = 1 ]; then choose_apps all; else choose_apps missing; fi
+save_apps
 install_vkms() {  # the virtual screen of the remote session on Hyprland (brasa-remote session wm hyprland)
   modinfo vkms >/dev/null 2>&1 && return 0
   say "The kernel has no vkms module (virtual screen of the remote Hyprland session): installing it"
