@@ -543,6 +543,8 @@ between states, even when interrupted halfway. It shows two things, each one can
 - **Keys**: each panel's key opens and closes it at once, even halfway through its animation. A panel
   opened with its key (or the bar) takes the keyboard, so Escape closes it, and closes the other one
   you had open; one that opens on its own (a notification, the pointer) leaves the keyboard alone.
+  A click anywhere off a panel opened with its key closes it too, on any monitor; that click does not
+  reach the window under it. The quick panel (`Super+a`) works the same way.
 
 **Settings**: the **Island** window (`Super+Shift+m`) switches the music, the
 notification centre of `Super+m` and the launcher on or off, and picks for each island its monitor, edge (top or

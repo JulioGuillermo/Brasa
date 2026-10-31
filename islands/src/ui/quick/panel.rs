@@ -16,6 +16,7 @@ use super::keys;
 use crate::config::{self, Side};
 use crate::runtime::events::EventSender;
 use crate::services::process;
+use crate::ui::shell::click_away::ClickAway;
 use crate::ui::shell::frame::Frame;
 use crate::ui::shell::island::parse_color;
 use crate::ui::shell::monitors;
@@ -72,6 +73,7 @@ pub struct Panel {
     events: EventSender,
     painted: Rc<Cell<Painted>>,
     state: RefCell<State>,
+    click_away: ClickAway,
 }
 
 impl Panel {
@@ -117,6 +119,7 @@ impl Panel {
                 screen: (0.0, 0.0),
                 watches: Vec::new(),
             }),
+            click_away: ClickAway::new(app, close_of(me.clone())),
         });
         panel.place_on_screen();
         panel.listen();
@@ -211,8 +214,12 @@ impl Panel {
         self.painted.set(painted);
 
         self.cover(monitor, on_right);
-        let keyboard = if by_pointer { KeyboardMode::OnDemand } else { KeyboardMode::Exclusive };
-        self.window.set_keyboard_mode(keyboard);
+        if by_pointer {
+            self.window.set_keyboard_mode(KeyboardMode::OnDemand);
+        } else {
+            self.window.set_keyboard_mode(KeyboardMode::Exclusive);
+            self.click_away.show();
+        }
         self.window.present();
         card.pager.refresh();
         card.refresh_sliders();
@@ -271,6 +278,7 @@ impl Panel {
         self.state.borrow_mut().is_open = false;
         self.stop_watching();
         self.window.set_keyboard_mode(KeyboardMode::None);
+        self.click_away.hide();
         self.fit();
     }
 
@@ -479,5 +487,13 @@ impl Panel {
         let content_area = graphene::Rect::new(card_x.round() as f32, card_y.round() as f32, card_width as f32, card_height as f32);
         let visible_area = graphene::Rect::new(body_x as f32, body_y as f32, width as f32, height as f32);
         self.frame.place_content(content_area, visible_area);
+    }
+}
+
+fn close_of(panel: Weak<Panel>) -> impl Fn() {
+    move || {
+        if let Some(panel) = panel.upgrade() {
+            panel.close();
+        }
     }
 }

@@ -1,3 +1,4 @@
+pub mod click_away;
 pub mod frame;
 pub mod hot_zone;
 pub mod island;

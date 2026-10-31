@@ -11,6 +11,7 @@ use gtk4::prelude::*;
 use gtk4::{cairo, gdk, glib, graphene};
 use gtk4_layer_shell::{Edge as LayerEdge, KeyboardMode, Layer, LayerShell};
 
+use super::click_away::ClickAway;
 use super::frame::Frame;
 use super::hot_zone::{self, HotZone, Spot};
 use super::monitors;
@@ -128,6 +129,7 @@ pub struct Island {
     state: RefCell<State>,
     timers: RefCell<HashMap<Timer, glib::SourceId>>,
     hot_zones: RefCell<Vec<HotZone>>,
+    click_away: ClickAway,
 }
 
 impl Island {
@@ -206,6 +208,7 @@ impl Island {
             }),
             timers: RefCell::new(HashMap::new()),
             hot_zones: RefCell::new(Vec::new()),
+            click_away: ClickAway::new(app, close_view_of(me.clone())),
         });
         island.place_on_screen();
         island.take_sections();
@@ -477,8 +480,13 @@ impl Island {
                 launcher.opened();
             }
         }
-        let keyboard = if opener == Opener::User { KeyboardMode::Exclusive } else { KeyboardMode::None };
-        self.window.set_keyboard_mode(keyboard);
+        if opener == Opener::User {
+            self.window.set_keyboard_mode(KeyboardMode::Exclusive);
+            self.click_away.show();
+        } else {
+            self.window.set_keyboard_mode(KeyboardMode::None);
+            self.click_away.hide();
+        }
         self.relayout();
     }
 
@@ -490,6 +498,7 @@ impl Island {
             state.opened_by_pointer = false;
         }
         self.window.set_keyboard_mode(KeyboardMode::None);
+        self.click_away.hide();
         if let Some(notices) = &self.sections.notices {
             notices.set_centre(false);
         }
@@ -776,6 +785,14 @@ impl Island {
         let y = if self.at_top() { 0.0 } else { self.window_height - height };
         let area = cairo::RectangleInt::new(x.round() as i32, y.round() as i32, width.round() as i32, height.round() as i32);
         surface.set_input_region(Some(&cairo::Region::create_rectangle(&area)));
+    }
+}
+
+fn close_view_of(island: Weak<Island>) -> impl Fn() {
+    move || {
+        if let Some(island) = island.upgrade() {
+            island.close_view();
+        }
     }
 }
 
