@@ -1,10 +1,13 @@
 # Icon and cursor themes the installer downloads from gnome-look.org (brasa-themes download)
-# kind	gnome-look id	folder it installs
-icons	1393126	KanadaIcons
-icons	2011655	Baphomet
-icons	1470903	LED
-cursors	1393132	KanadaCursors
-cursors	1197423	Oxygen 05 Vibrant Red
-cursors	1660999	Fuchsia-Red
-cursors	2108645	Breeze_Dark_Red
-cursors	1638262	GoogleDot-Red
+# kind	gnome-look id	archive (newest file whose name matches)	folders it installs
+icons	1393126	KanadaIcons\.tar\.gz	KanadaIcons
+icons	2011655	Baphomet\.tar\.gz	Baphomet
+icons	1470903	LED\.zip	LED
+icons	1460991	lyra\.tar\.xz	Lyra,Lyra-dark
+icons	2297910	Slot-Symbolic-Dark-Icons\.tar\.xz	Slot-Symbolic-Dark-Icons
+icons	2037657	BeautySolar.*\.(tar\.gz|tar-\d+\.gz)	BeautySolar
+cursors	1393132	KanadaCursors\.tar\.gz	KanadaCursors
+cursors	1197423	Oxygen 05 Vibrant Red\.tar\.gz	Oxygen 05 Vibrant Red
+cursors	1660999	Fuchsia-Red\.tar\.xz	Fuchsia-Red
+cursors	2108645	Breeze-Dark-Red\.tar\.gz	Breeze_Dark_Red
+cursors	1638262	GoogleDot-Red\.tar\.gz	GoogleDot-Red

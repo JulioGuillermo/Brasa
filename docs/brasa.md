@@ -974,11 +974,11 @@ brasa-wallpaper                               show the current ones
 ## Icons and cursors
 
 The installer downloads these themes from gnome-look.org into `~/.local/share/icons` (list in
-`data/themes.tsv`):
+`data/themes.tsv`, with the archive to take from each page), about 470 MB:
 
 | Kind | Themes |
 |---|---|
-| icons | **KanadaIcons** (default), Baphomet, LED |
+| icons | **KanadaIcons** (default), Baphomet, LED, Lyra (and Lyra-dark), Slot-Symbolic-Dark-Icons, BeautySolar |
 | cursors | **KanadaCursors** (default), Oxygen 05 Vibrant Red, Fuchsia-Red, Breeze Dark Red, GoogleDot-Red |
 
 It also makes Brasa's own icon themes (`brasa-themes mix`, `lib/brasa_icon_mix.py`): the folders of
@@ -992,10 +992,10 @@ Gradients stay gradients: each one is mapped onto a red or night-blue ramp.
 | Brasa · Papirus | Papirus-Dark, deep red |
 | Brasa · Kanada | KanadaIcons |
 | Brasa · Baphomet | Baphomet |
-| Brasa · Lyra | Lyra-dark, its cyan glow red (only if installed) |
-| Brasa · Slot | Slot-Symbolic-Dark-Icons (only if installed) |
+| Brasa · Lyra | Lyra-dark, its cyan glow red |
+| Brasa · Slot | Slot-Symbolic-Dark-Icons |
 | Brasa · Slot night blue | the same, the front night blue and the symbol red |
-| Brasa · BeautySolar | BeautySolar (only if installed) |
+| Brasa · BeautySolar | BeautySolar |
 | Brasa · BeautySolar night blue | the same, the body night blue and the tab and symbol red |
 
 **Brasa · BeautySolar all icons** is a whole copy of BeautySolar (`lib/brasa_icon_full.py`): every icon,
