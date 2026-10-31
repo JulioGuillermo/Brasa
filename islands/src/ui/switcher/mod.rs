@@ -41,6 +41,7 @@ const OVERHANG: f64 = 2.0;
 const CONTENT_FADE_SECONDS: f64 = 0.12;
 const MAX_FRAME_SECONDS: f64 = 1.0 / 30.0;
 const SUPER_CHECK_EVERY: Duration = Duration::from_millis(40);
+const KEYBOARD_RELEASE_WAIT: Duration = Duration::from_millis(120);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Opening {
@@ -236,16 +237,18 @@ impl Switcher {
         self.fit();
     }
 
-    /// Focuses the window in front, after the switcher has let the keyboard go.
+    /// Focuses the window in front once the switcher has let the keyboard go: letting it go makes
+    /// Hyprland give the focus back to the window that had it, which would undo an earlier focus.
     fn choose(&self) {
         let chosen = {
             let state = self.state.borrow();
             state.windows.get(state.chosen).cloned()
         };
         self.close();
-        if let Some(chosen) = chosen {
+        let Some(chosen) = chosen else { return };
+        glib::timeout_add_local_once(KEYBOARD_RELEASE_WAIT, move || {
             workers::run(move || compositor::focus(&chosen));
-        }
+        });
     }
 
     fn turn(&self, step: i64) {

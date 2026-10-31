@@ -88,6 +88,7 @@ fn window_of(node: &Value, workspace: &str) -> Option<Window> {
         title: node["name"].as_str().unwrap_or_default().to_string(),
         workspace: workspace.to_string(),
         focused: node["focused"] == true,
+        pid: node["pid"].as_u64().and_then(|pid| u32::try_from(pid).ok()),
     })
 }
 

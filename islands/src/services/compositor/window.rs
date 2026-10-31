@@ -14,4 +14,5 @@ pub struct Window {
     pub title: String,
     pub workspace: String,
     pub focused: bool,
+    pub pid: Option<u32>,
 }

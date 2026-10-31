@@ -554,6 +554,8 @@ between states, even when interrupted halfway. It shows two things, each one can
   it, on its workspace. `Super+Tab` shows this workspace's windows, `Super+Shift+Tab` every one.
   `Super+Ctrl+Tab` opens it on every window until you choose: arrows, Tab or the wheel turn it, Enter
   or a click on a card focuses that window, Escape or a click off it closes it. Hyprland and sway.
+  A window whose title only repeats its app's name (a terminal's "foot") shows what runs in it: its
+  folder, or the program in front with its folder (`nvim  ·  ~/brasa`).
 
 **Settings**: the **Island** window (`Super+Shift+m`) switches the music, the
 notification centre of `Super+m` and the launcher on or off, and picks for each island its monitor, edge (top or

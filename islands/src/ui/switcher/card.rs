@@ -1,4 +1,5 @@
-//! A window's card: its app's icon, its title, and the workspace it is on with the app's name.
+//! A window's card: its app's icon, its title, and the workspace it is on with the app's name. A
+//! title that only repeats the app's name (a terminal's "foot") gives way to what runs in it.
 
 use gio_unix::DesktopAppInfo;
 use gtk4::prelude::*;
@@ -6,6 +7,7 @@ use gtk4::{gdk, gio, pango};
 
 use super::carousel::{CARD_HEIGHT, CARD_WIDTH};
 use crate::services::compositor::Window;
+use crate::services::terminal;
 
 const ICON_PIXELS: i32 = 56;
 const TITLE_CHARACTERS: i32 = 24;
@@ -16,7 +18,7 @@ pub fn card(window: &Window) -> gtk4::Widget {
     let app_name = app.as_ref().map(|app| app.display_name().to_string()).unwrap_or_else(|| window.app_id.clone());
 
     let icon = icon(app.as_ref(), &window.app_id);
-    let title = line(&window.title, "switcher-title");
+    let title = line(&shown_title(window, &app_name), "switcher-title");
     let about = line(&format!("{}  ·  {app_name}", window.workspace), "switcher-about");
 
     let card = gtk4::Box::builder()
@@ -32,6 +34,19 @@ pub fn card(window: &Window) -> gtk4::Widget {
     card.append(&title);
     card.append(&about);
     card.upcast()
+}
+
+fn shown_title(window: &Window, app_name: &str) -> String {
+    if !only_names_the_app(&window.title, &window.app_id, app_name) {
+        return window.title.clone();
+    }
+    let running = window.pid.and_then(terminal::running_in);
+    running.unwrap_or_else(|| app_name.to_string())
+}
+
+fn only_names_the_app(title: &str, app_id: &str, app_name: &str) -> bool {
+    let title = title.trim().to_lowercase();
+    title.is_empty() || title == app_id.to_lowercase() || title == app_name.to_lowercase()
 }
 
 fn line(text: &str, class: &str) -> gtk4::Label {
@@ -84,4 +99,17 @@ fn themed_icon_name(app_id: &str) -> String {
     let theme = gdk::Display::default().map(|display| gtk4::IconTheme::for_display(&display));
     let has_it = theme.is_some_and(|theme| !lowercase.is_empty() && theme.has_icon(&lowercase));
     if has_it { lowercase } else { FALLBACK_ICON.to_string() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_title_that_repeats_the_app_says_nothing() {
+        assert!(only_names_the_app("foot", "foot", "Foot"));
+        assert!(only_names_the_app("Foot", "foot", "Foot"));
+        assert!(only_names_the_app("", "zen", "Zen Browser"));
+        assert!(!only_names_the_app("~/brasa", "foot", "Foot"));
+    }
 }
