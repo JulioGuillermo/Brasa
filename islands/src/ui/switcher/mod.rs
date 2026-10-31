@@ -382,10 +382,11 @@ impl Switcher {
         });
         let me = self.me.clone();
         typing.connect_key_released(move |_, key, _, _| {
+            if !keys::is_super(key) {
+                return;
+            }
             if let Some(switcher) = me.upgrade() {
-                if keys::is_super(key) {
-                    switcher.on_super_let_go();
-                }
+                switcher.on_super_let_go();
             }
         });
         self.window.add_controller(typing);
