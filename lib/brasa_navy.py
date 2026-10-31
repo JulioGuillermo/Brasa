@@ -61,7 +61,7 @@ def slot_navy(text):
     return recolor_gradients(outside_gradients(text, slot_flat), slot_ramp)
 
 
-TRANSLUCENT_BODY = re.compile(r'<path\b[^>]*(?<![\w-])opacity="0?\.\d+"[^>]*\bfill="url\(#([^)]+)\)"[^>]*>')
+TRANSLUCENT_PATH = re.compile(r'<path\b[^>]*(?<![\w-])opacity="0?\.\d+"[^>]*\bfill="url\(#([^)]+)\)"[^>]*>')
 OPACITY = re.compile(r'\s(?<![\w-])opacity="0?\.\d+"')
 
 
@@ -69,12 +69,16 @@ def flat_red(match):
     return redden_color(match.group(1), darker=0.95, min_saturation=0.75)
 
 
-def beauty_brasa(text):
-    """BeautySolar: the translucent body of each icon turns solid night blue, everything on it red."""
+def beauty_brasa(text, symbolic=False):
+    """BeautySolar: the translucent part of an icon turns solid night blue, everything on it red. A
+    symbolic icon keeps its transparency, in red: GTK paints it in the text color, and only the
+    transparency tells its two tones apart."""
     body_gradients = set()
-    for body in TRANSLUCENT_BODY.finditer(text):
-        body_gradients.add(body.group(1))
-        text = text.replace(body.group(0), OPACITY.sub("", body.group(0), count=1), 1)
+    for path in TRANSLUCENT_PATH.finditer(text):
+        if symbolic:
+            continue
+        body_gradients.add(path.group(1))
+        text = text.replace(path.group(0), OPACITY.sub("", path.group(0), count=1), 1)
 
     def ramp(gradient_id, colors):
         if all(is_grey(digits) for digits in colors):

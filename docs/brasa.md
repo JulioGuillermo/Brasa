@@ -999,7 +999,8 @@ Gradients stay gradients: each one is mapped onto a red or night-blue ramp.
 | Brasa · BeautySolar night blue | the same, the body night blue and the tab and symbol red |
 
 **Brasa · BeautySolar all icons** is a whole copy of BeautySolar (`lib/brasa_icon_full.py`): every icon,
-apps included, with its body night blue and the rest red.
+apps included, with its body night blue and the rest red. Symbolic icons keep their transparency (their
+second tone), in red.
 
 Brasa settings (`Super+Ctrl+F1`), **Appearance** page, lists every theme installed on the machine, with
 a preview, and applies the one you pick at once. The choice is saved in `~/.config/brasa/appearance.conf`

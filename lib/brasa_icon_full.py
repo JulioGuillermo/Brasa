@@ -16,7 +16,7 @@ class FullTheme:
     folder: str
     name: str
     source: str
-    recolor: Callable[[str], str]
+    recolor: Callable[[str, bool], str]
 
 
 FULL_THEMES = [
@@ -33,7 +33,7 @@ def recolor_tree(path, recolor):
             with open(file, encoding="utf-8", errors="replace") as svg:
                 text = svg.read()
             with open(file, "w", encoding="utf-8") as svg:
-                svg.write(recolor(text))
+                svg.write(recolor(text, "symbolic" in file_name))
 
 
 def update_cache(path):
