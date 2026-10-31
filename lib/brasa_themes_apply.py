@@ -1,17 +1,19 @@
 """The chosen icon and cursor themes (appearance.conf), and putting them to use: GTK, Qt, the window
-manager's cursor and the apps it starts."""
+manager's cursor and the apps it starts. Also the base the Brasa · icon themes take their other icons from."""
 import json
 import os
 import shutil
 import subprocess
 
 import brasa_ini
+import brasa_icon_full
+import brasa_icon_mix
 from brasa_themes_found import installed
 
 BRASA = os.path.realpath(os.path.expanduser("~/.config/brasa"))
 APPEARANCE_CONF = os.path.join(BRASA, "appearance.conf")
-HEADER = "# Icon and cursor themes: Brasa settings, Appearance page (or brasa-themes icons|cursor NAME)"
-DEFAULTS = {"icons": "KanadaIcons", "cursor": "KanadaCursors"}
+HEADER = "# Icon and cursor themes: Brasa settings, Appearance page (or brasa-themes icons|cursor|base NAME)"
+DEFAULTS = {"icons": "KanadaIcons", "cursor": "KanadaCursors", "icon_base": brasa_icon_mix.DEFAULT_ICON_BASE}
 CURSOR_SIZE = 24
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "brasa")
 HYPRLAND_CURSOR = os.path.join(STATE, "cursor.lua")
@@ -21,7 +23,7 @@ XCURSOR_DEFAULT = os.path.expanduser("~/.icons/default/index.theme")
 
 
 def load():
-    """{"icons": theme, "cursor": theme}; a missing one is the default."""
+    """{"icons": theme, "cursor": theme, "icon_base": theme}; a missing one is the default."""
     chosen = dict(DEFAULTS)
     try:
         with open(APPEARANCE_CONF, encoding="utf-8") as file:
@@ -92,6 +94,22 @@ def choose(kind, theme):
         use_icons(theme)
     else:
         use_cursor(theme)
+
+
+def choose_icon_base(theme):
+    """Save the base of the Brasa · icon themes, point them to it and show the icons again."""
+    chosen = load()
+    chosen["icon_base"] = theme
+    save(chosen)
+    brasa_icon_mix.rebase(theme)
+    gsettings("icon-theme", "hicolor")
+    use_icons(chosen["icons"])
+
+
+def make_brasa_icons(report):
+    """Brasa's own icon themes, from the themes installed."""
+    brasa_icon_mix.build_all(report, load()["icon_base"])
+    brasa_icon_full.build_all(report)
 
 
 def apply_saved():

@@ -1,69 +1,83 @@
-"""Brasa's night blue for the body of a folder icon, with its details red."""
+"""Brasa's night blue for the body of an icon, with its details red, gradients kept."""
 import colorsys
 import re
 
-from brasa_redden import HEX_COLOR, parse_hex, redden_color, to_hex
+from brasa_gradients import LIGHT_RED, NAVY, RED, outside_gradients, recolor_gradients
+from brasa_redden import parse_hex, redden_color, to_hex
 
 NAVY_HUE = 225 / 360
-NAVY_SATURATION = 0.62
 BLUE_GREY_HUES = (190 / 360, 240 / 360)
+GREY_SATURATION = 0.12
 
 
-def navy_color(digits):
-    """The color as night blue, keeping how light or dark it was relative to the others."""
-    _, lightness, _ = colorsys.rgb_to_hls(*parse_hex(digits))
-    return to_hex(*colorsys.hls_to_rgb(NAVY_HUE, 0.06 + lightness * 0.3, NAVY_SATURATION))
+def hls(digits):
+    return colorsys.rgb_to_hls(*parse_hex(digits))
+
+
+def is_grey(digits):
+    return hls(digits)[2] < GREY_SATURATION
 
 
 def is_blue_grey(digits):
-    hue, _, saturation = colorsys.rgb_to_hls(*parse_hex(digits))
+    hue, _, saturation = hls(digits)
     return BLUE_GREY_HUES[0] <= hue <= BLUE_GREY_HUES[1] and saturation < 0.45
 
 
 def is_dark(digits):
-    _, lightness, _ = colorsys.rgb_to_hls(*parse_hex(digits))
-    return lightness < 0.55
+    return hls(digits)[1] < 0.55
 
 
 def is_near_white(digits):
-    _, lightness, saturation = colorsys.rgb_to_hls(*parse_hex(digits))
-    return saturation < 0.12 and lightness > 0.8
+    return is_grey(digits) and hls(digits)[1] > 0.8
 
 
-def light_red(digits):
-    _, lightness, _ = colorsys.rgb_to_hls(*parse_hex(digits))
-    return to_hex(*colorsys.hls_to_rgb(0.0, 0.45 + lightness * 0.2, 1.0))
+def navy_flat(digits):
+    return to_hex(*colorsys.hls_to_rgb(NAVY_HUE, 0.06 + hls(digits)[1] * 0.3, 0.62))
+
+
+def light_red_flat(digits):
+    return to_hex(*colorsys.hls_to_rgb(0.0, 0.45 + hls(digits)[1] * 0.2, 1.0))
+
+
+def slot_ramp(_gradient_id, colors):
+    if all(is_grey(digits) for digits in colors):
+        return None
+    if all(is_blue_grey(digits) or is_grey(digits) for digits in colors):
+        return NAVY if all(is_dark(digits) for digits in colors) else LIGHT_RED
+    return RED
+
+
+def slot_flat(match):
+    digits = match.group(1)
+    if is_blue_grey(digits) and is_dark(digits):
+        return navy_flat(digits)
+    if is_blue_grey(digits) or is_near_white(digits):
+        return light_red_flat(digits)
+    return redden_color(digits, darker=0.9, min_saturation=0.7)
 
 
 def slot_navy(text):
-    """Slot's folders: the dark blue-grey front turns night blue, the colors behind and the light symbol red."""
-    def recolor(match):
-        digits = match.group(1)
-        if is_blue_grey(digits) and is_dark(digits):
-            return navy_color(digits)
-        if is_blue_grey(digits) or is_near_white(digits):
-            return light_red(digits)
-        return redden_color(digits, darker=0.9, min_saturation=0.7)
-    return HEX_COLOR.sub(recolor, text)
+    """Slot's folders: the blue-grey front night blue, the colors behind and the light symbol red."""
+    return recolor_gradients(outside_gradients(text, slot_flat), slot_ramp)
 
 
-GRADIENT = re.compile(r'(<linearGradient\b[^>]*\bid="([^"]+)"[^>]*>)(.*?)(</linearGradient>)', re.S)
-BODY_PATH = re.compile(r'<path\b[^>]*opacity="0\.5"[^>]*fill="url\(#([^)]+)\)"[^>]*/>')
+TRANSLUCENT_BODY = re.compile(r'<path\b[^>]*(?<![\w-])opacity="0?\.\d+"[^>]*\bfill="url\(#([^)]+)\)"[^>]*>')
+OPACITY = re.compile(r'\s(?<![\w-])opacity="0?\.\d+"')
 
 
-def beauty_navy(text):
-    """BeautySolar's folders: the half-transparent body turns solid night blue, the tab and symbol red."""
-    body = BODY_PATH.search(text)
-    body_gradient = body.group(1) if body else None
-    if body:
-        solid = body.group(0).replace('opacity="0.5" ', "", 1)
-        text = text.replace(body.group(0), solid, 1)
+def flat_red(match):
+    return redden_color(match.group(1), darker=0.95, min_saturation=0.75)
 
-    def recolor_gradient(match):
-        opening, gradient_id, stops, closing = match.groups()
-        if gradient_id == body_gradient:
-            stops = HEX_COLOR.sub(lambda color: navy_color(color.group(1)), stops)
-        else:
-            stops = HEX_COLOR.sub(lambda color: redden_color(color.group(1), 0.95, 0.75), stops)
-        return opening + stops + closing
-    return GRADIENT.sub(recolor_gradient, text)
+
+def beauty_brasa(text):
+    """BeautySolar: the translucent body of each icon turns solid night blue, everything on it red."""
+    body_gradients = set()
+    for body in TRANSLUCENT_BODY.finditer(text):
+        body_gradients.add(body.group(1))
+        text = text.replace(body.group(0), OPACITY.sub("", body.group(0), count=1), 1)
+
+    def ramp(gradient_id, colors):
+        if all(is_grey(digits) for digits in colors):
+            return None
+        return NAVY if gradient_id in body_gradients else RED
+    return recolor_gradients(outside_gradients(text, flat_red), ramp)

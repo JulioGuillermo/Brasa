@@ -11,6 +11,7 @@ gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk
 
 import brasa_themes_apply as themes
+from brasa_icon_mix import is_mix
 from brasa_icon_files import find_icon
 from brasa_themes_found import installed
 from brasa_xcursor import read_image
@@ -103,9 +104,31 @@ class ThemeGroup(Adw.PreferencesGroup):
             themes.choose(choice, folder)
 
 
+class IconBaseGroup(Adw.PreferencesGroup):
+    """Which theme the Brasa · folder themes take every other icon from."""
+
+    def __init__(self):
+        super().__init__(title="Brasa icon themes",
+                         description="The Brasa · themes bring only folders · the other icons come from this theme")
+        self.bases = [theme.folder for theme in installed("icons") if not is_mix(theme.folder)]
+        chosen = themes.load()["icon_base"]
+        if chosen not in self.bases:
+            self.bases.append(chosen)
+        row = Adw.ComboRow(title="Other icons from", enable_search=True,
+                           model=Gtk.StringList.new(self.bases),
+                           expression=Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"))
+        row.set_selected(self.bases.index(chosen))
+        row.connect("notify::selected", self.changed)
+        self.add(row)
+
+    def changed(self, row, _):
+        themes.choose_icon_base(self.bases[row.get_selected()])
+
+
 class LookPage(Adw.PreferencesPage):
     def __init__(self):
         super().__init__()
+        self.add(IconBaseGroup())
         self.add(ThemeGroup("Icons", "Every installed icon theme · applies at once, some apps only when "
                                      "they start again", "icons", "icons", icon_textures))
         self.add(ThemeGroup("Cursor", "Every installed cursor theme · applies at once", "cursors", "cursor",

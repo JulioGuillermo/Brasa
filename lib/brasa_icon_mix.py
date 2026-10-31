@@ -1,5 +1,6 @@
-"""Brasa's own icon themes: Papirus-Dark for everything, with the folders of another theme, all of them
-red. Each is a small theme in ~/.local/share/icons holding only folder icons; the rest it inherits."""
+"""Brasa's own icon themes: the folders of another theme in Brasa's colors, every other icon from a base
+theme (Papirus-Dark unless another is chosen). Each is a small theme in ~/.local/share/icons holding only
+folder icons; the rest it inherits."""
 import configparser
 import os
 import re
@@ -7,8 +8,9 @@ import shutil
 from dataclasses import dataclass
 from typing import Callable
 
+import brasa_ini
 from brasa_icon_files import theme_path
-from brasa_navy import beauty_navy, slot_navy
+from brasa_navy import beauty_brasa, slot_navy
 from brasa_redden import redden_cyan_pictures, redden_svg
 from brasa_themes_found import USER_ICONS, read_index
 
@@ -57,6 +59,7 @@ class Mix:
 
 
 BASE = "Brasa-Papirus"
+DEFAULT_ICON_BASE = "Papirus-Dark"
 MIXES = [
     Mix(BASE, "Brasa · Papirus", "Papirus-Dark", papirus_blue_folder, papirus_red),
     Mix("Brasa-Kanada", "Brasa · Kanada", "KanadaIcons", any_folder, redden_svg),
@@ -65,14 +68,16 @@ MIXES = [
     Mix("Brasa-Slot", "Brasa · Slot", "Slot-Symbolic-Dark-Icons", any_folder, slot_red),
     Mix("Brasa-Slot-Navy", "Brasa · Slot night blue", "Slot-Symbolic-Dark-Icons", any_folder, slot_navy),
     Mix("Brasa-BeautySolar", "Brasa · BeautySolar", "BeautySolar", any_folder, beauty_red),
-    Mix("Brasa-BeautySolar-Navy", "Brasa · BeautySolar night blue", "BeautySolar", any_folder, beauty_navy),
+    Mix("Brasa-BeautySolar-Navy", "Brasa · BeautySolar night blue", "BeautySolar", any_folder, beauty_brasa),
 ]
 
 
-def inherits(mix):
-    if mix.folder == BASE:
-        return "Papirus-Dark,breeze-dark,hicolor"
-    return f"{BASE},Papirus-Dark,breeze-dark,hicolor"
+def inherits(mix, icon_base):
+    """Missing folders from Brasa · Papirus, every other icon from the base, then Papirus-Dark."""
+    chain = [icon_base, DEFAULT_ICON_BASE, "breeze-dark", "hicolor"]
+    if mix.folder != BASE:
+        chain.insert(0, BASE)
+    return ",".join(dict.fromkeys(chain))
 
 
 def folder_directories(path, index, only_sizes):
@@ -113,13 +118,13 @@ def copy_icons(mix, source_dir, target_dir):
     return copied
 
 
-def write_index(mix, path, directories):
+def write_index(mix, path, directories, icon_base):
     index = configparser.ConfigParser(interpolation=None)
     index.optionxform = str
     index["Icon Theme"] = {
         "Name": mix.name,
-        "Comment": f"Papirus-Dark with the folders of {mix.source}, in Brasa's red (made by brasa-themes mix)",
-        "Inherits": inherits(mix),
+        "Comment": f"The folders of {mix.source} in Brasa's colors (made by brasa-themes mix)",
+        "Inherits": inherits(mix, icon_base),
         "Directories": ",".join(name for name, _ in directories),
     }
     for name, section in directories:
@@ -128,7 +133,7 @@ def write_index(mix, path, directories):
         index.write(file, space_around_delimiters=False)
 
 
-def build(mix):
+def build(mix, icon_base):
     """Make the theme again from its source. False when the source theme is not installed."""
     source = theme_path(mix.source)
     index = read_index(source) if source else None
@@ -141,17 +146,29 @@ def build(mix):
     for directory, section in folder_directories(source, index, mix.only_sizes):
         if copy_icons(mix, os.path.join(source, directory), os.path.join(work, directory)):
             written.append((directory, section))
-    write_index(mix, work, written)
+    write_index(mix, work, written, icon_base)
     final = os.path.join(USER_ICONS, mix.folder)
     shutil.rmtree(final, ignore_errors=True)
     os.rename(work, final)
     return True
 
 
-def build_all(report):
+def is_mix(folder):
+    return any(mix.folder == folder for mix in MIXES)
+
+
+def rebase(icon_base):
+    """Take every other icon of the mixes already made from another base theme."""
+    for mix in MIXES:
+        path = os.path.join(USER_ICONS, mix.folder)
+        if os.path.isfile(os.path.join(path, "index.theme")):
+            brasa_ini.set_key(os.path.join(path, "index.theme"), "Icon Theme", "Inherits", inherits(mix, icon_base))
+
+
+def build_all(report, icon_base):
     """Every mix whose source theme is installed; report(text) says which were made or skipped."""
     for mix in MIXES:
-        if build(mix):
+        if build(mix, icon_base):
             report(f"Made {mix.folder}")
         else:
             report(f"Skipped {mix.folder}: {mix.source} is not installed")

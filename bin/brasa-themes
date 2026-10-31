@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Icon and cursor themes.
 Usage: brasa-themes download        the themes Brasa brings (data/themes.tsv) not installed yet
-       brasa-themes mix             make Brasa's red icon themes: Papirus-Dark with the folders of
-                                    Papirus, Kanada, Baphomet, Lyra, Slot or BeautySolar (those installed)
+       brasa-themes mix             make Brasa's icon themes from the installed ones: the folders of
+                                    Papirus, Kanada, Baphomet, Lyra, Slot or BeautySolar in Brasa's
+                                    colors, and BeautySolar with every icon in them
        brasa-themes list icons|cursors   the installed ones, the chosen one marked
        brasa-themes icons NAME | cursor NAME   choose one and use it now
+       brasa-themes base NAME       where the Brasa · folder themes take every other icon from
        brasa-themes apply           use the chosen ones again (session start)
 The choice is saved in ~/.config/brasa/appearance.conf; Brasa settings has a page for it."""
 import os
@@ -12,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 import brasa_themes_apply as themes  # noqa: E402
-from brasa_icon_mix import build_all  # noqa: E402
+from brasa_icon_mix import is_mix  # noqa: E402
 from brasa_themes_download import download_missing  # noqa: E402
 from brasa_themes_found import installed  # noqa: E402
 
@@ -33,18 +35,27 @@ def choose(kind, name):
     themes.choose(CHOICE_OF_KIND[kind], name)
 
 
+def choose_base(name):
+    folders = [theme.folder for theme in installed("icons") if not is_mix(theme.folder)]
+    if name not in folders:
+        sys.exit(f"brasa-themes: no icon theme called {name} is installed (a Brasa · folder theme cannot be a base)")
+    themes.choose_icon_base(name)
+
+
 def main(args):
     match args:
         case ["download"]:
             return 1 if download_missing(print) else 0
         case ["mix"]:
-            build_all(print)
+            themes.make_brasa_icons(print)
         case ["list", ("icons" | "cursors") as kind]:
             print_list(kind)
         case ["icons", name]:
             choose("icons", name)
         case ["cursor", name]:
             choose("cursors", name)
+        case ["base", name]:
+            choose_base(name)
         case ["apply"]:
             themes.apply_saved()
         case _:

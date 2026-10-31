@@ -981,9 +981,11 @@ The installer downloads these themes from gnome-look.org into `~/.local/share/ic
 | icons | **KanadaIcons** (default), Baphomet, LED |
 | cursors | **KanadaCursors** (default), Oxygen 05 Vibrant Red, Fuchsia-Red, Breeze Dark Red, GoogleDot-Red |
 
-It also makes Brasa's own red icon themes: **Papirus-Dark** for everything (installed as a package),
-with the folders of another theme turned red. Each is a small theme in `~/.local/share/icons` holding
-only folder icons, made again by `brasa-themes mix` (`lib/brasa_icon_mix.py`):
+It also makes Brasa's own icon themes (`brasa-themes mix`, `lib/brasa_icon_mix.py`): the folders of
+another theme in Brasa's colors, every other icon from a **base** theme, Papirus-Dark (installed as a
+package) unless you pick another in the Appearance page ("Other icons from") or with
+`brasa-themes base NAME`. Each is a small theme in `~/.local/share/icons` holding only folder icons.
+Gradients stay gradients: each one is mapped onto a red or night-blue ramp.
 
 | Theme | Folders from |
 |---|---|
@@ -996,6 +998,9 @@ only folder icons, made again by `brasa-themes mix` (`lib/brasa_icon_mix.py`):
 | Brasa · BeautySolar | BeautySolar (only if installed) |
 | Brasa · BeautySolar night blue | the same, the body night blue and the tab and symbol red |
 
+**Brasa · BeautySolar all icons** is a whole copy of BeautySolar (`lib/brasa_icon_full.py`): every icon,
+apps included, with its body night blue and the rest red.
+
 Brasa settings (`Super+Ctrl+F1`), **Appearance** page, lists every theme installed on the machine, with
 a preview, and applies the one you pick at once. The choice is saved in `~/.config/brasa/appearance.conf`
 and goes to GTK (gsettings and `settings.ini`), Qt (qt5ct / qt6ct), the window manager's cursor and
@@ -1005,6 +1010,7 @@ sway gets it from `brasa-autostart`. Some apps change their icons only when they
 ```
 brasa-themes download                  the themes of data/themes.tsv not installed yet
 brasa-themes mix                       make the Brasa · themes from the installed ones
+brasa-themes base NAME                 the theme the Brasa · folder themes take every other icon from
 brasa-themes list icons|cursors        the installed ones, the chosen one marked
 brasa-themes icons NAME | cursor NAME  choose one (its folder name) and use it now
 brasa-themes apply                     use the chosen ones again
