@@ -1,14 +1,17 @@
 """The Appearance page of Brasa settings: the icon theme and the cursor theme, out of every one installed,
 each with a preview. A choice applies at once."""
 import os
+import threading
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, GLib, Gtk
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk
 
 import brasa_themes_apply as themes
+from brasa_icon_files import find_icon
 from brasa_themes_found import installed
 from brasa_xcursor import read_image
 
@@ -19,13 +22,24 @@ PREVIEW_CURSORS = [("left_ptr", "default"), ("hand2", "pointer"), ("xterm", "tex
 PREVIEW_SIZE = 28
 
 
-def icon_preview(theme):
-    icon_theme = Gtk.IconTheme(theme_name=theme.folder)
-    box = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
+def pixbuf_texture(pixbuf):
+    memory_format = Gdk.MemoryFormat.R8G8B8A8 if pixbuf.get_has_alpha() else Gdk.MemoryFormat.R8G8B8
+    return Gdk.MemoryTexture.new(pixbuf.get_width(), pixbuf.get_height(), memory_format,
+                                 pixbuf.read_pixel_bytes(), pixbuf.get_rowstride())
+
+
+def icon_textures(theme):
+    textures = []
     for name in PREVIEW_ICONS:
-        paintable = icon_theme.lookup_icon(name, None, PREVIEW_SIZE, 1, Gtk.TextDirection.NONE, 0)
-        box.append(Gtk.Image(paintable=paintable, pixel_size=PREVIEW_SIZE))
-    return box
+        file = find_icon(theme.folder, name, PREVIEW_SIZE)
+        if not file:
+            continue
+        try:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(file, PREVIEW_SIZE, PREVIEW_SIZE, True)
+        except GLib.Error:
+            continue
+        textures.append(pixbuf_texture(pixbuf))
+    return textures
 
 
 def cursor_file(theme, names):
@@ -36,31 +50,40 @@ def cursor_file(theme, names):
     return None
 
 
-def cursor_texture(path):
-    image = read_image(path, PREVIEW_SIZE) if path else None
-    if image is None:
-        return None
-    return Gdk.MemoryTexture.new(image.width, image.height, Gdk.MemoryFormat.B8G8R8A8_PREMULTIPLIED,
-                                 GLib.Bytes.new(image.pixels), image.width * 4)
-
-
-def cursor_preview(theme):
-    box = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
+def cursor_textures(theme):
+    textures = []
     for names in PREVIEW_CURSORS:
-        texture = cursor_texture(cursor_file(theme, names))
-        if texture:
-            box.append(Gtk.Image(paintable=texture, pixel_size=PREVIEW_SIZE))
-    return box
+        file = cursor_file(theme, names)
+        image = read_image(file, PREVIEW_SIZE) if file else None
+        if image is None:
+            continue
+        textures.append(Gdk.MemoryTexture.new(image.width, image.height, Gdk.MemoryFormat.B8G8R8A8_PREMULTIPLIED,
+                                              GLib.Bytes.new(image.pixels), image.width * 4))
+    return textures
+
+
+def show_textures(box, textures):
+    for texture in textures:
+        box.append(Gtk.Image(paintable=texture, pixel_size=PREVIEW_SIZE))
+    return GLib.SOURCE_REMOVE
+
+
+def load_previews(previews, make_textures):
+    """Off the main thread: reading some themes takes half a second. Each row gets its pictures as soon
+    as they are ready."""
+    for theme, box in previews:
+        textures = make_textures(theme)
+        GLib.idle_add(show_textures, box, textures)
 
 
 class ThemeGroup(Adw.PreferencesGroup):
-    """One row per installed theme of a kind, the chosen one checked. The previews come one by one once
-    the window is up: some themes take a quarter of a second to read."""
+    """One row per installed theme of a kind, the chosen one checked, previews filled in the background."""
 
-    def __init__(self, title, description, kind, choice, preview):
+    def __init__(self, title, description, kind, choice, make_textures):
         super().__init__(title=title, description=description)
         chosen = themes.load()[choice]
         first_button = None
+        previews = []
         for theme in installed(kind):
             button = Gtk.CheckButton(group=first_button, active=theme.folder == chosen)
             first_button = first_button or button
@@ -68,13 +91,11 @@ class ThemeGroup(Adw.PreferencesGroup):
             subtitle = theme.folder if theme.folder != theme.name else None
             row = Adw.ActionRow(title=theme.name, subtitle=subtitle, activatable_widget=button)
             row.add_prefix(button)
-            GLib.idle_add(self.add_preview, row, preview, theme)
+            preview = Gtk.Box(spacing=6, valign=Gtk.Align.CENTER)
+            row.add_suffix(preview)
+            previews.append((theme, preview))
             self.add(row)
-
-    @staticmethod
-    def add_preview(row, preview, theme):
-        row.add_suffix(preview(theme))
-        return GLib.SOURCE_REMOVE
+        threading.Thread(target=load_previews, args=(previews, make_textures), daemon=True).start()
 
     @staticmethod
     def toggled(button, choice, folder):
@@ -86,6 +107,6 @@ class LookPage(Adw.PreferencesPage):
     def __init__(self):
         super().__init__()
         self.add(ThemeGroup("Icons", "Every installed icon theme · applies at once, some apps only when "
-                                     "they start again", "icons", "icons", icon_preview))
+                                     "they start again", "icons", "icons", icon_textures))
         self.add(ThemeGroup("Cursor", "Every installed cursor theme · applies at once", "cursors", "cursor",
-                            cursor_preview))
+                            cursor_textures))
