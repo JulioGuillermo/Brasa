@@ -30,10 +30,21 @@
 #   ssh [on|off|boot|noboot]     the SSH server: on / off now, start at boot or not (asks for sudo).
 #                                Turning it off keeps open connections; only new ones are refused
 #
+#   protocol [vnc|rdp]           how the remote session is reached, one at a time: VNC (wayvnc) or RDP
+#                                (hypr-rdp: Windows Remote Desktop and any RDP client, with sound and the
+#                                clipboard of images too). RDP is built the first time (a few minutes,
+#                                in a terminal that opens for it)
+#   rdp login linux|password     RDP sign-in: your Linux password (clients that send it over TLS without
+#                                NLA; Windows may ask to save it first) or a password of its own (every client)
+#   rdp password                 set that password (read from the input) and sign in with it
+#   rdp sound remote|both|off    where the remote session sounds while someone is connected over RDP:
+#                                on their device, on both, or nowhere
+#
 #   listen [vpn|any|IP...]       where the VNC servers listen: vpn (default) the VPN address; any every
 #                                network; or this machine's addresses, e.g. listen 10.0.0.5 192.168.1.20.
 #                                Without an argument it shows them. A running session follows at once
-#   port session|local N         the session's port (5900) or the local desktop's (5901)
+#   port session|local|rdp N     the session's VNC port (5900), the local desktop's (5901), or the
+#                                session's RDP port (3389). RDP listens on the first address of "listen"
 #
 # Commands
 #   on                           the default mode (REMOTE_DEFAULT, "session" unless changed)
@@ -51,6 +62,7 @@
 #   but not the scale, so REMOTE_SCALE=auto picks it from the height (up to 1200 px: 1, 1500: 1.25,
 #   1900: 1.333, 2200: 1.5, more: 2); or set a fixed one, e.g. REMOTE_SCALE=1.5
 #   REMOTE_PORT=5900 (session)   REMOTE_LOCAL_PORT=5901 (screen / mirror / take)   REMOTE_TAKE_WAIT=180
+#   REMOTE_PROTOCOL=vnc|rdp   REMOTE_RDP_PORT=3389   REMOTE_RDP_LOGIN=linux|password   REMOTE_RDP_SOUND=remote|both|off
 #
 # Security: by default it listens only on a VPN interface (ZeroTier, WireGuard, Tailscale, OpenVPN...),
 # never on every network unless "listen any". You log in with your Linux user and password (PAM),
@@ -70,6 +82,7 @@ installed_wm() {  # the remote session's window manager when none was chosen: sw
   if ! command -v sway >/dev/null && command -v Hyprland >/dev/null; then echo hyprland; else echo sway; fi
 }
 REMOTE_DEFAULT=session REMOTE_WM=$(installed_wm) REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
+REMOTE_PROTOCOL=vnc REMOTE_RDP_PORT=3389 REMOTE_RDP_LOGIN=linux REMOTE_RDP_SOUND=remote
 REMOTE_ADDRESS=
 [ -f ~/.config/brasa/remote.conf ] && . ~/.config/brasa/remote.conf
 REMOTE_LISTEN=${REMOTE_LISTEN:-${REMOTE_ADDRESS:-vpn}}
@@ -81,7 +94,7 @@ say() {  # TITLE [BODY]: a notification for 5 s (a click closes it); each one re
 }
 also_on() {  # what else is running, for the notifications: "Also on: ..." or "Nothing else is on"
   local l=()
-  [ "$1" != session ] && session_running && l+=("Remote session · port $REMOTE_PORT")
+  [ "$1" != session ] && session_running && l+=("Remote session · $(where)")
   [ "$1" = session ] && running && l+=("$(mode_name "$(cat "$STATE/mode" 2>/dev/null)") · port $REMOTE_LOCAL_PORT")
   if [ ${#l[@]} -gt 0 ]; then echo "Also on: ${l[*]}"; else echo "Nothing else is on"; fi
 }
@@ -91,7 +104,7 @@ working() {  # an immediate "in progress" notice (swaync has no spinner on its b
     -h string:x-canonical-private-synchronous:brasa-remote "$1" "Working…" 2>/dev/null
 }
 mode_name() {
-  case $1 in session) echo "Remote session" ;; screen) echo "Virtual screen" ;;
+  case $1 in session) echo "Remote session" ;; rdp) echo "Remote session over RDP" ;; screen) echo "Virtual screen" ;;
              mirror) echo "Screen mirror" ;; take) echo "Take over" ;; *) echo "Remote desktop" ;; esac
 }
 usage() { sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; }
@@ -108,10 +121,15 @@ listen_setting() {  # remote.conf as it is now: a running session re-reads it ea
   local listen; listen=$( (REMOTE_ADDRESS=; REMOTE_LISTEN=; . "$USER_CONF" 2>/dev/null; echo "${REMOTE_LISTEN:-${REMOTE_ADDRESS:-vpn}}") )
   echo "${listen:-vpn}"
 }
-port_setting() {  # session|local: the port remote.conf sets now
-  local key=REMOTE_PORT default=5900
-  [ "$1" = local ] && { key=REMOTE_LOCAL_PORT; default=5901; }
-  ( . "$USER_CONF" 2>/dev/null; eval "echo \${$key:-$default}" )
+setting() {  # KEY DEFAULT: remote.conf's value now (a running session re-reads it each time its server starts)
+  ( . "$USER_CONF" 2>/dev/null; eval "echo \${$1:-$2}" )
+}
+port_setting() {  # session|local|rdp: the port remote.conf sets now
+  case $1 in
+    local) setting REMOTE_LOCAL_PORT 5901 ;;
+    rdp) setting REMOTE_RDP_PORT 3389 ;;
+    *) setting REMOTE_PORT 5900 ;;
+  esac
 }
 listen_addresses() {  # the addresses to listen on, one per line
   local word
@@ -157,7 +175,9 @@ EOF
 }
 address() { listen_addresses | paste -sd' '; }
 where_on() { listen_args "$1" | paste -sd' ' | sed 's/ /, /g'; }  # PORT -> "a:port, b:port"
-where() { where_on "$REMOTE_PORT"; }  # the session
+where() {  # the session
+  if serves_rdp; then rdp_bind; else where_on "$(port_setting session)"; fi
+}
 where_local() { where_on "$REMOTE_LOCAL_PORT"; }
 
 local_desktop() {  # over SSH, or from inside the remote session: point at the local Hyprland / sway
@@ -280,21 +300,26 @@ listen_cmd() {  # [vpn|any|IP...]
   conf_set REMOTE_LISTEN "\"$*\""
   listen_changed "Listening on $(address)"
 }
-port_cmd() {  # session|local N
+port_cmd() {  # session|local|rdp N
   local which=${1:-} port=${2:-} other
-  case $which in session) other=$(port_setting local) ;; local) other=$(port_setting session) ;;
-    *) echo "brasa-remote port session|local N" >&2; exit 1 ;; esac
+  case $which in session|local|rdp) ;; *) echo "brasa-remote port session|local|rdp N" >&2; exit 1 ;; esac
   [[ $port =~ ^[0-9]+$ ]] && [ "$port" -ge 1024 ] && [ "$port" -le 65535 ] ||
     { echo "A port between 1024 and 65535" >&2; exit 1; }
-  [ "$port" != "$other" ] || { echo "The session and the local desktop need different ports" >&2; exit 1; }
-  if [ "$which" = session ]; then conf_set REMOTE_PORT "$port"; REMOTE_PORT=$port
-  else conf_set REMOTE_LOCAL_PORT "$port"; REMOTE_LOCAL_PORT=$port; fi
+  for other in session local rdp; do
+    [ "$other" = "$which" ] || [ "$port" != "$(port_setting "$other")" ] ||
+      { echo "Port $port is already the $other port: each one needs its own" >&2; exit 1; }
+  done
+  case $which in
+    session) conf_set REMOTE_PORT "$port"; REMOTE_PORT=$port ;;
+    local) conf_set REMOTE_LOCAL_PORT "$port"; REMOTE_LOCAL_PORT=$port ;;
+    rdp) conf_set REMOTE_RDP_PORT "$port"; REMOTE_RDP_PORT=$port ;;
+  esac
   listen_changed "$(mode_name "$which") on port $port"
 }
 listen_changed() {  # MESSAGE: the session's wayvnc starts again on the new addresses and ports (its loop
   # re-reads remote.conf); a shared desktop keeps them until it is started again
   [ -f "$CONF_DIR/config" ] && setup >/dev/null
-  session_running && wayvncctl -S "$STATE/session.sock" wayvnc-exit >/dev/null 2>&1
+  restart_session_server
   local note=""
   running && note="The shared desktop takes it the next time it starts"
   firewall_sync
@@ -397,6 +422,131 @@ $(ssh_info "$u")" ;;
     status) echo "ssh: $(ssh_info "$u")" ;;
     *) usage; exit 1 ;;
   esac
+}
+
+# ---------------------------------------------------------------- rdp: hypr-rdp for the remote session
+RDP_SOURCE=$B/remote/hypr-rdp   # COMMIT: the upstream commit built; sway.patch: Brasa's changes to it
+RDP_URL=https://github.com/MuNeNICK/hypr-rdp
+RDP_DIR=${XDG_CACHE_HOME:-$HOME/.cache}/brasa/hypr-rdp
+RDP_BIN=~/.local/bin/hypr-rdp
+RDP_PASSWORD=~/.config/brasa/rdp-password
+RDP_PAM=/etc/pam.d/hypr-rdp
+
+rdp_version() { cat "$RDP_SOURCE/COMMIT" "$RDP_SOURCE/sway.patch" | sha256sum | cut -c1-16; }
+rdp_up_to_date() { [ -x "$RDP_BIN" ] && [ "$(cat "$RDP_DIR.version" 2>/dev/null)" = "$(rdp_version)" ]; }
+rdp_password_set() { [ -s "$RDP_PASSWORD" ]; }
+rdp_ready() {  # installed, and its sign-in can work
+  [ -x "$RDP_BIN" ] || return 1
+  if [ "$(setting REMOTE_RDP_LOGIN linux)" = password ]; then rdp_password_set; else [ -f "$RDP_PAM" ]; fi
+}
+serves_rdp() { [ "$(setting REMOTE_PROTOCOL vnc)" = rdp ] && rdp_ready; }
+rdp_bind() {  # ADDRESS:PORT: hypr-rdp listens on one address, the first one "listen" gives
+  echo "$(listen_addresses | head -1):$(port_setting rdp)"
+}
+rdp_audio_mode() {
+  case $(setting REMOTE_RDP_SOUND remote) in both) echo mirror ;; off) echo off ;; *) echo redirect ;; esac
+}
+rdp_viewers() {  # PORT: open RDP connections
+  ss -tnH state established "( sport = :$1 )" 2>/dev/null | wc -l
+}
+
+rdp_has_build_tools() {
+  command -v clang >/dev/null && command -v cmake >/dev/null && command -v git >/dev/null &&
+    pkg-config --exists libpipewire-0.3 libva fuse3 xkbcommon 2>/dev/null
+}
+rdp_build_tools() {  # what building hypr-rdp needs besides cargo
+  local sudo; sudo=$(sudo_prefix)
+  echo "Installing what building the RDP server needs (sudo)"
+  if command -v pacman >/dev/null; then
+    $sudo pacman -S --needed --noconfirm git clang cmake pkgconf pipewire libva pam fuse3 libxkbcommon
+  elif command -v apt-get >/dev/null; then
+    $sudo apt-get install -y git clang libclang-dev cmake pkg-config libpipewire-0.3-dev libva-dev libpam0g-dev \
+      libfuse3-dev libxkbcommon-dev
+  elif command -v dnf >/dev/null; then
+    $sudo dnf install -y git clang clang-devel cmake pkgconf pipewire-devel libva-devel pam-devel fuse3-devel libxkbcommon-devel
+  elif command -v zypper >/dev/null; then
+    $sudo zypper install -y git clang cmake pkg-config pipewire-devel libva-devel pam-devel fuse3-devel libxkbcommon-devel
+  else
+    echo "Install clang, cmake, git and the PipeWire, libva, PAM, FUSE 3 and xkbcommon headers" >&2; return 1
+  fi
+}
+rdp_build() {  # hypr-rdp at the pinned commit with Brasa's patch; nothing to do when it is up to date
+  rdp_up_to_date && return 0
+  command -v cargo >/dev/null || { echo "Building the RDP server needs cargo (Rust)" >&2; return 1; }
+  rdp_has_build_tools || { [ -t 0 ] && rdp_build_tools; } || return 1
+  local commit; commit=$(cat "$RDP_SOURCE/COMMIT")
+  [ -d "$RDP_DIR/.git" ] || git clone -q "$RDP_URL" "$RDP_DIR" || return 1
+  git -C "$RDP_DIR" cat-file -e "$commit^{commit}" 2>/dev/null || git -C "$RDP_DIR" fetch -q origin || return 1
+  git -C "$RDP_DIR" checkout -q -f "$commit" && git -C "$RDP_DIR" clean -q -f -d &&
+    git -C "$RDP_DIR" apply "$RDP_SOURCE/sway.patch" || return 1
+  echo "Building the RDP server (hypr-rdp): a few minutes the first time"
+  (cd "$RDP_DIR" && cargo build --release --locked --quiet) || return 1
+  install -Dm755 "$RDP_DIR/target/release/hypr-rdp" "$RDP_BIN" && rdp_version > "$RDP_DIR.version"
+}
+rdp_pam_install() {  # the PAM service of the Linux sign-in (sudo, once)
+  [ -f "$RDP_PAM" ] && return 0
+  [ -t 0 ] || [ "$(id -u)" = 0 ] || return 1
+  local file=$RDP_DIR/pkg/pam/hypr-rdp.arch
+  command -v apt-get >/dev/null && file=$RDP_DIR/pkg/pam/hypr-rdp.debian
+  echo "Letting the RDP server check your Linux password: installing $RDP_PAM (sudo)"
+  $(sudo_prefix) install -Dm644 "$file" "$RDP_PAM"
+}
+rdp_install() {  # in a terminal: build tools, the build, the PAM service, the firewall helper
+  if ! rdp_build; then say "The RDP server did not build" "cd $RDP_DIR && cargo build --release shows why"; return 1; fi
+  rdp_pam_install || echo "No PAM service: sign in with an RDP password instead (brasa-remote rdp password)" >&2
+  firewall_install
+}
+in_terminal() {  # ARGS...: brasa-remote ARGS in a terminal, where sudo and the build can be followed
+  local cmd; cmd=$(printf '%q ' "$HOME/.local/bin/brasa-remote" "$@")
+  ~/.local/bin/brasa-app terminal bash -c "$cmd; echo; read -rp 'Enter closes this window'" &
+  say "Installing the RDP server" "In the terminal that opened"
+}
+protocol_name() { [ "$1" = rdp ] && echo RDP || echo VNC; }
+protocol_cmd() {  # [vnc|rdp]
+  case ${1:-} in
+    "") echo "protocol: $(setting REMOTE_PROTOCOL vnc)"; return ;;
+    vnc|rdp) ;;
+    *) echo "brasa-remote protocol vnc|rdp" >&2; exit 1 ;;
+  esac
+  if [ "$1" = rdp ] && ! rdp_up_to_date; then
+    [ -t 0 ] || { in_terminal protocol rdp; return; }
+    rdp_install || exit 1
+  fi
+  conf_set REMOTE_PROTOCOL "$1"
+  restart_session_server
+  firewall_sync
+  if [ "$1" = rdp ] && ! rdp_ready; then
+    say "Remote session over RDP: not ready" "Set an RDP password, or install the Linux sign-in: brasa-remote rdp login linux"
+  else
+    say "Remote session over $(protocol_name "$1")" "$(where)"
+  fi
+}
+rdp_cmd() {
+  case ${1:-} in
+    login)
+      case ${2:-} in
+        password) rdp_password_set || { echo "Set the RDP password first: brasa-remote rdp password" >&2; exit 1; } ;;
+        linux) [ -f "$RDP_PAM" ] || { [ -t 0 ] && rdp_pam_install; } ||
+                 { in_terminal rdp login linux; return; } ;;
+        *) echo "brasa-remote rdp login linux|password" >&2; exit 1 ;;
+      esac
+      conf_set REMOTE_RDP_LOGIN "$2" ;;
+    password)
+      local password
+      if [ -t 0 ]; then read -rsp "RDP password: " password; echo; else IFS= read -r password; fi
+      [ -n "$password" ] || { echo "The password cannot be empty" >&2; exit 1; }
+      mkdir -p "$(dirname "$RDP_PASSWORD")"
+      (umask 077; printf '%s\n' "$password" > "$RDP_PASSWORD")
+      conf_set REMOTE_RDP_LOGIN password ;;
+    sound)
+      case ${2:-} in remote|both|off) conf_set REMOTE_RDP_SOUND "$2" ;;
+        *) echo "brasa-remote rdp sound remote|both|off" >&2; exit 1 ;; esac ;;
+    build) rdp_build; return ;;
+    install) rdp_install; return ;;
+    *) usage; exit 1 ;;
+  esac
+  [ "$(setting REMOTE_PROTOCOL vnc)" = rdp ] && restart_session_server
+  echo "RDP: sign-in $(setting REMOTE_RDP_LOGIN linux), sound $(setting REMOTE_RDP_SOUND remote)"
 }
 
 # ---------------------------------------------------------------- session: independent, persistent
@@ -542,18 +692,38 @@ session_settings() {
 compositor_alive() {
   if hypr; then hyprctl version >/dev/null 2>&1; else swaymsg -t get_version >/dev/null 2>&1; fi
 }
-serve_session() {  # OUTPUT: wayvnc on the session's output for as long as the session lives
-  # wayvnc's virtual keyboard keeps the layout it starts with, so choosing another layout in the remote
-  # session (brasa-keyboard) saves it in $STATE/session-layout and stops wayvnc: this loop starts it
-  # again with that layout (the viewer reconnects)
-  local kb
+serve_session() {  # OUTPUT: VNC or RDP, as remote.conf says each time, for as long as the session lives
   while compositor_alive; do
-    kb=$(cat "$STATE/session-layout" 2>/dev/null); kb=${kb:-$(layout)}
     firewall_sync
-    wayvnc -C "$CONF_DIR/config" -o "$1" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock" \
-      $(listen_args "$(port_setting session)")
+    if serves_rdp; then serve_rdp "$1"; else serve_vnc "$1"; fi
     sleep 0.5
   done
+}
+serve_vnc() {  # OUTPUT
+  # wayvnc's virtual keyboard keeps the layout it starts with, so choosing another layout in the remote
+  # session (brasa-keyboard) saves it in $STATE/session-layout and stops wayvnc: the loop starts it
+  # again with that layout (the viewer reconnects)
+  local kb; kb=$(cat "$STATE/session-layout" 2>/dev/null); kb=${kb:-$(layout)}
+  wayvnc -C "$CONF_DIR/config" -o "$1" ${kb:+-k "$kb"} -g -f 60 -r $(resize_flag) -L info -S "$STATE/session.sock" \
+    $(listen_args "$(port_setting session)")
+}
+serve_rdp() {  # OUTPUT: hypr-rdp, which resizes the output to the viewer's window as wayvnc does. The
+  # keyboard layout is the viewer's own
+  local args=(--bind "$(rdp_bind)" --resize-output "$1" --audio-mode "$(rdp_audio_mode)")
+  [ "$REMOTE_RESIZE" = no ] && args+=(--resolution "$REMOTE_SIZE")
+  [ "$REMOTE_SCALE" = auto ] || args+=(--scale "$REMOTE_SCALE")
+  if [ "$(setting REMOTE_RDP_LOGIN linux)" = password ]; then args+=(-u "$USER" --password-file "$RDP_PASSWORD")
+  else args+=(--auth-mode pam); fi
+  "$RDP_BIN" "${args[@]}" &
+  echo $! > "$STATE/session-rdp.pid"
+  wait $!
+  rm -f "$STATE/session-rdp.pid"
+}
+restart_session_server() {  # the session's server starts again, reading remote.conf (viewers reconnect)
+  session_running || return 0
+  wayvncctl -S "$STATE/session.sock" wayvnc-exit >/dev/null 2>&1
+  local pid; pid=$(cat "$STATE/session-rdp.pid" 2>/dev/null) && kill "$pid" 2>/dev/null
+  return 0
 }
 session_log() {
   if [ "$REMOTE_WM" = hyprland ]; then echo "journalctl -u $HYPR_UNIT"; else echo "journalctl --user -u $SESSION_UNIT"; fi
@@ -589,16 +759,28 @@ state_json() {  # everything the session window shows, as JSON
   local size=auto mode=off share_viewers=0 session_viewers=0
   [ "$REMOTE_RESIZE" = no ] && size=$REMOTE_SIZE
   if running; then mode=$(cat "$STATE/mode" 2>/dev/null); share_viewers=$(viewers "$STATE/wayvnc.sock"); fi
-  session_running && session_viewers=$(viewers "$STATE/session.sock")
+  if session_running; then
+    if serves_rdp; then session_viewers=$(rdp_viewers "$(port_setting rdp)")
+    else session_viewers=$(viewers "$STATE/session.sock"); fi
+  fi
   jq -n \
     --argjson running "$(session_running && echo true || echo false)" \
     --argjson at_boot "$(session_at_boot && echo true || echo false)" \
     --arg wm "$REMOTE_WM" --argjson wms "$(installed_wms)" --arg size "$size" --arg scale "$REMOTE_SCALE" \
     --arg address "$(address 2>/dev/null)" --argjson port "$REMOTE_PORT" --argjson viewers "$session_viewers" \
     --arg mode "${mode:-off}" --argjson local_port "$REMOTE_LOCAL_PORT" --argjson share_viewers "$share_viewers" \
-    --argjson ssh "$(ssh_state)" --argjson network "$(network_state)" \
-    '{session: {$running, $at_boot, $wm, $wms, $size, $scale, $address, $port, $viewers},
+    --argjson ssh "$(ssh_state)" --argjson network "$(network_state)" --argjson rdp "$(rdp_state)" \
+    '{session: {$running, $at_boot, $wm, $wms, $size, $scale, $address, $port, $viewers, $rdp},
       share: {$mode, port: $local_port, viewers: $share_viewers}, $ssh, $network}'
+}
+rdp_state() {
+  jq -n -c --arg protocol "$(setting REMOTE_PROTOCOL vnc)" --argjson port "$(port_setting rdp)" \
+    --arg bind "$(rdp_bind)" --arg login "$(setting REMOTE_RDP_LOGIN linux)" --arg sound "$(setting REMOTE_RDP_SOUND remote)" \
+    --argjson installed "$([ -x "$RDP_BIN" ] && echo true || echo false)" \
+    --argjson ready "$(rdp_ready && echo true || echo false)" \
+    --argjson password_set "$(rdp_password_set && echo true || echo false)" \
+    --argjson linux_login "$([ -f "$RDP_PAM" ] && echo true || echo false)" \
+    '{$protocol, $port, $bind, $login, $sound, $installed, $ready, $password_set, $linux_login}'
 }
 
 session() {
@@ -642,7 +824,7 @@ session() {
       rm -f "$STATE/session-layout" "$STATE/session-layout-index"   # a new session starts with your first layout
       if [ "$REMOTE_WM" = hyprland ]; then systemctl start "$HYPR_UNIT"; else systemctl --user start "$SESSION_UNIT"; fi
       sleep 3
-      if session_running; then say "Remote session ON" "$REMOTE_WM · port $REMOTE_PORT · $(where)
+      if session_running; then say "Remote session ON" "$REMOTE_WM · $(protocol_name "$(serves_rdp && echo rdp)") · $(where)
 $(also_on session)"
       else say "Remote session failed to start" "$(session_log)"; exit 1; fi ;;
     stop)
@@ -676,6 +858,8 @@ case ${1:-help} in
   session) shift; session "$@" ;;
   ssh) shift; ssh_cmd "$@" ;;
   listen) shift; listen_cmd "$@" ;;
+  protocol) shift; protocol_cmd "$@" ;;
+  rdp) shift; rdp_cmd "$@" ;;
   port) shift; port_cmd "$@" ;;
   screen)
     local_desktop; busy && exit 0
@@ -700,9 +884,11 @@ $(also_on local)"
     if running; then echo "local desktop: $(cat "$STATE/mode") on $(cat "$STATE/output") at $(where_local)"
       wayvncctl -S "$STATE/wayvnc.sock" client-list 2>/dev/null
     fi
-    if session_running; then echo "remote session: $REMOTE_WM, running at $(where)$(session_at_boot && echo ', starts at boot')"
-      session_settings | sed 's/^/  /' 
-      wayvncctl -S "$STATE/session.sock" client-list 2>/dev/null
+    if session_running; then
+      echo "remote session: $REMOTE_WM over $(protocol_name "$(serves_rdp && echo rdp)"), running at $(where)$(session_at_boot && echo ', starts at boot')"
+      session_settings | sed 's/^/  /'
+      if serves_rdp; then echo "  RDP connections: $(rdp_viewers "$(port_setting rdp)")"
+      else wayvncctl -S "$STATE/session.sock" client-list 2>/dev/null; fi
     fi
     running || session_running || echo "off (all modes)"
     ssh_cmd status

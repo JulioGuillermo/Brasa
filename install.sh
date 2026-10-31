@@ -183,6 +183,7 @@ if [ $UNINSTALL = 1 ]; then
   for d in $DIRS; do unlink_ours ~/.config/$d; done
   for f in $FILES; do unlink_ours ~/.config/$f; done
   for f in $BINS brasa-islands; do unlink_ours ~/.local/bin/$f; done
+  [ -x ~/.local/bin/hypr-rdp ] && run rm -rf ~/.local/bin/hypr-rdp "${XDG_CACHE_HOME:-$HOME/.cache}/brasa/hypr-rdp"*
   unlink_ours ~/.config/brasa
   unlink_ours ~/.config/gtk-3.0/gtk.css
   unlink_ours ~/.config/gtk-4.0/gtk.css
@@ -478,6 +479,12 @@ for f in $OBSOLETE; do
 done
 for f in $BINS; do link "$HERE/bin/$f" ~/.local/bin/$f; done
 build_islands
+# The remote session's RDP server, once RDP was chosen (Sessions window or brasa-remote protocol rdp)
+if [ -x ~/.local/bin/hypr-rdp ] || grep -q '^REMOTE_PROTOCOL=rdp' ~/.config/brasa/remote.conf 2>/dev/null; then
+  say "Building the RDP server of the remote session (a few minutes the first time)"
+  if [ $DRY = 1 ]; then info "[dry run] $HERE/bin/brasa-remote rdp install"
+  else "$HERE/bin/brasa-remote" rdp install || problem "The RDP server did not build: the remote session uses VNC"; fi
+fi
 # HyprMod's file (Settings in the panel), present before its first start so it does not add its own
 # require line to hyprland.lua, which belongs to the repository
 [ $DRY = 1 ] || touch "$HERE/config/hypr/hyprland-gui.lua"

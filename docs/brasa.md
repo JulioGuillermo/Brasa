@@ -18,7 +18,7 @@
 15. [Lock screen](#lock-screen)
 16. [Login screen](#login-screen)
 17. [Shell: zsh and starship](#shell-zsh-and-starship)
-18. [Remote desktop (VNC)](#remote-desktop-vnc)
+18. [Remote desktop (VNC and RDP)](#remote-desktop-vnc-and-rdp)
 19. [Colors](#colors)
 20. [Trying it inside GNOME](#trying-it-inside-gnome)
 21. [Known issues and untested bits](#known-issues-and-untested-bits)
@@ -76,7 +76,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-session` | lock / logout / suspend / reboot / poweroff for the exit dialog (logged: `journalctl -t brasa`) | `~/.local/bin/` |
 | `bin/brasa-greeter` | Installs, removes or previews the login screen | `~/.local/bin/` |
 | `bin/brasa-osd` | On-screen indicator for Brasa's own toggles | `~/.local/bin/` |
-| `bin/brasa-remote` | Remote desktop over VNC (wayvnc): own session, virtual monitor, mirror or take-over | `~/.local/bin/` |
+| `bin/brasa-remote` | Remote desktop over VNC (wayvnc) or RDP (hypr-rdp): own session, virtual monitor, mirror or take-over | `~/.local/bin/` |
 | `bin/brasa-autostart` | What starts with the session | `~/.local/bin/` |
 | `bin/brasa-test` | Try it inside GNOME | `~/.local/bin/` |
 | `config/waybar/` | Bar: modules, style, sensors (`sens`) and real refresh rate (`hz`) | `~/.config/waybar` |
@@ -90,7 +90,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `config/swaylock/` | swaylock fallback | `~/.config/swaylock` |
 | `config/foot/foot.ini` | Terminal: colors, transparency with blur, bell | `~/.config/foot` |
 | `greeter/` | Login screen: greetd, nwg-hello and the sway that runs it | `/etc/greetd`, `/etc/nwg-hello` (copied with sudo) |
-| `remote/` | The remote session on Hyprland: virtual screen in seat1 (udev), system service, polkit rule | `/etc/udev/rules.d`, `/etc/systemd/system`, `/usr/share/polkit-1/rules.d` (copied with sudo by `brasa-remote session wm hyprland`) |
+| `remote/` | The remote session on Hyprland: virtual screen in seat1 (udev), system service, polkit rule; `hypr-rdp/`: the RDP server's upstream commit and Brasa's patch | `/etc/udev/rules.d`, `/etc/systemd/system`, `/usr/share/polkit-1/rules.d` (copied with sudo by `brasa-remote session wm hyprland`) |
 | `config/kvantum/Brasa/` | Flat Kvantum theme for Qt apps (made by `docs/gen-kvantum.py`) | `~/.config/Kvantum/Brasa` |
 | `config/qt/brasa-colors.conf` | Brasa colors for Qt apps without Kvantum (qt5ct / qt6ct, Fusion style) | read from `~/.config/brasa` |
 | `config/gtk-3.0/gtk.css`, `config/gtk-4.0/gtk.css` | Brasa colors for GTK3 and GTK4/libadwaita apps | `~/.config/gtk-3.0/`, `~/.config/gtk-4.0/` |
@@ -655,7 +655,7 @@ one marked line to `~/.bashrc` / `~/.config/fish/config.fish` (backed up first; 
 - `--uninstall` restores the previous config from the latest `~/zsh_backup/<date>/` and moves the history
   back; `~/.config/zsh/` and the login shell stay.
 
-## Remote desktop (VNC)
+## Remote desktop (VNC and RDP)
 
 `brasa-remote` shares the desktop with **wayvnc**, which captures straight from the compositor: no
 "which screen do you want to share?" prompt, and remote keyboard and mouse work. Everything is off
@@ -674,7 +674,24 @@ window (or `brasa-remote listen`, `brasa-remote port`) picks every network or so
 addresses, and the two ports; a running session follows at once (its viewers reconnect), the shared
 desktop from its next start.
 
-**Firewall**: with **ufw** on, exactly the addresses and ports the VNC servers and the SSH server listen
+**VNC or RDP for the remote session**: one of them at a time, chosen in the Sessions window (Protocol) or
+with `brasa-remote protocol vnc|rdp`. RDP is served by **hypr-rdp**, built from source with Brasa's patch
+(`remote/hypr-rdp/`: the upstream commit and `sway.patch`, which adds sway and `--resize-output`). It
+works with Windows Remote Desktop and any RDP client, sends the sound, syncs the clipboard (text and
+images) and uses the viewer's keyboard layout; the screen follows the viewer's window, as with VNC.
+
+- The first time RDP is chosen a terminal opens to build it (a few minutes, `~/.cache/brasa/hypr-rdp`,
+  installed as `~/.local/bin/hypr-rdp`); `install.sh` and `brasa-reload` keep it up to date afterwards.
+- **Sign-in**: your Linux password (PAM, `/etc/pam.d/hypr-rdp`, installed with sudo), for clients that
+  send it over TLS without NLA (Windows asks to save it first), or a password of its own
+  (`~/.config/brasa/rdp-password`, mode 600), which every client accepts.
+- **Sound**: on the device you connect from (the default; it comes back when you disconnect), on both,
+  or off. The remote session shares PipeWire with this machine's own session.
+- RDP listens on one address, the first one of "Listen on", on port 3389. Until RDP can sign in, the
+  session keeps serving VNC.
+- Sharing this machine's own desktop (screen, mirror, take) stays on VNC.
+
+**Firewall**: with **ufw** on, exactly the addresses and ports the VNC and RDP servers and the SSH server listen
 on are opened, to any source, while they are on, and closed again when they stop. A rule of yours on that
 port is left alone. It is done by `/usr/local/sbin/brasa-firewall`, which `install.sh` (or the first
 `brasa-remote session` in a terminal) installs with sudo, together with a sudo rule to run it without a
@@ -692,7 +709,11 @@ brasa-remote mirror                      share the physical screen (the focused 
 brasa-remote take [WxH]                  take over the current session; the laptop goes dark
 brasa-remote ssh [on|off|boot|noboot]   the SSH server, now and at boot
 brasa-remote listen [vpn|any|IP...]      where to listen: the VPN (default), every network, or addresses
-brasa-remote port session|local N        the session's port (5900) or the local desktop's (5901)
+brasa-remote port session|local|rdp N    the session's VNC port (5900), the local desktop's (5901), RDP's (3389)
+brasa-remote protocol [vnc|rdp]          how the remote session is reached
+brasa-remote rdp login linux|password    RDP sign-in: the Linux password, or one of its own
+brasa-remote rdp password                set that one (read from the input)
+brasa-remote rdp sound remote|both|off   where the session sounds while connected over RDP
 brasa-remote on | off | status | setup | help
 ```
 

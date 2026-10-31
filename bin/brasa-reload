@@ -7,6 +7,8 @@ for f in ~/.local/bin/brasa-*; do [ -L "$f" ] && [ ! -e "$f" ] && rm "$f"; done
 # The islands are Rust: build what a pull changed (a moment when nothing did)
 (cd ~/.config/brasa/islands && cargo build --release --quiet) &&
   ln -sfn ~/.config/brasa/islands/target/release/brasa-islands ~/.local/bin/brasa-islands
+# The remote session's RDP server, if installed: built again in the background when a pull changed its patch
+[ -x ~/.local/bin/hypr-rdp ] && setsid -f ~/.local/bin/brasa-remote rdp build >/dev/null 2>&1 < /dev/null
 # Key bindings: keys.tsv may have changed with a pull; the window manager reads them again only then
 binds_before=$(cat ~/.config/brasa/config/hypr/binds.lua ~/.config/brasa/config/sway/binds.conf 2>/dev/null | md5sum)
 ~/.local/bin/brasa-gen >/dev/null

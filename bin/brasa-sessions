@@ -27,6 +27,9 @@ SCALES = ["auto", "1", "1.25", "1.5", "1.75", "2"]
 SHARE_MODES = [("off", "Off", "not shared"), ("mirror", "Mirror", "share this screen"),
                ("screen", "Screen", "add a virtual monitor"), ("take", "Take", "use it remotely, screens off")]
 WM_NAMES = {"sway": "sway", "hyprland": "Hyprland"}
+PROTOCOLS = [("vnc", "VNC"), ("rdp", "RDP")]
+RDP_LOGINS = [("linux", "Linux password"), ("password", "Own password")]
+RDP_SOUNDS = [("remote", "Where you connect from"), ("both", "There and here"), ("off", "Off")]
 
 
 def run(argv, on_output):
@@ -38,6 +41,18 @@ def run(argv, on_output):
         on_output(stdout or "")
 
     process.communicate_utf8_async(None, None, finished)
+
+
+def run_with_input(argv, text, on_output):
+    """Like run, with text written to the command's input."""
+    flags = Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE
+    process = Gio.Subprocess.new(argv, flags)
+
+    def finished(process, result):
+        _, stdout, _ = process.communicate_utf8_finish(result)
+        on_output(stdout or "")
+
+    process.communicate_utf8_async(text, None, finished)
 
 
 def viewers_text(count):
@@ -73,6 +88,7 @@ class SessionsWindow(Adw.ApplicationWindow):
         self.updating = False
         self.busy = set()
         self.state = None
+        self.rdp_password_set = False
 
         page = Adw.PreferencesPage()
         page.add(self.build_here())
@@ -121,9 +137,46 @@ class SessionsWindow(Adw.ApplicationWindow):
         self.session_size.connect("notify::selected", lambda row, _: self.chosen(row, ["session", "size"]))
         self.session_scale = Choice("Scale", [(s, "From the height" if s == "auto" else s) for s in SCALES])
         self.session_scale.connect("notify::selected", lambda row, _: self.chosen(row, ["session", "scale"]))
-        for row in (self.session_on, self.session_boot, self.session_wm, self.session_size, self.session_scale):
+        self.session_protocol = Choice("Protocol", PROTOCOLS)
+        self.session_protocol.connect("notify::selected", lambda row, _: self.chosen(row, ["protocol"]))
+        self.rdp_login = Choice("RDP sign-in", RDP_LOGINS)
+        self.rdp_login.connect("notify::selected", self.on_rdp_login)
+        self.rdp_password = Adw.PasswordEntryRow(title="RDP password", show_apply_button=True)
+        self.rdp_password.connect("apply", self.on_rdp_password)
+        self.rdp_password.connect("entry-activated", self.on_rdp_password)
+        self.rdp_sound = Choice("Sound", RDP_SOUNDS)
+        self.rdp_sound.connect("notify::selected", lambda row, _: self.chosen(row, ["rdp", "sound"]))
+        for row in (self.session_on, self.session_boot, self.session_wm, self.session_protocol, self.rdp_login,
+                    self.rdp_password, self.rdp_sound, self.session_size, self.session_scale):
             self.session_group.add(row)
         return self.session_group
+
+    def on_rdp_login(self, row, _):
+        """A password of its own needs the password first: the row to type it shows, and saving it switches."""
+        if self.updating:
+            return
+        if row.value() == "password" and not self.rdp_password_set:
+            self.rdp_password.set_visible(True)
+            self.rdp_password.grab_focus()
+            return
+        self.act(row, [[REMOTE, "rdp", "login", row.value()]])
+
+    def on_rdp_password(self, entry):
+        password = entry.get_text()
+        if not password:
+            return
+        entry.set_show_apply_button(False)
+        entry.set_text("")
+        entry.set_show_apply_button(True)
+        self.busy.add(entry)
+        entry.set_sensitive(False)
+
+        def saved(_output):
+            self.busy.discard(entry)
+            entry.set_sensitive(True)
+            self.refresh()
+
+        run_with_input([REMOTE, "rdp", "password"], password + "\n", saved)
 
     def build_share(self):
         self.share_group = Adw.PreferencesGroup(title="Share this desktop")
@@ -262,12 +315,17 @@ class SessionsWindow(Adw.ApplicationWindow):
         self.show_session(state["session"])
         self.show_share(state["share"])
         self.show_ssh(state["ssh"])
-        self.show_network(state["network"], state["session"]["port"], state["share"]["port"])
+        self.show_network(state["network"], state["session"], state["share"]["port"])
         self.updating = False
 
     def show_session(self, session):
-        where = f"{session['address']}:{session['port']}" if session["address"] else f"port {session['port']}"
+        rdp = session["rdp"]
+        if rdp["protocol"] == "rdp" and rdp["ready"]:
+            where = rdp["bind"]
+        else:
+            where = f"{session['address']}:{session['port']}" if session["address"] else f"port {session['port']}"
         self.session_group.set_description(f"A desktop of its own, only for remote use · {where}")
+        self.show_rdp(rdp)
         if self.session_on not in self.busy:
             self.session_on.set_active(session["running"])
         self.session_on.set_subtitle(viewers_text(session["viewers"]) if session["running"] else "")
@@ -280,13 +338,37 @@ class SessionsWindow(Adw.ApplicationWindow):
             if row not in self.busy:
                 row.show_value(value)
 
+    def show_rdp(self, rdp):
+        self.rdp_password_set = rdp["password_set"]
+        on_rdp = rdp["protocol"] == "rdp"
+        if not on_rdp:
+            subtitle = "TigerVNC, RealVNC… RDP: Windows Remote Desktop and any RDP client"
+        elif not rdp["installed"]:
+            subtitle = "Being installed, or not yet: choose it again to install it"
+        elif not rdp["ready"]:
+            subtitle = "Choose how to sign in: VNC is used meanwhile"
+        else:
+            subtitle = "Sound, clipboard of text and images, the viewer's keyboard layout"
+        self.session_protocol.set_subtitle(subtitle)
+        for row, value in ((self.session_protocol, rdp["protocol"]), (self.rdp_login, rdp["login"]),
+                           (self.rdp_sound, rdp["sound"])):
+            if row not in self.busy:
+                row.show_value(value)
+        self.rdp_login.set_visible(on_rdp)
+        self.rdp_login.set_subtitle("Some clients need it saved before connecting (Windows)"
+                                    if rdp["login"] == "linux" else "")
+        wants_password = rdp["login"] == "password" or self.rdp_login.value() == "password"
+        self.rdp_password.set_visible(on_rdp and wants_password)
+        self.rdp_password.set_title("RDP password · set" if rdp["password_set"] else "RDP password")
+        self.rdp_sound.set_visible(on_rdp)
+
     def show_share(self, share):
         self.share_group.set_description(f"So someone can see or use this machine's own screens · port {share['port']}")
         if self.share_mode not in self.busy:
             self.share_mode.show_value(share["mode"])
         self.share_mode.set_subtitle(viewers_text(share["viewers"]) if share["mode"] != "off" else "")
 
-    def show_network(self, network, session_port, share_port):
+    def show_network(self, network, session, share_port):
         listen = network["listen"].split()
         every = listen == [ANY]
         for entry in network["addresses"]:
@@ -307,6 +389,12 @@ class SessionsWindow(Adw.ApplicationWindow):
         shown = "every network" if every else ", ".join(
             entry["address"] for entry in network["addresses"] if self.address_rows[entry["address"]].get_active())
         self.listen_row.set_subtitle(shown or "nowhere: choose an address")
+        rdp = session["rdp"]
+        on_rdp = rdp["protocol"] == "rdp"
+        self.session_port.which = "rdp" if on_rdp else "session"
+        self.session_port.set_title(f"Remote session port ({'RDP' if on_rdp else 'VNC'})")
+        self.session_port.set_subtitle("RDP listens on the first address chosen" if on_rdp else "")
+        session_port = rdp["port"] if on_rdp else session["port"]
         for row, port in ((self.session_port, session_port), (self.share_port, share_port)):
             if row not in self.busy and not row.pending:
                 row.set_value(port)

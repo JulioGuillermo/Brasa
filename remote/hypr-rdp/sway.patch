@@ -1,0 +1,767 @@
+diff --git a/src/capture/mod.rs b/src/capture/mod.rs
+index b1c5f52..51c005a 100644
+--- a/src/capture/mod.rs
++++ b/src/capture/mod.rs
+@@ -110,9 +110,8 @@ impl HyprDisplayHandle {
+ }
+ 
+ fn resize_headless_output(output_name: &str, width: u32, height: u32, scale: f64) -> Result<()> {
+-    let mode = format!("{}x{}@60", width, height);
+-    let rule = wayland::headless_monitor_rule(output_name, &mode, scale);
+-    crate::hyprland::keyword_monitor(&rule).context("failed to resize headless output")?;
++    crate::compositor::set_output_mode(output_name, width, height, scale)
++        .context("failed to resize headless output")?;
+     wayland::wait_for_output_size(output_name, width, height, Duration::from_secs(5))
+         .context("headless output did not reach requested size after resize")?;
+     Ok(())
+@@ -414,6 +413,7 @@ impl HyprDisplay {
+         h264_backend: H264BackendPolicy,
+         resolution_fixed: bool,
+         output: Option<String>,
++        resize_output: Option<String>,
+     ) -> Result<(Self, HyprDisplayHandle, (u16, u16))> {
+         let (tx, rx) = mpsc::channel(128);
+         let requested_resolution = resolution;
+@@ -432,14 +432,32 @@ impl HyprDisplay {
+         // client subscribes to display updates. This keeps idle memory bounded.
+         let (output_name, headless_guard) = if let Some(ref name) = output {
+             (name.clone(), None)
++        } else if let Some(name) = resize_output {
++            crate::compositor::set_output_mode(
++                &name,
++                configured_resolution.0,
++                configured_resolution.1,
++                headless_scale,
++            )
++            .context("failed to resize the output to resize")?;
++            wayland::wait_for_output_size(
++                &name,
++                configured_resolution.0,
++                configured_resolution.1,
++                Duration::from_secs(5),
++            )?;
++            (name, None)
+         } else {
+             let stale = wayland::list_stale_headless_outputs().unwrap_or_default();
+             if let Some(existing) = stale.into_iter().next() {
+                 tracing::info!(name = %existing, "Reusing headless output from previous session");
+-                let mode = format!("{}x{}@60", configured_resolution.0, configured_resolution.1);
+-                let rule = wayland::headless_monitor_rule(&existing, &mode, headless_scale);
+-                crate::hyprland::keyword_monitor(&rule)
+-                    .context("failed to resize reused headless output")?;
++                crate::compositor::set_output_mode(
++                    &existing,
++                    configured_resolution.0,
++                    configured_resolution.1,
++                    headless_scale,
++                )
++                .context("failed to resize reused headless output")?;
+                 wayland::wait_for_output_size(
+                     &existing,
+                     configured_resolution.0,
+diff --git a/src/capture/wayland/mod.rs b/src/capture/wayland/mod.rs
+index 964538c..67c570a 100644
+--- a/src/capture/wayland/mod.rs
++++ b/src/capture/wayland/mod.rs
+@@ -12,8 +12,8 @@ use super::CaptureMode;
+ use crate::egfx::{EgfxShared, H264BackendPolicy, H264RateControl};
+ use crate::input::{OutputLayoutSnapshot, SharedOutputLayout};
+ pub(crate) use output::{
+-    create_headless_output, headless_monitor_rule, list_stale_headless_outputs, output_info,
+-    wait_for_output_size, HeadlessOutputGuard,
++    create_headless_output, list_stale_headless_outputs, output_info, wait_for_output_size,
++    HeadlessOutputGuard,
+ };
+ use wayland_client::Connection;
+ 
+diff --git a/src/capture/wayland/output.rs b/src/capture/wayland/output.rs
+index 10ee6c1..694a492 100644
+--- a/src/capture/wayland/output.rs
++++ b/src/capture/wayland/output.rs
+@@ -24,7 +24,7 @@ impl Drop for HeadlessOutputGuard {
+         if let Some(name) = self.name.take() {
+             // Safe to remove here: HyprDisplay::drop() has already joined the
+             // capture thread, so no Wayland clients reference this output.
+-            match crate::hyprland::output_remove(&name) {
++            match crate::compositor::remove_output(&name) {
+                 Ok(()) => tracing::info!(name, "Removed headless output"),
+                 Err(e) => tracing::warn!(name, error = %e, "Failed to remove headless output"),
+             }
+@@ -34,65 +34,43 @@ impl Drop for HeadlessOutputGuard {
+ 
+ const HEADLESS_PREFIX: &str = "hypr-rdp";
+ 
+-pub(crate) fn headless_monitor_rule(name: &str, mode: &str, scale: f64) -> String {
+-    format!("{name},{mode},-9999x0,{scale}")
+-}
+-
+-/// List headless outputs created by hypr-rdp (name starts with "hypr-rdp-").
++/// List headless outputs an earlier hypr-rdp run left behind.
+ pub(crate) fn list_stale_headless_outputs() -> Result<Vec<String>> {
+-    let monitors = crate::hyprland::monitors()?;
++    let monitors = crate::compositor::monitors()?;
+     let arr = monitors.as_array().context("expected monitors array")?;
+     Ok(arr
+         .iter()
+         .filter_map(|m| {
+             let name = m["name"].as_str()?;
+-            name.starts_with(HEADLESS_PREFIX).then(|| name.to_string())
++            crate::compositor::is_own_headless_output(name, HEADLESS_PREFIX)
++                .then(|| name.to_string())
+         })
+         .collect())
+ }
+ 
+-/// Create a headless output in Hyprland at the given resolution.
++/// Create a headless output at the given resolution.
+ /// Returns the output name and RAII guard that removes it on drop.
+ /// The guard is created immediately after the output appears so that
+-/// any subsequent failure (e.g., keyword_monitor) cleans up automatically.
++/// any subsequent failure (e.g., setting its mode) cleans up automatically.
+ pub(crate) fn create_headless_output(
+     width: u32,
+     height: u32,
+     scale: f64,
+ ) -> Result<(String, HeadlessOutputGuard)> {
+-    // Subscribe to events BEFORE creating the output to catch monitoradded.
+-    // The ensure_registered() roundtrip guarantees Hyprland has accept()'ed
+-    // our socket2 connection before we trigger the creation.
+-    let mut events = crate::hyprland::EventStream::connect()?;
+-    events.ensure_registered()?;
+-
+-    crate::hyprland::output_create_headless(HEADLESS_PREFIX)
++    let name = crate::compositor::create_headless_output(HEADLESS_PREFIX)
+         .context("failed to create headless output")?;
+ 
+-    // Wait for monitoradded event — data is the output name.
+-    let name = loop {
+-        let candidate = events
+-            .wait_for("monitoradded", Duration::from_secs(5))
+-            .context("failed to detect new headless output")?;
+-        if candidate.starts_with(HEADLESS_PREFIX) {
+-            break candidate;
+-        }
+-        tracing::trace!(name = %candidate, "Ignoring unrelated monitoradded event");
+-    };
+-
+     // Guard created immediately — any failure below will clean up the output
+     let guard = HeadlessOutputGuard::new(name.clone());
+ 
+-    // Set resolution
+-    let mode = format!("{}x{}@60", width, height);
+-    let rule = headless_monitor_rule(&name, &mode, scale);
+-    crate::hyprland::keyword_monitor(&rule).context("failed to set headless output resolution")?;
++    crate::compositor::set_output_mode(&name, width, height, scale)
++        .context("failed to set headless output resolution")?;
+ 
+     tracing::info!(name = %name, width, height, "Created headless output");
+     Ok((name, guard))
+ }
+ 
+-/// Wait for a Hyprland output to reach the requested dimensions.
++/// Wait for an output to reach the requested dimensions.
+ pub(crate) fn wait_for_output_size(
+     output_name: &str,
+     width: u32,
+@@ -103,7 +81,7 @@ pub(crate) fn wait_for_output_size(
+     let poll_interval = Duration::from_millis(100);
+ 
+     loop {
+-        if let Ok(monitors) = crate::hyprland::monitors() {
++        if let Ok(monitors) = crate::compositor::monitors() {
+             if output_has_dimensions(&monitors, output_name, width, height) {
+                 return Ok(());
+             }
+@@ -142,15 +120,20 @@ fn output_has_dimensions(
+     width > 0 && height > 0 && output_dimensions(monitors, output_name) == Some((width, height))
+ }
+ 
+-/// Query a Hyprland output's current dimensions without starting capture.
++/// Query an output's current dimensions without starting capture.
+ pub(crate) fn output_info(output_name: &str) -> Result<CaptureInfo> {
+-    let monitors = crate::hyprland::monitors()?;
++    let monitors = crate::compositor::monitors()?;
+     let monitor = monitors
+         .as_array()
+         .context("expected monitors array")?
+         .iter()
+         .find(|m| m["name"].as_str() == Some(output_name))
+-        .with_context(|| format!("output '{}' not found in Hyprland monitors", output_name))?;
++        .with_context(|| {
++            format!(
++                "output '{}' not found among the compositor's outputs",
++                output_name
++            )
++        })?;
+ 
+     let width = u32::try_from(
+         monitor["width"]
+@@ -185,18 +168,6 @@ mod tests {
+     use super::*;
+     use serde_json::json;
+ 
+-    #[test]
+-    fn headless_monitor_rule_carries_integer_and_fractional_scale() {
+-        assert_eq!(
+-            headless_monitor_rule("hypr-rdp-1", "3024x1896@60", 2.0),
+-            "hypr-rdp-1,3024x1896@60,-9999x0,2"
+-        );
+-        assert_eq!(
+-            headless_monitor_rule("hypr-rdp-1", "2560x1440@60", 1.5),
+-            "hypr-rdp-1,2560x1440@60,-9999x0,1.5"
+-        );
+-    }
+-
+     #[test]
+     fn output_size_predicate_requires_exact_requested_dimensions() {
+         let monitors = json!([
+diff --git a/src/capture/wayland/wlr.rs b/src/capture/wayland/wlr.rs
+index 33e8c3a..b83d56b 100644
+--- a/src/capture/wayland/wlr.rs
++++ b/src/capture/wayland/wlr.rs
+@@ -218,14 +218,15 @@ pub(super) fn capture_loop_wlr(
+     let mmaps = [&mmap_0, &mmap_1];
+     let mut cap_idx: usize = 0;
+ 
+-    // Start initial capture into buffer 0
++    // Start initial capture into buffer 0, with a plain copy: the compositor answers it even when
++    // nothing on the output changed.
+     let mut frame = start_wlr_frame(conn, state, qh, output, screencopy_mgr)?;
+     let mut wait_started = Instant::now();
+     let mut buffer_sent = false;
+     while !state.frame_ready && !state.frame_failed {
+         poll_dispatch(event_queue, state, POLL_TIMEOUT_MS)?;
+         if !buffer_sent && state.buffer_width > 0 {
+-            frame.copy_with_damage(buffers[cap_idx]);
++            frame.copy(buffers[cap_idx]);
+             conn.flush().context("Wayland flush failed")?;
+             buffer_sent = true;
+             wait_started = Instant::now();
+@@ -252,6 +253,7 @@ pub(super) fn capture_loop_wlr(
+     // whole wait: the next capture writes into the other buffer).
+     let mut deferred: Option<crate::capture::scale::PreparedPresentationFrame<'_>> = None;
+     let mut tx_closed = false;
++    let mut copy_whole_frame = false;
+ 
+     loop {
+         // Save completed frame state
+@@ -403,7 +405,12 @@ pub(super) fn capture_loop_wlr(
+                     frame.destroy();
+                     return Err(BufferParametersChanged.into());
+                 }
+-                frame.copy_with_damage(buffers[cap_idx]);
++                if copy_whole_frame {
++                    frame.copy(buffers[cap_idx]);
++                    copy_whole_frame = false;
++                } else {
++                    frame.copy_with_damage(buffers[cap_idx]);
++                }
+                 conn.flush().context("Wayland flush failed")?;
+                 buffer_sent = true;
+                 wait_started = Instant::now();
+@@ -411,6 +418,7 @@ pub(super) fn capture_loop_wlr(
+             if state.should_stop() {
+                 break;
+             }
++            // A stalled wait is retried with a plain copy, which the compositor answers at once.
+             if wlr_frame_wait_stalled(wait_started, Instant::now()) {
+                 tracing::warn!(
+                     buffer_sent,
+@@ -420,6 +428,7 @@ pub(super) fn capture_loop_wlr(
+                 frame.destroy();
+                 frame = start_wlr_frame(conn, state, qh, output, screencopy_mgr)?;
+                 buffer_sent = false;
++                copy_whole_frame = true;
+                 wait_started = Instant::now();
+             }
+         }
+diff --git a/src/compositor.rs b/src/compositor.rs
+new file mode 100644
+index 0000000..0f26122
+--- /dev/null
++++ b/src/compositor.rs
+@@ -0,0 +1,111 @@
++//! The window manager hypr-rdp drives, Hyprland or sway, found once at start. Everything that asks it
++//! for outputs or keyboard settings goes through here; the screen capture and the input already use
++//! Wayland protocols both of them have.
++
++use std::sync::OnceLock;
++use std::time::Duration;
++
++use anyhow::{Context, Result};
++
++use crate::{hyprland, sway};
++
++#[derive(Clone, Copy, PartialEq, Eq, Debug)]
++pub enum Compositor {
++    Hyprland,
++    Sway,
++}
++
++static COMPOSITOR: OnceLock<Compositor> = OnceLock::new();
++
++/// Sway when its socket is set and no Hyprland signature is; otherwise Hyprland, which is also found
++/// from the instance that owns WAYLAND_DISPLAY.
++fn detect() -> Compositor {
++    let hyprland_signature =
++        std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").filter(|s| !s.is_empty());
++    if hyprland_signature.is_none() && sway::running() {
++        Compositor::Sway
++    } else {
++        Compositor::Hyprland
++    }
++}
++
++fn current() -> Compositor {
++    *COMPOSITOR.get_or_init(detect)
++}
++
++/// Returns the Hyprland instance signature, which session hooks get; sway has none.
++pub fn initialize() -> Result<Option<String>> {
++    match current() {
++        Compositor::Hyprland => hyprland::initialize()
++            .map(Some)
++            .context("failed to select the Hyprland instance"),
++        Compositor::Sway => {
++            sway::monitors().context("failed to reach sway through SWAYSOCK")?;
++            Ok(None)
++        }
++    }
++}
++
++pub fn is_sway() -> bool {
++    current() == Compositor::Sway
++}
++
++/// The outputs as Hyprland's `j/monitors` has them: name, x, y, and width and height in pixels.
++pub fn monitors() -> Result<serde_json::Value> {
++    match current() {
++        Compositor::Hyprland => hyprland::monitors(),
++        Compositor::Sway => sway::monitors(),
++    }
++}
++
++/// Creates a headless output and returns its name. Hyprland names it after `prefix`; sway names it
++/// itself.
++pub fn create_headless_output(prefix: &str) -> Result<String> {
++    match current() {
++        Compositor::Hyprland => create_hyprland_headless_output(prefix),
++        Compositor::Sway => sway::create_headless_output(),
++    }
++}
++
++/// Subscribes before creating it, to catch its monitoradded event.
++fn create_hyprland_headless_output(prefix: &str) -> Result<String> {
++    let mut events = hyprland::EventStream::connect()?;
++    events.ensure_registered()?;
++    hyprland::output_create_headless(prefix)?;
++    loop {
++        let name = events
++            .wait_for("monitoradded", Duration::from_secs(5))
++            .context("failed to detect new headless output")?;
++        if name.starts_with(prefix) {
++            return Ok(name);
++        }
++        tracing::trace!(%name, "Ignoring unrelated monitoradded event");
++    }
++}
++
++/// True for an output an earlier run created and left behind. Always false on sway: its HEADLESS-N
++/// names do not say who created them.
++pub fn is_own_headless_output(name: &str, prefix: &str) -> bool {
++    match current() {
++        Compositor::Hyprland => name.starts_with(prefix),
++        Compositor::Sway => false,
++    }
++}
++
++pub fn set_output_mode(name: &str, width: u32, height: u32, scale: f64) -> Result<()> {
++    match current() {
++        Compositor::Hyprland => {
++            let rule =
++                hyprland::headless_monitor_rule(name, &format!("{width}x{height}@60"), scale);
++            hyprland::keyword_monitor(&rule)
++        }
++        Compositor::Sway => sway::set_output_mode(name, width, height, scale),
++    }
++}
++
++pub fn remove_output(name: &str) -> Result<()> {
++    match current() {
++        Compositor::Hyprland => hyprland::output_remove(name),
++        Compositor::Sway => sway::remove_output(name),
++    }
++}
+diff --git a/src/config.rs b/src/config.rs
+index c41e0cf..957e78d 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -158,9 +158,14 @@ struct Args {
+     h264_backend: Option<String>,
+ 
+     /// Capture a specific output instead of creating a headless one
+-    #[arg(long)]
++    #[arg(long, conflicts_with = "resize_output")]
+     output: Option<String>,
+ 
++    /// Capture an existing headless output and resize it to the client, as
++    /// with the one hypr-rdp creates; it is left in place on exit
++    #[arg(long, conflicts_with = "output")]
++    resize_output: Option<String>,
++
+     /// Shell command to run when an authenticated session starts
+     /// (without configured credentials: any established session)
+     #[arg(long)]
+@@ -213,6 +218,7 @@ struct ConfigFile {
+     audio_mode: Option<String>,
+     h264_backend: Option<String>,
+     output: Option<String>,
++    resize_output: Option<String>,
+     on_session_start: Option<String>,
+     on_session_end: Option<String>,
+     file_transfer_mode: Option<String>,
+@@ -284,6 +290,7 @@ pub struct RuntimeConfig {
+     pub h264_backend: H264BackendPolicy,
+     pub resolution_fixed: bool,
+     pub output: Option<String>,
++    pub resize_output: Option<String>,
+     pub on_session_start: Option<String>,
+     pub on_session_end: Option<String>,
+     pub file_transfer_mode: FileTransferMode,
+@@ -466,6 +473,10 @@ impl RuntimeConfig {
+         let audio_mode = resolve_audio_mode(args.audio_mode, config.audio_mode)?;
+         let h264_backend = resolve_h264_backend_policy(args.h264_backend, config.h264_backend)?;
+         let output = args.output.or(config.output);
++        let resize_output = args.resize_output.or(config.resize_output);
++        if output.is_some() && resize_output.is_some() {
++            anyhow::bail!("output and resize-output cannot both be set");
++        }
+         let on_session_start = args.on_session_start.or(config.on_session_start);
+         let on_session_end = args.on_session_end.or(config.on_session_end);
+         let file_transfer_max_chunk_bytes = args
+@@ -513,6 +524,7 @@ impl RuntimeConfig {
+             h264_backend,
+             resolution_fixed,
+             output,
++            resize_output,
+             on_session_start,
+             on_session_end,
+             file_transfer_mode,
+diff --git a/src/hyprland.rs b/src/hyprland.rs
+index 3998124..e9ceb1f 100644
+--- a/src/hyprland.rs
++++ b/src/hyprland.rs
+@@ -232,6 +232,11 @@ pub fn output_create_headless(name: &str) -> Result<()> {
+     send_action(&format!("output create headless {}", name))
+ }
+ 
++/// The monitor rule that sizes a headless output and keeps it far left of the others.
++pub(crate) fn headless_monitor_rule(name: &str, mode: &str, scale: f64) -> String {
++    format!("{name},{mode},-9999x0,{scale}")
++}
++
+ /// Set a monitor rule (e.g. "HEADLESS-1,1920x1080@60,-9999x0,1").
+ ///
+ /// Hyprland's new (Lua) config parser rejects `keyword` with
+@@ -429,9 +434,9 @@ mod tests {
+     use anyhow::anyhow;
+ 
+     use super::{
+-        is_non_legacy_parser_error, monitor_rule_to_lua, option_string_from_response,
+-        parse_instance_lock, resolve_instance, select_instance, socket_path_in, InstanceCandidate,
+-        COMMAND_SOCKET, EVENT_SOCKET,
++        headless_monitor_rule, is_non_legacy_parser_error, monitor_rule_to_lua,
++        option_string_from_response, parse_instance_lock, resolve_instance, select_instance,
++        socket_path_in, InstanceCandidate, COMMAND_SOCKET, EVENT_SOCKET,
+     };
+ 
+     fn candidate(signature: &str, pid: libc::pid_t, display: &str) -> InstanceCandidate {
+@@ -556,6 +561,18 @@ mod tests {
+         assert_eq!(value, None);
+     }
+ 
++    #[test]
++    fn headless_monitor_rule_carries_integer_and_fractional_scale() {
++        assert_eq!(
++            headless_monitor_rule("hypr-rdp-1", "3024x1896@60", 2.0),
++            "hypr-rdp-1,3024x1896@60,-9999x0,2"
++        );
++        assert_eq!(
++            headless_monitor_rule("hypr-rdp-1", "2560x1440@60", 1.5),
++            "hypr-rdp-1,2560x1440@60,-9999x0,1.5"
++        );
++    }
++
+     #[test]
+     fn monitor_rule_to_lua_translates_generated_headless_rule() {
+         let lua = monitor_rule_to_lua("hypr-rdp-1,2560x1440@60,-9999x0,1.5")
+diff --git a/src/input/layout.rs b/src/input/layout.rs
+index 1758849..d21e183 100644
+--- a/src/input/layout.rs
++++ b/src/input/layout.rs
+@@ -239,11 +239,11 @@ impl SharedOutputLayout {
+     }
+ }
+ 
+-/// Query Hyprland monitor layout to compute coordinate mapping.
++/// Query the compositor's monitor layout to compute coordinate mapping.
+ /// Returns (layout_total_w, layout_total_h, output_offset_x, output_offset_y)
+ /// Returns (output_w, output_h, layout_total_w, layout_total_h, output_offset_x, output_offset_y)
+ fn query_layout(output_name: &str) -> Result<(u32, u32, u32, u32, u32, u32)> {
+-    let monitors_val = crate::hyprland::monitors()?;
++    let monitors_val = crate::compositor::monitors()?;
+     layout_from_monitors(&monitors_val, output_name)
+ }
+ 
+diff --git a/src/input/wayland.rs b/src/input/wayland.rs
+index 4db7484..4fa783b 100644
+--- a/src/input/wayland.rs
++++ b/src/input/wayland.rs
+@@ -509,7 +509,12 @@ impl HyprInputHandler {
+ 
+         // Hyprland does not send wl_keyboard.modifiers to this surfaceless
+         // client, so external layout switches come from Hyprland IPC instead.
+-        let layout_listener = if keyboard_layout_policy == KeyboardLayoutPolicy::Compositor {
++        let follows_layout_switches = keyboard_layout_policy == KeyboardLayoutPolicy::Compositor
++            && !crate::compositor::is_sway();
++        if keyboard_layout_policy == KeyboardLayoutPolicy::Compositor && !follows_layout_switches {
++            tracing::warn!("On sway the compositor keymap is used as it is at connection; later layout switches are not followed");
++        }
++        let layout_listener = if follows_layout_switches {
+             Some(spawn_layout_listener(input_commands.as_ref().clone())?)
+         } else {
+             None
+@@ -760,7 +765,11 @@ fn load_keymap(
+     generate_fallback_keymap()
+ }
+ 
++/// On sway, xkb's defaults: sway does not report the layout names it was configured with.
+ fn generate_fallback_keymap() -> Result<(Vec<u8>, &'static str)> {
++    if crate::compositor::is_sway() {
++        return generate_fallback_keymap_from_names(Ok(XkbKeymapNames::default()));
++    }
+     generate_fallback_keymap_from_names(hyprland_xkb_keymap_names())
+ }
+ 
+diff --git a/src/main.rs b/src/main.rs
+index 338d49e..77da7eb 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,12 +1,14 @@
+ mod audio;
+ mod capture;
+ mod clipboard;
++mod compositor;
+ mod config;
+ mod display;
+ mod egfx;
+ mod hyprland;
+ mod input;
+ mod server;
++mod sway;
+ 
+ use anyhow::Result;
+ use tracing_subscriber::EnvFilter;
+diff --git a/src/server/mod.rs b/src/server/mod.rs
+index 10a8744..b56e5aa 100644
+--- a/src/server/mod.rs
++++ b/src/server/mod.rs
+@@ -36,8 +36,7 @@ pub struct ServerContext {
+ 
+ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+     let authentication = PreparedAuthentication::new(config.authentication)?;
+-    let hyprland_instance =
+-        crate::hyprland::initialize().context("failed to select the Hyprland instance")?;
++    let hyprland_instance = crate::compositor::initialize()?;
+     let RuntimeConfig {
+         bind,
+         cert,
+@@ -57,6 +56,7 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+         h264_backend,
+         resolution_fixed,
+         output,
++        resize_output,
+         on_session_start,
+         on_session_end,
+         file_transfer_mode,
+@@ -83,6 +83,7 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+         h264_backend,
+         resolution_fixed,
+         output,
++        resize_output,
+     )
+     .await
+     .context("failed to initialize display capture")?;
+@@ -103,7 +104,7 @@ pub async fn setup(config: RuntimeConfig) -> Result<ServerContext> {
+     );
+     let sound_factory = sound_factory_for_audio_mode(audio_mode);
+     let session_hooks =
+-        session_hooks_from_config(on_session_start, on_session_end, Some(hyprland_instance));
++        session_hooks_from_config(on_session_start, on_session_end, hyprland_instance);
+ 
+     let builder = RdpServer::builder().with_addr(bind);
+ 
+diff --git a/src/sway.rs b/src/sway.rs
+new file mode 100644
+index 0000000..30bd845
+--- /dev/null
++++ b/src/sway.rs
+@@ -0,0 +1,158 @@
++//! sway IPC. Each message is "i3-ipc", the payload length and the message type (both native-endian
++//! u32), then the payload; replies have the same shape.
++
++use std::io::{Read, Write};
++use std::os::unix::net::UnixStream;
++use std::time::{Duration, Instant};
++
++use anyhow::{bail, Context, Result};
++use serde_json::{json, Value};
++
++const MAGIC: &[u8] = b"i3-ipc";
++const HEADER_LEN: usize = 14;
++const RUN_COMMAND: u32 = 0;
++const GET_OUTPUTS: u32 = 3;
++const NEW_OUTPUT_TIMEOUT: Duration = Duration::from_secs(5);
++const NEW_OUTPUT_POLL: Duration = Duration::from_millis(50);
++
++pub fn running() -> bool {
++    std::env::var_os("SWAYSOCK").is_some_and(|path| !path.is_empty())
++}
++
++fn request(kind: u32, payload: &str) -> Result<Value> {
++    let path = std::env::var("SWAYSOCK").context("SWAYSOCK is not set")?;
++    let mut sock = UnixStream::connect(&path)
++        .with_context(|| format!("failed to connect to sway socket: {}", path))?;
++    sock.set_read_timeout(Some(Duration::from_secs(3)))?;
++
++    let mut message = MAGIC.to_vec();
++    message.extend((payload.len() as u32).to_ne_bytes());
++    message.extend(kind.to_ne_bytes());
++    message.extend(payload.as_bytes());
++    sock.write_all(&message)?;
++
++    let mut header = [0u8; HEADER_LEN];
++    sock.read_exact(&mut header)?;
++    if &header[..MAGIC.len()] != MAGIC {
++        bail!("sway IPC reply does not start with i3-ipc");
++    }
++    let length = u32::from_ne_bytes(header[6..10].try_into()?) as usize;
++    let mut reply = vec![0u8; length];
++    sock.read_exact(&mut reply)?;
++    serde_json::from_slice(&reply).context("failed to parse sway IPC reply")
++}
++
++/// Runs sway commands and fails with sway's own message if any of them failed.
++fn run(command: &str) -> Result<()> {
++    let replies = request(RUN_COMMAND, command)?;
++    for reply in replies
++        .as_array()
++        .context("expected an array of command results")?
++    {
++        if reply["success"] != true {
++            let error = reply["error"].as_str().unwrap_or("unknown error");
++            bail!("sway command '{}' failed: {}", command, error);
++        }
++    }
++    Ok(())
++}
++
++fn active_outputs() -> Result<Vec<Value>> {
++    let outputs = request(GET_OUTPUTS, "")?;
++    let outputs = outputs.as_array().context("expected an outputs array")?;
++    Ok(outputs
++        .iter()
++        .filter(|output| output["active"] == true)
++        .cloned()
++        .collect())
++}
++
++/// The active outputs in the shape Hyprland's `j/monitors` has: name, position in the layout, and
++/// size in pixels.
++pub fn monitors() -> Result<Value> {
++    let monitors: Vec<Value> = active_outputs()?.iter().map(monitor_from_output).collect();
++    Ok(Value::Array(monitors))
++}
++
++fn monitor_from_output(output: &Value) -> Value {
++    json!({
++        "name": output["name"],
++        "x": output["rect"]["x"],
++        "y": output["rect"]["y"],
++        "width": output["current_mode"]["width"],
++        "height": output["current_mode"]["height"],
++    })
++}
++
++/// Returns the name sway gave the new output: the one that was not there before.
++pub fn create_headless_output() -> Result<String> {
++    let before = output_names()?;
++    run("create_output")?;
++    let start = Instant::now();
++    loop {
++        if let Some(name) = output_names()?
++            .into_iter()
++            .find(|name| !before.contains(name))
++        {
++            return Ok(name);
++        }
++        if start.elapsed() >= NEW_OUTPUT_TIMEOUT {
++            bail!(
++                "sway created no output within {}ms",
++                NEW_OUTPUT_TIMEOUT.as_millis()
++            );
++        }
++        std::thread::sleep(NEW_OUTPUT_POLL);
++    }
++}
++
++fn output_names() -> Result<Vec<String>> {
++    let outputs = request(GET_OUTPUTS, "")?;
++    let outputs = outputs.as_array().context("expected an outputs array")?;
++    Ok(outputs
++        .iter()
++        .filter_map(|output| output["name"].as_str().map(str::to_owned))
++        .collect())
++}
++
++/// Sets the size and scale, and places the output left of every other one.
++pub fn set_output_mode(name: &str, width: u32, height: u32, scale: f64) -> Result<()> {
++    let logical_width = (f64::from(width) / scale).round() as i64;
++    let x = left_edge_of_others(name)? - logical_width;
++    run(&format!(
++        "output {name} mode --custom {width}x{height}@60Hz scale {scale} position {x} 0"
++    ))
++}
++
++fn left_edge_of_others(name: &str) -> Result<i64> {
++    let left_edge = active_outputs()?
++        .iter()
++        .filter(|output| output["name"].as_str() != Some(name))
++        .filter_map(|output| output["rect"]["x"].as_i64())
++        .min();
++    Ok(left_edge.unwrap_or(0))
++}
++
++pub fn remove_output(name: &str) -> Result<()> {
++    run(&format!("output {name} unplug"))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn monitor_takes_the_layout_position_and_the_pixel_size() {
++        let output = json!({
++            "name": "HEADLESS-2",
++            "active": true,
++            "rect": { "x": 1280, "y": 0, "width": 960, "height": 540 },
++            "current_mode": { "width": 1920, "height": 1080, "refresh": 60000 },
++        });
++
++        assert_eq!(
++            monitor_from_output(&output),
++            json!({ "name": "HEADLESS-2", "x": 1280, "y": 0, "width": 1920, "height": 1080 })
++        );
++    }
++}

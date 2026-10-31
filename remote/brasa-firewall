@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Installed as root by brasa-remote (/usr/local/sbin/brasa-firewall). With ufw on, it opens exactly the
-# addresses and ports the remote desktop (wayvnc) and the SSH server listen on, to any source, and
+# addresses and ports the remote desktop (wayvnc, hypr-rdp) and the SSH server listen on, to any source, and
 # closes the ones it opened that nobody listens on any more. It takes no arguments, so sudo can let you
 # run it without a password.
 set -u
@@ -12,7 +12,7 @@ ufw status | grep -q '^Status: active' || exit 0
 
 # "address port" per listening socket; address "any" for every address. IPv6-only addresses are left out.
 listening() {
-  ss -ltnpH | awk '/users:\(\("(wayvnc|sshd)"/ { print $4 }' | while read -r local; do
+  ss -ltnpH | awk '/users:\(\("(wayvnc|sshd|hypr-rdp)"/ { print $4 }' | while read -r local; do
     port=${local##*:} host=${local%:*}
     case $host in
       0.0.0.0|\*|"[::]") echo "any $port" ;;
