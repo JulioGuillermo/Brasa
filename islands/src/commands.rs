@@ -19,6 +19,12 @@ pub enum Command {
     Reload,
     /// Quick settings (Super+a).
     Quick,
+    /// The window switcher on this workspace's windows, or the next window when it is open (Super+Tab).
+    Switch,
+    /// The same on every window (Super+Shift+Tab).
+    SwitchAll,
+    /// The window switcher on every window, until one is chosen (Super+Ctrl+Tab).
+    Windows,
 }
 
 impl Command {
@@ -33,6 +39,9 @@ impl Command {
             "hide" => Command::Hide,
             "reload" => Command::Reload,
             "quick" => Command::Quick,
+            "switch" => Command::Switch,
+            "switch-all" => Command::SwitchAll,
+            "windows" => Command::Windows,
             _ => return None,
         };
         Some(command)

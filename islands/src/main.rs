@@ -1,4 +1,4 @@
-//! brasa-islands [start|toggle|centre|dnd|launcher|peek|hide|reload|quick]
+//! brasa-islands [start|toggle|centre|dnd|launcher|peek|hide|reload|quick|switch|switch-all|windows]
 //! The first call starts the one process; later calls hand it their command and leave.
 
 mod app;
@@ -17,7 +17,7 @@ use gtk4::prelude::*;
 use app::App;
 use commands::Command;
 
-const USAGE: &str = "usage: brasa-islands [start|toggle|centre|dnd|launcher|peek|hide|reload|quick]";
+const USAGE: &str = "usage: brasa-islands [start|toggle|centre|dnd|launcher|peek|hide|reload|quick|switch|switch-all|windows]";
 
 fn main() -> glib::ExitCode {
     let word = std::env::args().nth(1);

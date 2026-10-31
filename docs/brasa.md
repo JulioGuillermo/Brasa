@@ -57,7 +57,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` (`Shift+Print`) picks the area | `~/.local/bin/` |
-| `islands/` | `brasa-islands`, in Rust: the island (music, notifications, `Super+m`), the app launcher (`Super+d`) and quick settings (`Super+a`), one process | `~/.local/bin/` (built by `install.sh` and `brasa-reload`) |
+| `islands/` | `brasa-islands`, in Rust: the island (music, notifications, `Super+m`), the app launcher (`Super+d`), quick settings (`Super+a`) and the window switcher (`Super+Tab`), one process | `~/.local/bin/` (built by `install.sh` and `brasa-reload`) |
 | `bin/brasa-island-settings`, `lib/brasa_island_config.py` | Island window (`Super+Shift+m`, quick settings tile **Island**): music, notifications, launcher, quick settings, where each one sits | `~/.local/bin/` |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
@@ -237,6 +237,9 @@ search; Enter or a click runs it.
 | `Super+x` | Draw on the screen (Wayscriber) |
 | `Super+n` | Notification centre (the island) |
 | `Super+a` | Quick settings |
+| `Super+Tab` | Window switcher, this workspace (hold Super, Tab for the next one) |
+| `Super+Shift+Tab` | Window switcher, every workspace |
+| `Super+Ctrl+Tab` | Window switcher, every workspace, open until you choose |
 | `Super+F1` | Key bindings window |
 | `Super+Ctrl+F1` | Brasa settings: your own key bindings, the apps the keys open |
 | `Super+Ctrl+s` | Sessions window |
@@ -545,6 +548,12 @@ between states, even when interrupted halfway. It shows two things, each one can
   you had open; one that opens on its own (a notification, the pointer) leaves the keyboard alone.
   A click anywhere off a panel opened with its key closes it too, on any monitor; that click does not
   reach the window under it. The quick panel (`Super+a`) works the same way.
+- **Window switcher** (`Super+Tab`): an island on the left edge, halfway down, with the open windows
+  as cards on a turning drum, the most recently used first. The card in front, bigger and ringed in
+  red, is the chosen one. Hold Super: each Tab turns to the next window, and letting Super go focuses
+  it, on its workspace. `Super+Tab` shows this workspace's windows, `Super+Shift+Tab` every one.
+  `Super+Ctrl+Tab` opens it on every window until you choose: arrows, Tab or the wheel turn it, Enter
+  or a click on a card focuses that window, Escape or a click off it closes it. Hyprland and sway.
 
 **Settings**: the **Island** window (`Super+Shift+m`) switches the music, the
 notification centre of `Super+m` and the launcher on or off, and picks for each island its monitor, edge (top or
@@ -578,7 +587,7 @@ quick_hover=off         # on: resting the pointer in its bottom corner opens it
 The islands and quick settings are one Rust program, `islands/` (`brasa-islands`): one process, about
 50 MB, no CPU while idle, the outlines drawn by the GPU. `install.sh` builds it (it needs `cargo`), and
 `brasa-reload` rebuilds it after a `git pull`. By hand: `cd ~/brasa/islands && cargo build --release`.
-`brasa-islands toggle|centre|dnd|launcher|peek|hide|reload|quick` tells the running one what to do.
+`brasa-islands toggle|centre|dnd|launcher|peek|hide|reload|quick|switch|switch-all|windows` tells the running one what to do.
 
 ## Lock screen
 

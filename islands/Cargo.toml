@@ -2,7 +2,7 @@
 name = "brasa-islands"
 version = "0.1.0"
 edition = "2024"
-description = "Brasa's islands in one process: music, notifications, app launcher and quick settings"
+description = "Brasa's islands in one process: music, notifications, app launcher, quick settings and the window switcher"
 
 [dependencies]
 gtk4 = { version = "0.11", features = ["v4_18"] }

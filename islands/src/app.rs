@@ -11,12 +11,14 @@ use crate::commands::Command;
 use crate::config::{self, Config};
 use crate::runtime::events::{self, Event, EventReceiver};
 use crate::runtime::{reader, workers};
+use crate::services::compositor::Scope;
 use crate::ui::launcher::Launcher;
 use crate::ui::music::Music;
 use crate::ui::notifications::Notices;
 use crate::ui::quick::Quick;
 use crate::ui::shell::island::{Island, Sections};
 use crate::ui::shell::monitors;
+use crate::ui::switcher::Switcher;
 
 const ISLAND_STYLE: &str = include_str!("../style/island.css");
 const QUICK_STYLE: &str = include_str!("../style/quick.css");
@@ -26,6 +28,7 @@ enum Panel {
     Main,
     Launcher,
     Quick,
+    Switcher,
 }
 
 pub struct App {
@@ -34,6 +37,7 @@ pub struct App {
     notices: Rc<Notices>,
     launcher: RefCell<Option<Rc<Launcher>>>,
     quick: Rc<Quick>,
+    switcher: Rc<Switcher>,
     main_island: RefCell<Option<Rc<Island>>>,
     launcher_island: RefCell<Option<Rc<Island>>>,
 }
@@ -64,6 +68,7 @@ impl App {
                 ),
                 launcher: RefCell::new(None),
                 quick: Quick::new(gtk, &sender),
+                switcher: Switcher::new(gtk),
                 main_island: RefCell::new(None),
                 launcher_island: RefCell::new(None),
             }
@@ -101,6 +106,18 @@ impl App {
                 self.close_others(Panel::Quick);
                 self.quick.toggle();
             }
+            Command::Switch => {
+                self.close_others(Panel::Switcher);
+                self.switcher.switch(Scope::Workspace);
+            }
+            Command::SwitchAll => {
+                self.close_others(Panel::Switcher);
+                self.switcher.switch(Scope::All);
+            }
+            Command::Windows => {
+                self.close_others(Panel::Switcher);
+                self.switcher.toggle();
+            }
         }
     }
 
@@ -121,10 +138,13 @@ impl App {
         if keep != Panel::Quick && self.quick.is_open() {
             self.quick.close();
         }
+        if keep != Panel::Switcher && self.switcher.is_open() {
+            self.switcher.close();
+        }
         let keep_island = match keep {
             Panel::Main => self.main_island.borrow().clone(),
             Panel::Launcher => self.launcher_island.borrow().clone(),
-            Panel::Quick => None,
+            Panel::Quick | Panel::Switcher => None,
         };
         for island in self.islands() {
             let kept = keep_island.as_ref().is_some_and(|kept| Rc::ptr_eq(kept, &island));

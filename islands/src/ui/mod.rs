@@ -4,3 +4,4 @@ pub mod music;
 pub mod notifications;
 pub mod quick;
 pub mod shell;
+pub mod switcher;
