@@ -992,7 +992,9 @@ only folder icons, made again by `brasa-themes mix` (`lib/brasa_icon_mix.py`):
 | Brasa · Baphomet | Baphomet |
 | Brasa · Lyra | Lyra-dark, its cyan glow red (only if installed) |
 | Brasa · Slot | Slot-Symbolic-Dark-Icons (only if installed) |
+| Brasa · Slot night blue | the same, the front night blue and the symbol red |
 | Brasa · BeautySolar | BeautySolar (only if installed) |
+| Brasa · BeautySolar night blue | the same, the body night blue and the tab and symbol red |
 
 Brasa settings (`Super+Ctrl+F1`), **Appearance** page, lists every theme installed on the machine, with
 a preview, and applies the one you pick at once. The choice is saved in `~/.config/brasa/appearance.conf`

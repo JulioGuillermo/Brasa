@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from brasa_icon_files import theme_path
+from brasa_navy import beauty_navy, slot_navy
 from brasa_redden import redden_cyan_pictures, redden_svg
 from brasa_themes_found import USER_ICONS, read_index
 
@@ -62,7 +63,9 @@ MIXES = [
     Mix("Brasa-Baphomet", "Brasa · Baphomet", "Baphomet", any_folder, redden_svg),
     Mix("Brasa-Lyra", "Brasa · Lyra", "Lyra-dark", any_folder, lyra_red, only_sizes=(48,)),
     Mix("Brasa-Slot", "Brasa · Slot", "Slot-Symbolic-Dark-Icons", any_folder, slot_red),
+    Mix("Brasa-Slot-Navy", "Brasa · Slot night blue", "Slot-Symbolic-Dark-Icons", any_folder, slot_navy),
     Mix("Brasa-BeautySolar", "Brasa · BeautySolar", "BeautySolar", any_folder, beauty_red),
+    Mix("Brasa-BeautySolar-Navy", "Brasa · BeautySolar night blue", "BeautySolar", any_folder, beauty_navy),
 ]
 
 
