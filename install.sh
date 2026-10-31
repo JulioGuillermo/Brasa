@@ -259,6 +259,7 @@ qt5ct             qt5ct                   qt5ct                       qt5ct     
 kvantum           kvantum                 qt-style-kvantum            kvantum                   kvantum-qt6               kvantum
 kvantum-qt5       kvantum-qt5             -                           kvantum-qt5               kvantum-qt5               -
 qt6ct             qt6ct                   qt6ct                       qt6ct                     qt6ct                     -
+icons-papirus     papirus-icon-theme      papirus-icon-theme          papirus-icon-theme        papirus-icon-theme        papirus-icon-theme
 gtk-theme         adw-gtk-theme           adw-gtk3                    adw-gtk3-theme            adw-gtk3                  -
 portal-gtk        xdg-desktop-portal-gtk  xdg-desktop-portal-gtk      xdg-desktop-portal-gtk    xdg-desktop-portal-gtk    xdg-desktop-portal-gtk
 wtype             wtype                   wtype                       wtype                     wtype                     wtype
@@ -579,6 +580,7 @@ say "Icon and cursor themes"
 if [ $DEPS = 1 ]; then
   run "$HERE/bin/brasa-themes" download || problem "Some themes did not download: ./install.sh tries again"
 fi
+run "$HERE/bin/brasa-themes" mix
 run "$HERE/bin/brasa-themes" apply
 
 if [ $ZSH = 1 ]; then

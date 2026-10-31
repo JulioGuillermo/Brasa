@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Icon and cursor themes.
 Usage: brasa-themes download        the themes Brasa brings (data/themes.tsv) not installed yet
+       brasa-themes mix             make Brasa's red icon themes: Papirus-Dark with the folders of
+                                    Papirus, Kanada, Baphomet, Lyra, Slot or BeautySolar (those installed)
        brasa-themes list icons|cursors   the installed ones, the chosen one marked
        brasa-themes icons NAME | cursor NAME   choose one and use it now
        brasa-themes apply           use the chosen ones again (session start)
@@ -10,6 +12,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 import brasa_themes_apply as themes  # noqa: E402
+from brasa_icon_mix import build_all  # noqa: E402
 from brasa_themes_download import download_missing  # noqa: E402
 from brasa_themes_found import installed  # noqa: E402
 
@@ -34,6 +37,8 @@ def main(args):
     match args:
         case ["download"]:
             return 1 if download_missing(print) else 0
+        case ["mix"]:
+            build_all(print)
         case ["list", ("icons" | "cursors") as kind]:
             print_list(kind)
         case ["icons", name]:

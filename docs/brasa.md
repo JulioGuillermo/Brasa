@@ -981,6 +981,19 @@ The installer downloads these themes from gnome-look.org into `~/.local/share/ic
 | icons | **KanadaIcons** (default), Baphomet, LED |
 | cursors | **KanadaCursors** (default), Oxygen 05 Vibrant Red, Fuchsia-Red, Breeze Dark Red, GoogleDot-Red |
 
+It also makes Brasa's own red icon themes: **Papirus-Dark** for everything (installed as a package),
+with the folders of another theme turned red. Each is a small theme in `~/.local/share/icons` holding
+only folder icons, made again by `brasa-themes mix` (`lib/brasa_icon_mix.py`):
+
+| Theme | Folders from |
+|---|---|
+| Brasa · Papirus | Papirus-Dark, deep red |
+| Brasa · Kanada | KanadaIcons |
+| Brasa · Baphomet | Baphomet |
+| Brasa · Lyra | Lyra-dark, its cyan glow red (only if installed) |
+| Brasa · Slot | Slot-Symbolic-Dark-Icons (only if installed) |
+| Brasa · BeautySolar | BeautySolar (only if installed) |
+
 Brasa settings (`Super+Ctrl+F1`), **Appearance** page, lists every theme installed on the machine, with
 a preview, and applies the one you pick at once. The choice is saved in `~/.config/brasa/appearance.conf`
 and goes to GTK (gsettings and `settings.ini`), Qt (qt5ct / qt6ct), the window manager's cursor and
@@ -989,6 +1002,7 @@ sway gets it from `brasa-autostart`. Some apps change their icons only when they
 
 ```
 brasa-themes download                  the themes of data/themes.tsv not installed yet
+brasa-themes mix                       make the Brasa · themes from the installed ones
 brasa-themes list icons|cursors        the installed ones, the chosen one marked
 brasa-themes icons NAME | cursor NAME  choose one (its folder name) and use it now
 brasa-themes apply                     use the chosen ones again
