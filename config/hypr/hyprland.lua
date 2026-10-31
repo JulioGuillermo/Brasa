@@ -11,9 +11,10 @@ local state = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/sta
 pcall(dofile, state .. "monitors/hyprland.lua")
 
 ---- Environment
-hl.env("XCURSOR_THEME", "Future-cyan-cursors")
+hl.env("XCURSOR_THEME", "KanadaCursors")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
+pcall(dofile, state .. "cursor.lua")   -- your cursor theme, chosen with brasa-themes (Brasa settings)
 hl.env("QT_QPA_PLATFORMTHEME", "qt5ct")   -- Qt apps take Brasa's colors through qt5ct / qt6ct
 
 ---- Autostart

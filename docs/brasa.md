@@ -19,9 +19,11 @@
 16. [Login screen](#login-screen)
 17. [Shell: zsh and starship](#shell-zsh-and-starship)
 18. [Remote desktop (VNC and RDP)](#remote-desktop-vnc-and-rdp)
-19. [Colors](#colors)
-20. [Trying it inside GNOME](#trying-it-inside-gnome)
-21. [Known issues and untested bits](#known-issues-and-untested-bits)
+19. [Wallpaper](#wallpaper)
+20. [Icons and cursors](#icons-and-cursors)
+21. [Colors](#colors)
+22. [Trying it inside GNOME](#trying-it-inside-gnome)
+23. [Known issues and untested bits](#known-issues-and-untested-bits)
 
 ## What it is
 
@@ -474,7 +476,7 @@ when windows open, a red gradient border, and a three-finger touchpad swipe to s
 
 Shared: keyboard `es` + `us altgr-intl` (compose on Insert), repeat 500 ms / 33 per second,
 tap to click and natural scrolling on the touchpad, touchscreen and pen mapped to the internal
-screen, `Future-cyan-cursors`, 133 % scale on `eDP-1`, dynamic refresh rate.
+screen, the cursor theme you choose ([Icons and cursors](#icons-and-cursors)), 133 % scale on `eDP-1`, dynamic refresh rate.
 
 **Touchscreen gestures**: Hyprland supports them with the hyprgrass plugin, not in the installer yet
 (it still has to be checked against the Lua configuration).
@@ -816,7 +818,7 @@ pointer leaves it.
 - While open it follows changes made elsewhere: the sliders when you use the volume or brightness keys,
   the switches (Wi-Fi, mute…) within two seconds.
 - Below: volume and, with a backlight, brightness; then the battery, the settings button (the Island
-  window: corner, size), Brasa settings (`brasa-settings`: your key bindings and the apps the keys open),
+  window: corner, size), Brasa settings (`brasa-settings`: your key bindings, the apps the keys open, the icon and cursor themes),
   HyprMod (Hyprland settings, when installed, only in Hyprland) and the power button (`brasa-exit`).
 
 **Keyboard only**:
@@ -968,6 +970,29 @@ brasa-wallpaper                               show the current ones
   the login image really changes, asking for the password when run from a terminal; otherwise it says
   to run `brasa-greeter bg`.
 - Formats: png, jpg, webp, bmp.
+
+## Icons and cursors
+
+The installer downloads these themes from gnome-look.org into `~/.local/share/icons` (list in
+`data/themes.tsv`):
+
+| Kind | Themes |
+|---|---|
+| icons | **KanadaIcons** (default), Baphomet, LED |
+| cursors | **KanadaCursors** (default), Oxygen 05 Vibrant Red, Fuchsia-Red, Breeze Dark Red, GoogleDot-Red |
+
+Brasa settings (`Super+Ctrl+F1`), **Appearance** page, lists every theme installed on the machine, with
+a preview, and applies the one you pick at once. The choice is saved in `~/.config/brasa/appearance.conf`
+and goes to GTK (gsettings and `settings.ini`), Qt (qt5ct / qt6ct), the window manager's cursor and
+`~/.icons/default` (X11 apps). Hyprland reads the cursor at start from `~/.local/state/brasa/cursor.lua`;
+sway gets it from `brasa-autostart`. Some apps change their icons only when they start again.
+
+```
+brasa-themes download                  the themes of data/themes.tsv not installed yet
+brasa-themes list icons|cursors        the installed ones, the chosen one marked
+brasa-themes icons NAME | cursor NAME  choose one (its folder name) and use it now
+brasa-themes apply                     use the chosen ones again
+```
 
 ## Colors
 

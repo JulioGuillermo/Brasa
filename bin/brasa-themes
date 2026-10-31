@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Icon and cursor themes.
+Usage: brasa-themes download        the themes Brasa brings (data/themes.tsv) not installed yet
+       brasa-themes list icons|cursors   the installed ones, the chosen one marked
+       brasa-themes icons NAME | cursor NAME   choose one and use it now
+       brasa-themes apply           use the chosen ones again (session start)
+The choice is saved in ~/.config/brasa/appearance.conf; Brasa settings has a page for it."""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+import brasa_themes_apply as themes  # noqa: E402
+from brasa_themes_download import download_missing  # noqa: E402
+from brasa_themes_found import installed  # noqa: E402
+
+CHOICE_OF_KIND = {"icons": "icons", "cursors": "cursor"}
+
+
+def print_list(kind):
+    chosen = themes.load()[CHOICE_OF_KIND[kind]]
+    for theme in installed(kind):
+        mark = "*" if theme.folder == chosen else " "
+        print(f"{mark} {theme.folder}")
+
+
+def choose(kind, name):
+    folders = [theme.folder for theme in installed(kind)]
+    if name not in folders:
+        sys.exit(f"brasa-themes: no {kind} theme called {name} is installed")
+    themes.choose(CHOICE_OF_KIND[kind], name)
+
+
+def main(args):
+    match args:
+        case ["download"]:
+            return 1 if download_missing(print) else 0
+        case ["list", ("icons" | "cursors") as kind]:
+            print_list(kind)
+        case ["icons", name]:
+            choose("icons", name)
+        case ["cursor", name]:
+            choose("cursors", name)
+        case ["apply"]:
+            themes.apply_saved()
+        case _:
+            sys.exit(__doc__)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

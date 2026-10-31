@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Brasa settings: your own key bindings (my-keys.tsv) and the apps the keys open (apps.conf).
-Usage: brasa-settings [keys|apps], the page to open."""
+"""Brasa settings: your own key bindings (my-keys.tsv), the apps the keys open (apps.conf) and the
+icon and cursor themes (appearance.conf).
+Usage: brasa-settings [keys|apps|look], the page to open."""
 import os
 import sys
 
@@ -14,6 +15,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..
 import brasa_ui  # noqa: E402
 from brasa_settings_apps import AppsPage  # noqa: E402
 from brasa_settings_keys import KeysPage  # noqa: E402
+from brasa_settings_look import LookPage  # noqa: E402
+
+PAGES = ("keys", "apps", "look")
 
 
 class SettingsWindow(Adw.ApplicationWindow):
@@ -22,6 +26,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         stack = Adw.ViewStack()
         stack.add_titled_with_icon(KeysPage(), "keys", "Key bindings", "input-keyboard-symbolic")
         stack.add_titled_with_icon(AppsPage(), "apps", "Apps", "view-app-grid-symbolic")
+        stack.add_titled_with_icon(LookPage(), "look", "Appearance", "applications-graphics-symbolic")
         stack.set_visible_child_name(page)
         switcher = Adw.ViewSwitcher(stack=stack, policy=Adw.ViewSwitcherPolicy.WIDE)
         view = Adw.ToolbarView(content=stack)
@@ -31,7 +36,7 @@ class SettingsWindow(Adw.ApplicationWindow):
 
 
 def main():
-    page = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] in ("keys", "apps") else "keys"
+    page = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] in PAGES else "keys"
     app = Adw.Application(application_id="org.brasa.Settings")
     app.connect("startup", lambda _: brasa_ui.load_style())
     app.connect("activate", lambda app: (app.get_active_window() or SettingsWindow(app, page)).present())

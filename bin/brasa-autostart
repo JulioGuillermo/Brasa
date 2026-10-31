@@ -27,6 +27,8 @@ here brasa-islands || setsid -f ~/.local/bin/brasa-islands >/dev/null 2>&1   # m
 ~/.local/bin/brasa-bar   # one bar per monitor, folded on narrow ones
 # sway: your keyboard layouts (brasa-keyboard; Hyprland loads them in hyprland.lua)
 [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -s ~/.config/brasa/keyboard.conf ] && ~/.local/bin/brasa-keyboard apply
+# sway: your cursor theme (brasa-themes; Hyprland loads it in hyprland.lua)
+[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -s ~/.config/brasa/appearance.conf ] && ~/.local/bin/brasa-themes apply
 # sway: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)
 [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && { here -f "brasa-wm remote-watch" ||
   setsid -f ~/.local/bin/brasa-wm remote-watch >/dev/null 2>&1; }
