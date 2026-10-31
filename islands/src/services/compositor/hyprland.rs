@@ -65,6 +65,7 @@ fn windows_in(clients: &Value, workspace: Option<i64>) -> Vec<Window> {
                 title: text(&client["title"]),
                 workspace: text(&client["workspace"]["name"]),
                 focused: history == 0,
+                capture_id: text(&client["stableId"]),
                 pid: client["pid"].as_u64().and_then(|pid| u32::try_from(pid).ok()),
             };
             (history, window)

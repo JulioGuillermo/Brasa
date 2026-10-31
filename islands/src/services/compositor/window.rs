@@ -15,4 +15,6 @@ pub struct Window {
     pub workspace: String,
     pub focused: bool,
     pub pid: Option<u32>,
+    /// The name the Wayland window list gives it, to capture its picture; empty when unknown.
+    pub capture_id: String,
 }

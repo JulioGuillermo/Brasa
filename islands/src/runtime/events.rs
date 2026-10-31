@@ -8,6 +8,8 @@ pub enum Event {
     /// The default output's volume, 0.0 to 1.0.
     Volume(f64),
     Cover { url: String, picture: Option<gdk::Texture> },
+    /// A small picture of an open window, for the window switcher.
+    WindowShot { capture_id: String, picture: gdk::Texture },
     /// A quick settings shell test finished.
     Tested { test: String, passed: bool },
 }

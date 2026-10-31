@@ -6,9 +6,12 @@
 mod card;
 mod carousel;
 mod keys;
+mod shot;
 
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use gtk4::prelude::*;
@@ -16,14 +19,17 @@ use gtk4::{gdk, glib, graphene};
 use gtk4_layer_shell::{Edge as LayerEdge, KeyboardMode, Layer, LayerShell};
 
 use crate::config;
+use crate::runtime::events::{self, Event, EventSender};
 use crate::runtime::workers;
 use crate::services::compositor::{self, Scope, Window};
+use crate::services::window_shots;
 use crate::ui::shell::click_away::ClickAway;
 use crate::ui::shell::frame::Frame;
 use crate::ui::shell::island::parse_color;
 use crate::ui::shell::monitors;
 use crate::ui::shell::outline::Outline;
 use crate::ui::shell::spring::Spring;
+use card::Card;
 use carousel::{CARD_HEIGHT, CARD_WIDTH, Carousel, FEWEST_CARDS_FOR_A_RING};
 use keys::Action;
 
@@ -42,6 +48,9 @@ const CONTENT_FADE_SECONDS: f64 = 0.12;
 const MAX_FRAME_SECONDS: f64 = 1.0 / 30.0;
 const SUPER_CHECK_EVERY: Duration = Duration::from_millis(40);
 const KEYBOARD_RELEASE_WAIT: Duration = Duration::from_millis(120);
+/// Twice the card's height, so the picture stays sharp on a scaled monitor.
+const SHOT_PIXELS_HIGH: usize = 2 * CARD_HEIGHT as usize;
+const FRONT_SHOT_EVERY: Duration = Duration::from_millis(500);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Opening {
@@ -75,7 +84,7 @@ impl Springs {
 struct State {
     opening: Option<Opening>,
     windows: Vec<Window>,
-    cards: Vec<gtk4::Widget>,
+    cards: Vec<Card>,
     chosen: usize,
     /// Where the drum turns to: it only grows or shrinks, so turning past the last card goes on round.
     turned_to: f64,
@@ -84,6 +93,7 @@ struct State {
     ticking: bool,
     last_frame: Option<f64>,
     super_watch: Option<glib::SourceId>,
+    front_shots: Option<glib::SourceId>,
 }
 
 pub struct Switcher {
@@ -94,10 +104,14 @@ pub struct Switcher {
     painted: Rc<Cell<Painted>>,
     state: RefCell<State>,
     click_away: ClickAway,
+    events: EventSender,
+    /// A picture of the front window is being taken: the next one waits for it.
+    taking_front_shot: Arc<AtomicBool>,
 }
 
 impl Switcher {
-    pub fn new(app: &gtk4::Application) -> Rc<Switcher> {
+    /// events: the window pictures come back through them, taken on a worker.
+    pub fn new(app: &gtk4::Application, events: &EventSender) -> Rc<Switcher> {
         let painted = Rc::new(Cell::new(Painted {
             outline: Outline { center: 0.0, width: 0.0, height: 0.0, shoulder: 0.0, radius: 0.0 },
             color: gdk::RGBA::BLACK,
@@ -145,8 +159,11 @@ impl Switcher {
                 ticking: false,
                 last_frame: None,
                 super_watch: None,
+                front_shots: None,
             }),
             click_away: ClickAway::new(app, close_of(me.clone())),
+            events: events.clone(),
+            taking_front_shot: Arc::new(AtomicBool::new(false)),
         });
         switcher.place_on_screen();
         switcher.listen();
@@ -194,8 +211,8 @@ impl Switcher {
         let Some(monitor) = monitors::focused_or_first() else { return };
         let skips_the_focused_one = opening == Opening::WhileSuperHeld && windows.len() > 1 && windows[0].focused;
         let chosen = usize::from(skips_the_focused_one);
-        let cards: Vec<gtk4::Widget> = windows.iter().map(card::card).collect();
-        self.carousel.set_cards(cards.clone());
+        let cards: Vec<Card> = windows.iter().map(Card::new).collect();
+        self.carousel.set_cards(cards.iter().map(|card| card.root.clone()).collect());
         self.carousel.set_position(chosen as f64);
         {
             let mut state = self.state.borrow_mut();
@@ -215,6 +232,8 @@ impl Switcher {
         if opening == Opening::WhileSuperHeld {
             self.watch_super();
         }
+        self.take_shots();
+        self.keep_front_shot_live();
         self.fit();
     }
 
@@ -231,6 +250,7 @@ impl Switcher {
 
     pub fn close(&self) {
         self.stop_watching_super();
+        self.stop_front_shots();
         self.state.borrow_mut().opening = None;
         self.window.set_keyboard_mode(KeyboardMode::None);
         self.click_away.hide();
@@ -273,10 +293,80 @@ impl Switcher {
         let state = self.state.borrow();
         for (index, card) in state.cards.iter().enumerate() {
             if index == state.chosen {
-                card.add_css_class("chosen");
+                card.root.add_css_class("chosen");
             } else {
-                card.remove_css_class("chosen");
+                card.root.remove_css_class("chosen");
             }
+        }
+    }
+
+    // ---- Window pictures
+
+    /// A worker came back with a picture of a window.
+    pub fn show_shot(&self, capture_id: &str, picture: &gdk::Texture) {
+        let state = self.state.borrow();
+        for card in state.cards.iter().filter(|card| card.capture_id == capture_id) {
+            card.show_shot(picture);
+        }
+    }
+
+    /// Every window's picture, the chosen one first, then outwards from it.
+    fn take_shots(&self) {
+        let capture_ids = {
+            let state = self.state.borrow();
+            let count = state.cards.len();
+            let mut by_distance: Vec<usize> = (0..count).collect();
+            by_distance.sort_by_key(|index| distance_round(*index, state.chosen, count));
+            let ids = by_distance.into_iter().map(|index| state.cards[index].capture_id.clone());
+            ids.filter(|capture_id| !capture_id.is_empty()).collect::<Vec<String>>()
+        };
+        self.take_shots_of(capture_ids, None);
+    }
+
+    /// The window in front, again and again while open: a video or a terminal moves in its card.
+    fn keep_front_shot_live(&self) {
+        self.stop_front_shots();
+        let me = self.me.clone();
+        let source = glib::timeout_add_local(FRONT_SHOT_EVERY, move || {
+            let Some(switcher) = me.upgrade() else { return glib::ControlFlow::Break };
+            switcher.take_front_shot();
+            glib::ControlFlow::Continue
+        });
+        self.state.borrow_mut().front_shots = Some(source);
+    }
+
+    fn take_front_shot(&self) {
+        if self.taking_front_shot.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let capture_id = {
+            let state = self.state.borrow();
+            state.cards.get(state.chosen).map(|card| card.capture_id.clone()).unwrap_or_default()
+        };
+        if capture_id.is_empty() {
+            self.taking_front_shot.store(false, Ordering::Release);
+            return;
+        }
+        self.take_shots_of(vec![capture_id], Some(Arc::clone(&self.taking_front_shot)));
+    }
+
+    /// done: set back to false once the pictures are taken.
+    fn take_shots_of(&self, capture_ids: Vec<String>, done: Option<Arc<AtomicBool>>) {
+        let events = self.events.clone();
+        workers::run(move || {
+            window_shots::take(&capture_ids, SHOT_PIXELS_HIGH, |capture_id, picture| {
+                events::send(&events, Event::WindowShot { capture_id, picture });
+            });
+            if let Some(done) = done {
+                done.store(false, Ordering::Release);
+            }
+        });
+    }
+
+    fn stop_front_shots(&self) {
+        let source = self.state.borrow_mut().front_shots.take();
+        if let Some(source) = source {
+            source.remove();
         }
     }
 
@@ -495,6 +585,12 @@ impl Switcher {
         let top = painted.middle as f32 - outline.width / 2.0;
         graphene::Rect::new(OVERHANG as f32, top, outline.height, outline.width)
     }
+}
+
+/// How many cards apart, going round the shorter way.
+fn distance_round(index: usize, from: usize, count: usize) -> usize {
+    let forward = (index + count - from) % count;
+    forward.min(count - forward)
 }
 
 fn super_held() -> bool {

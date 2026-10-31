@@ -1,39 +1,64 @@
-//! A window's card: its app's icon, its title, and the workspace it is on with the app's name. A
-//! title that only repeats the app's name (a terminal's "foot") gives way to what runs in it.
+//! A window's card: its app's icon at the top left, its title and the workspace it is on with the
+//! app's name at the bottom left. A title that only repeats the app's name (a terminal's "foot")
+//! gives way to what runs in it. Once a picture of the window comes, it shows behind, and the icon
+//! shrinks.
 
 use gio_unix::DesktopAppInfo;
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, pango};
 
 use super::carousel::{CARD_HEIGHT, CARD_WIDTH};
+use super::shot::Shot;
 use crate::services::compositor::Window;
 use crate::services::terminal;
 
-const ICON_PIXELS: i32 = 56;
+const MARGIN: i32 = 14;
 const TITLE_CHARACTERS: i32 = 24;
 const FALLBACK_ICON: &str = "application-x-executable";
 
-pub fn card(window: &Window) -> gtk4::Widget {
-    let app = desktop_entry(&window.app_id);
-    let app_name = app.as_ref().map(|app| app.display_name().to_string()).unwrap_or_else(|| window.app_id.clone());
+pub struct Card {
+    pub root: gtk4::Widget,
+    pub capture_id: String,
+    shot: Shot,
+}
 
-    let icon = icon(app.as_ref(), &window.app_id);
-    let title = line(&shown_title(window, &app_name), "switcher-title");
-    let about = line(&format!("{}  ·  {app_name}", window.workspace), "switcher-about");
+impl Card {
+    pub fn new(window: &Window) -> Card {
+        let app = desktop_entry(&window.app_id);
+        let app_name = app.as_ref().map(|app| app.display_name().to_string()).unwrap_or_else(|| window.app_id.clone());
 
-    let card = gtk4::Box::builder()
-        .orientation(gtk4::Orientation::Vertical)
-        .spacing(6)
-        .valign(gtk4::Align::Center)
-        .css_classes(["switcher-card"])
-        .width_request(CARD_WIDTH)
-        .height_request(CARD_HEIGHT)
-        .build();
-    icon.set_margin_top(14);
-    card.append(&icon);
-    card.append(&title);
-    card.append(&about);
-    card.upcast()
+        let texts = gtk4::Box::builder()
+            .orientation(gtk4::Orientation::Vertical)
+            .spacing(2)
+            .margin_start(MARGIN)
+            .margin_end(MARGIN)
+            .margin_top(MARGIN)
+            .margin_bottom(MARGIN)
+            .build();
+        let icon = icon(app.as_ref(), &window.app_id);
+        icon.set_halign(gtk4::Align::Start);
+        icon.set_valign(gtk4::Align::Start);
+        icon.set_vexpand(true);
+        texts.append(&icon);
+        texts.append(&line(&shown_title(window, &app_name), "switcher-title"));
+        texts.append(&line(&format!("{}  ·  {app_name}", window.workspace), "switcher-about"));
+
+        let shot = Shot::default();
+        let root = gtk4::Overlay::builder()
+            .css_classes(["switcher-card"])
+            .overflow(gtk4::Overflow::Hidden)
+            .width_request(CARD_WIDTH)
+            .height_request(CARD_HEIGHT)
+            .child(&shot)
+            .build();
+        root.add_overlay(&texts);
+        Card { root: root.upcast(), capture_id: window.capture_id.clone(), shot }
+    }
+
+    pub fn show_shot(&self, picture: &gdk::Texture) {
+        self.shot.show(picture);
+        self.root.add_css_class("with-shot");
+    }
 }
 
 fn shown_title(window: &Window, app_name: &str) -> String {
@@ -53,6 +78,7 @@ fn line(text: &str, class: &str) -> gtk4::Label {
     gtk4::Label::builder()
         .label(text)
         .css_classes([class])
+        .xalign(0.0)
         .ellipsize(pango::EllipsizeMode::End)
         .max_width_chars(TITLE_CHARACTERS)
         .single_line_mode(true)
@@ -90,7 +116,7 @@ fn icon(app: Option<&DesktopAppInfo>, app_id: &str) -> gtk4::Image {
         Some(icon) => gtk4::Image::from_gicon(&icon),
         None => gtk4::Image::from_gicon(&gio::ThemedIcon::new(&themed_icon_name(app_id))),
     };
-    image.set_pixel_size(ICON_PIXELS);
+    image.add_css_class("switcher-icon");
     image
 }
 

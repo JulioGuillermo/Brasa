@@ -6,3 +6,4 @@ pub mod media;
 pub mod notifications;
 pub mod process;
 pub mod terminal;
+pub mod window_shots;

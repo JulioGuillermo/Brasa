@@ -556,6 +556,10 @@ between states, even when interrupted halfway. It shows two things, each one can
   or a click on a card focuses that window, Escape or a click off it closes it. Hyprland and sway.
   A window whose title only repeats its app's name (a terminal's "foot") shows what runs in it: its
   folder, or the program in front with its folder (`nvim  ·  ~/brasa`).
+  Each card fills with a small picture of its window, taken as the switcher opens, against the
+  card's right side and melting into it; the icon then shrinks to the corner. The one in front is
+  taken again twice a second while open, so a video or a terminal moves in it. A window that cannot
+  be pictured keeps its big icon. On Hyprland, a monitor that is off pictures nothing.
 
 **Settings**: the **Island** window (`Super+Shift+m`) switches the music, the
 notification centre of `Super+m` and the launcher on or off, and picks for each island its monitor, edge (top or

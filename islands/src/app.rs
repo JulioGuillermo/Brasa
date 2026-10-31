@@ -68,7 +68,7 @@ impl App {
                 ),
                 launcher: RefCell::new(None),
                 quick: Quick::new(gtk, &sender),
-                switcher: Switcher::new(gtk),
+                switcher: Switcher::new(gtk, &sender),
                 main_island: RefCell::new(None),
                 launcher_island: RefCell::new(None),
             }
@@ -236,6 +236,7 @@ impl App {
             Event::Volume(level) => self.music.show_volume(level),
             Event::Cover { url, picture } => self.music.show_cover(&url, picture.as_ref()),
             Event::Tested { test, passed } => self.quick.on_tested(&test, passed),
+            Event::WindowShot { capture_id, picture } => self.switcher.show_shot(&capture_id, &picture),
         }
     }
 }

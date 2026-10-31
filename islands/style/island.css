@@ -85,10 +85,16 @@ window.brasa-island .island-app-row label.island-app-name { font-size: 13px; }
 window.brasa-island label.island-app-about { color: #5a6a90; font-size: 11px; }
 window.brasa-island .chosen label.island-app-name { color: #ff3030; }
 
-/* Window switcher (Super+Tab): the cards on its drum, the one in front ringed in red */
+/* Window switcher (Super+Tab): the cards on its drum, the one in front ringed in red. A window's
+   picture shows behind its card once taken, and its icon shrinks to the corner */
 .switcher-card { border-radius: 18px; background: rgba(12, 24, 56, 0.94);
                  box-shadow: inset 0 0 0 1px rgba(153, 204, 255, 0.14); }
-.switcher-card.chosen { background: rgba(20, 34, 76, 0.97);
-                        box-shadow: inset 0 0 0 2px rgba(255, 0, 0, 0.75), 0 0 18px rgba(255, 0, 0, 0.35); }
-window.brasa-switcher label.switcher-title { color: #ffffff; font-weight: bold; margin: 0 14px; }
-window.brasa-switcher label.switcher-about { color: #c3cbe0; font-size: 11px; margin: 0 14px; }
+.switcher-card.chosen { background: rgba(20, 34, 76, 0.97); box-shadow: 0 0 18px rgba(255, 0, 0, 0.35);
+                        outline: 2px solid rgba(255, 0, 0, 0.75); outline-offset: -2px; }
+.switcher-icon { -gtk-icon-size: 56px; transition: -gtk-icon-size 300ms ease-out; }
+.switcher-card.with-shot .switcher-icon { -gtk-icon-size: 32px; }
+.switcher-shot { opacity: 0; transition: opacity 300ms ease-out; }
+.switcher-card.with-shot .switcher-shot { opacity: 1; }
+window.brasa-switcher .switcher-card label { text-shadow: 0 0 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.7); }
+window.brasa-switcher label.switcher-title { color: #ffffff; font-weight: bold; }
+window.brasa-switcher label.switcher-about { color: #c3cbe0; font-size: 11px; }
