@@ -24,16 +24,39 @@ FULL_THEMES = [
 ]
 
 
-def recolor_tree(path, recolor):
+def is_symbolic(file_name):
+    return "symbolic" in file_name
+
+
+def svg_files(path):
     for folder, _, files in os.walk(path):
         for file_name in files:
-            file = os.path.join(folder, file_name)
-            if not file_name.endswith(".svg") or os.path.islink(file):
-                continue
-            with open(file, encoding="utf-8", errors="replace") as svg:
-                text = svg.read()
-            with open(file, "w", encoding="utf-8") as svg:
-                svg.write(recolor(text, "symbolic" in file_name))
+            if file_name.endswith(".svg"):
+                yield os.path.join(folder, file_name)
+
+
+def unlink_symbolic_names(path):
+    """A symbolic icon that is a link to a regular one becomes a copy of it, so it can be recolored as
+    symbolic. Run before any recoloring: the copy is made from the theme's own picture."""
+    for file in list(svg_files(path)):
+        target = os.path.realpath(file)
+        if not os.path.islink(file) or not os.path.isfile(target):
+            continue
+        if is_symbolic(os.path.basename(file)) and not is_symbolic(os.path.basename(target)):
+            copy = file + ".brasa-copy"
+            shutil.copyfile(target, copy)
+            os.replace(copy, file)
+
+
+def recolor_tree(path, recolor):
+    unlink_symbolic_names(path)
+    for file in svg_files(path):
+        if os.path.islink(file):
+            continue
+        with open(file, encoding="utf-8", errors="replace") as svg:
+            text = svg.read()
+        with open(file, "w", encoding="utf-8") as svg:
+            svg.write(recolor(text, is_symbolic(os.path.basename(file))))
 
 
 def update_cache(path):
