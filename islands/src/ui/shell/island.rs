@@ -214,6 +214,7 @@ impl Island {
         island.take_sections();
         island.listen_to_pointer();
         island.listen_to_keys();
+        island.listen_to_clicks_off_it();
         island.place_hot_zones();
         let me = island.me.clone();
         island.window.connect_realize(move |_| {
@@ -560,6 +561,20 @@ impl Island {
         self.window.add_controller(pointer);
     }
 
+    /// Hyprland sends every click to a surface that holds the keyboard exclusively, even one off it.
+    fn listen_to_clicks_off_it(&self) {
+        let click = gtk4::GestureClick::new();
+        click.set_button(0);
+        let me = self.me.clone();
+        click.connect_pressed(move |_, _, x, y| {
+            let Some(island) = me.upgrade() else { return };
+            if island.is_open_by_user() && !cairo::Region::create_rectangle(&island.input_area()).contains_point(x as i32, y as i32) {
+                island.close_view();
+            }
+        });
+        self.window.add_controller(click);
+    }
+
     fn listen_to_keys(&self) {
         let keys = gtk4::EventControllerKey::new();
         let me = self.me.clone();
@@ -772,9 +787,13 @@ impl Island {
         self.frame.place_content(content_area, visible_area);
     }
 
-    /// Only the outline takes the pointer; hidden, nothing does (the hot zones open it).
     fn update_input_region(&self) {
         let Some(surface) = self.window.surface() else { return };
+        surface.set_input_region(Some(&cairo::Region::create_rectangle(&self.input_area())));
+    }
+
+    /// Only the outline takes the pointer; hidden, nothing does (the hot zones open it).
+    fn input_area(&self) -> cairo::RectangleInt {
         let outline = self.outline();
         let (x, width, mut height) = if outline.height >= 1.0 {
             (outline.left() as f64, outline.full_width() as f64, outline.height as f64)
@@ -783,8 +802,7 @@ impl Island {
         };
         height += if width > 0.0 { OVERHANG } else { 0.0 };
         let y = if self.at_top() { 0.0 } else { self.window_height - height };
-        let area = cairo::RectangleInt::new(x.round() as i32, y.round() as i32, width.round() as i32, height.round() as i32);
-        surface.set_input_region(Some(&cairo::Region::create_rectangle(&area)));
+        cairo::RectangleInt::new(x.round() as i32, y.round() as i32, width.round() as i32, height.round() as i32)
     }
 }
 
