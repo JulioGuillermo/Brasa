@@ -11,7 +11,7 @@ local state = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/sta
 pcall(dofile, state .. "monitors/hyprland.lua")
 
 ---- Environment
-hl.env("XCURSOR_THEME", "KanadaCursors")
+hl.env("XCURSOR_THEME", "Fuchsia-Red")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 pcall(dofile, state .. "cursor.lua")   -- your cursor theme, chosen with brasa-themes (Brasa settings)

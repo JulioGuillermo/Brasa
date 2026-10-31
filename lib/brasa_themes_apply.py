@@ -13,7 +13,7 @@ from brasa_themes_found import installed
 BRASA = os.path.realpath(os.path.expanduser("~/.config/brasa"))
 APPEARANCE_CONF = os.path.join(BRASA, "appearance.conf")
 HEADER = "# Icon and cursor themes: Brasa settings, Appearance page (or brasa-themes icons|cursor|base NAME)"
-DEFAULTS = {"icons": "KanadaIcons", "cursor": "KanadaCursors", "icon_base": brasa_icon_mix.DEFAULT_ICON_BASE}
+DEFAULTS = {"icons": "Brasa-Slot-Navy", "cursor": "Fuchsia-Red", "icon_base": "Brasa-BeautySolar-All"}
 CURSOR_SIZE = 24
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "brasa")
 HYPRLAND_CURSOR = os.path.join(STATE, "cursor.lua")

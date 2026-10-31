@@ -575,7 +575,8 @@ fi
 if sway --version 2>/dev/null | grep -qi swayfx; then fx=fx.swayfx.conf; else fx=fx.none.conf; fi
 run ln -sfn "$fx" "$HERE/config/sway/fx.conf"; info "sway: $fx"
 
-# Icon and cursor themes from gnome-look.org (data/themes.tsv); Kanada until one is chosen in Brasa settings
+# Icon and cursor themes from gnome-look.org (data/themes.tsv); Brasa · Slot night blue and Fuchsia-Red until
+# others are chosen in Brasa settings
 say "Icon and cursor themes"
 if [ $DEPS = 1 ]; then
   run "$HERE/bin/brasa-themes" download || problem "Some themes did not download: ./install.sh tries again"

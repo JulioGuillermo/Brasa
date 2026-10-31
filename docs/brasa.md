@@ -978,13 +978,14 @@ The installer downloads these themes from gnome-look.org into `~/.local/share/ic
 
 | Kind | Themes |
 |---|---|
-| icons | **KanadaIcons** (default), Baphomet, LED, Lyra (and Lyra-dark), Slot-Symbolic-Dark-Icons, BeautySolar |
-| cursors | **KanadaCursors** (default), Oxygen 05 Vibrant Red, Fuchsia-Red, Breeze Dark Red, GoogleDot-Red |
+| icons | KanadaIcons, Baphomet, LED, Lyra (and Lyra-dark), Slot-Symbolic-Dark-Icons, BeautySolar |
+| cursors | KanadaCursors, Oxygen 05 Vibrant Red, **Fuchsia-Red** (default), Breeze Dark Red, GoogleDot-Red |
 
 It also makes Brasa's own icon themes (`brasa-themes mix`, `lib/brasa_icon_mix.py`): the folders of
-another theme in Brasa's colors, every other icon from a **base** theme, Papirus-Dark (installed as a
-package) unless you pick another in the Appearance page ("Other icons from") or with
-`brasa-themes base NAME`. Each is a small theme in `~/.local/share/icons` holding only folder icons.
+another theme in Brasa's colors, every other icon from a **base** theme: **Brasa · BeautySolar all icons**
+by default, then Papirus-Dark (installed as a package) for what it lacks. Pick another base in the
+Appearance page ("Other icons from") or with `brasa-themes base NAME`. Each is a small theme in
+`~/.local/share/icons` holding only folder icons.
 Gradients stay gradients: each one is mapped onto a red or night-blue ramp.
 
 | Theme | Folders from |
@@ -994,7 +995,7 @@ Gradients stay gradients: each one is mapped onto a red or night-blue ramp.
 | Brasa · Baphomet | Baphomet |
 | Brasa · Lyra | Lyra-dark, its cyan glow red |
 | Brasa · Slot | Slot-Symbolic-Dark-Icons |
-| Brasa · Slot night blue | the same, the front night blue and the symbol red |
+| **Brasa · Slot night blue** (default) | the same, the front night blue and the symbol red |
 | Brasa · BeautySolar | BeautySolar |
 | Brasa · BeautySolar night blue | the same, the body night blue and the tab and symbol red |
 
