@@ -167,7 +167,8 @@ packages are missing. Running `./install.sh` again after fixing is safe.
 **Dependencies** (logical names): waybar, swaync, fuzzel, rofi, nwg-bar, swaybg, swaylock,
 swayidle, nm-applet, blueman, brightnessctl, playerctl, wireplumber, paplay, pavucontrol, jq,
 python3, notify-send, gtk-launch, xdg-user-dirs, freedesktop sounds, grim, slurp, wl-clipboard,
-cliphist, Thunar and its thumbnails (tumbler, ffmpegthumbnailer, poppler-glib, webp-pixbuf-loader),
+cliphist, Thunar with its thumbnails (tumbler, ffmpegthumbnailer, poppler-glib, webp-pixbuf-loader) and its
+Compress / Extract here menu (thunar-archive-plugin, file-roller),
 polkit agent, xdg portals (gtk, wlr, hyprland), wtype, wdisplays, wlr-randr, starship, wayvnc,
 openssl, btop, psmisc,
 hyprlock, swayosd, foot, Hack Nerd Font, and the window manager: SwayFX and/or Hyprland.

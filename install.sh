@@ -250,6 +250,8 @@ slurp             slurp                   slurp                       slurp     
 wl-clipboard      wl-clipboard            wl-clipboard                wl-clipboard              wl-clipboard              wl-clipboard
 cliphist          cliphist                cliphist                    cliphist                  cliphist                  cliphist
 thunar            thunar                  thunar                      Thunar                    thunar                    thunar
+thunar-archive    thunar-archive-plugin   thunar-archive-plugin       thunar-archive-plugin     thunar-plugin-archive     thunar-archive-plugin
+archiver          file-roller             file-roller                 file-roller               file-roller               file-roller
 tumbler           tumbler                 tumbler                     tumbler                   tumbler                   tumbler
 thumbs-video      ffmpegthumbnailer       ffmpegthumbnailer           ffmpegthumbnailer         ffmpegthumbnailer         ffmpegthumbnailer
 thumbs-extra      poppler-glib            tumbler-plugins-extra       poppler-glib              libpoppler-glib8          poppler-glib
