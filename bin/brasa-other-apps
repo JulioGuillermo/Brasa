@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""The windows open in the user's other sessions (Hyprland or sway, local or remote), to close them.
+
+Usage: brasa-other-apps [list]    one window per line: id, session, workspace, app, title
+       brasa-other-apps json      the same, as JSON
+       brasa-other-apps close ID  asks the window to close, as Super+q does
+       brasa-other-apps kill ID   kills its app at once (kill -9), with all of the app's windows
+"""
+import glob
+import json
+import os
+import signal
+import subprocess
+import sys
+
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+REMOTE_HYPRLAND = f"{RUNTIME}/brasa-remote/session-hypr"
+REMOTE_SWAY_UNIT = "brasa-remote-session.service"
+
+
+def output_json(argv, env=None):
+    result = subprocess.run(argv, capture_output=True, text=True, env=env)
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def first_line(path):
+    try:
+        with open(path) as file:
+            return file.readline().strip()
+    except OSError:
+        return ""
+
+
+def session_name(wm, remote):
+    return f"{'Remote' if remote else 'Local'} session · {wm}"
+
+
+def hyprland_env(instance):
+    return {**os.environ, "HYPRLAND_INSTANCE_SIGNATURE": instance}
+
+
+def hyprland_windows():
+    own = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    for instance in output_json(["hyprctl", "instances", "-j"]) or []:
+        if instance["instance"] == own:
+            continue
+        session = session_name("Hyprland", instance["instance"] == first_line(REMOTE_HYPRLAND))
+        for client in output_json(["hyprctl", "clients", "-j"], hyprland_env(instance["instance"])) or []:
+            if not client["mapped"]:
+                continue
+            yield {"id": f"hyprland:{instance['instance']}:{client['address']}", "session": session,
+                   "pid": client["pid"], "app": client["class"], "title": client["title"],
+                   "workspace": client["workspace"]["name"]}
+
+
+def sway_sockets():
+    own = os.environ.get("SWAYSOCK")
+    for socket in glob.glob(f"{RUNTIME}/sway-ipc.{os.getuid()}.*.sock"):
+        sway_pid = socket.split(".")[-2]
+        if socket != own and os.path.exists(f"/proc/{sway_pid}"):
+            yield socket, sway_pid
+
+
+def sway_views(node, workspace=None):
+    if node.get("type") == "workspace":
+        workspace = node["name"]
+    if node.get("pid") and node.get("type") in ("con", "floating_con"):
+        yield node, workspace
+    for child in node.get("nodes", []) + node.get("floating_nodes", []):
+        yield from sway_views(child, workspace)
+
+
+def sway_windows():
+    for socket, sway_pid in sway_sockets():
+        session = session_name("sway", REMOTE_SWAY_UNIT in first_line(f"/proc/{sway_pid}/cgroup"))
+        tree = output_json(["swaymsg", "-s", socket, "-t", "get_tree"]) or {}
+        for view, workspace in sway_views(tree):
+            app = view.get("app_id") or view.get("window_properties", {}).get("class", "")
+            yield {"id": f"sway:{socket}:{view['id']}", "session": session, "pid": view["pid"],
+                   "app": app, "title": view.get("name") or "", "workspace": workspace or ""}
+
+
+def windows():
+    return list(hyprland_windows()) + list(sway_windows())
+
+
+def window_of(window_id):
+    for window in windows():
+        if window["id"] == window_id:
+            return window
+    print(f"No window {window_id} in another session", file=sys.stderr)
+    sys.exit(1)
+
+
+def close(window_id):
+    window_of(window_id)
+    wm, where, which = window_id.split(":", 2)
+    if wm == "hyprland":
+        subprocess.run(["hyprctl", "dispatch", f'hl.dsp.window.close({{ window = "address:{which}" }})'],
+                       env=hyprland_env(where), stdout=subprocess.DEVNULL)
+    else:
+        subprocess.run(["swaymsg", "-s", where, f"[con_id={which}] kill"], stdout=subprocess.DEVNULL)
+
+
+def kill(window_id):
+    os.kill(window_of(window_id)["pid"], signal.SIGKILL)
+
+
+def show(found):
+    for window in found:
+        print("\t".join([window["id"], window["session"], window["workspace"], window["app"], window["title"]]))
+
+
+def main():
+    match sys.argv[1:]:
+        case [] | ["list"]:
+            show(windows())
+        case ["json"]:
+            print(json.dumps(windows()))
+        case ["close", window_id]:
+            close(window_id)
+        case ["kill", window_id]:
+            kill(window_id)
+        case _:
+            print(__doc__.strip(), file=sys.stderr)
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

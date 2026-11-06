@@ -52,8 +52,9 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `bin/brasa-keys` | Key bindings window (`Super+F1`): every binding the window manager really has, by kind | `~/.local/bin/` |
 | `lib/brasa_ui.py`, `lib/brasa.css` | The look of Brasa's own windows (the notification panel's), and no window buttons under Hyprland or sway (Escape closes) | read from `~/.config/brasa` |
 | `lib/brasa_binds.py` | Reads those bindings from Hyprland (`hyprctl binds` and the Lua files) or sway (its config) | read from `~/.config/brasa` |
-| `bin/brasa-sessions` | Sessions window (`Super+Ctrl+s`): remote session, sharing, SSH, dialogs and keyring here | `~/.local/bin/` |
+| `bin/brasa-sessions` | Sessions window (`Super+Ctrl+s`): remote session, sharing, SSH, dialogs and keyring here, apps in other sessions (`lib/brasa_other_apps_group.py`) | `~/.local/bin/` |
 | `bin/brasa-follow` | Sends the dialogs of the user's D-Bus (passwords, keyring, portals) to this session; locks and unlocks the keyring | `~/.local/bin/` |
+| `bin/brasa-other-apps` | Lists the windows open in the user's other sessions; closes or kills them | `~/.local/bin/` |
 | `bin/brasa-clean` | Clean menu (`Super+Ctrl+c`): a window to clean `/tmp`, and freeing RAM | `~/.local/bin/` |
 | `bin/brasa-tmpclean` | Finds the leftovers in `/tmp` that nothing uses, and removes them | `~/.local/bin/` |
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
@@ -860,6 +861,7 @@ The card is built again at every opening, so a change to `panel.conf` shows at o
 | Section | What |
 |---|---|
 | This session | **Dialogs and passwords**: where they open now; *Bring here* sends them to this session. **Keyring**: locked or not; Lock / Unlock |
+| Apps in other sessions | every window open in the other sessions (local or remote, Hyprland or sway), with *Close* (as `Super+q`: the app can ask about unsaved work) and *Kill* (`kill -9`, all the app's windows) |
 | Remote session | on, start at boot, window manager (when both are installed), size, scale; who is connected (`brasa-remote session …`) |
 | Share this desktop | off, mirror, screen or take (port 5901) |
 | SSH server | on, start at boot (asks for the password through polkit) |
@@ -876,6 +878,17 @@ keyring: GNOME Keyring, KWallet, KeePassXC… Unlock asks in this session.
 brasa-follow [here]               dialogs open here from now on
 brasa-follow where                where they open now
 brasa-follow keyring status|lock|unlock
+```
+
+**Apps in other sessions** (`brasa-other-apps`): to open here an app that is already open in another
+session, close it there first. It finds the other sessions through `hyprctl instances` and the sway
+IPC sockets; the remote one is the one `brasa-remote` started.
+
+```
+brasa-other-apps [list]           id, session, workspace, app, title
+brasa-other-apps json             the same, as JSON
+brasa-other-apps close ID         asks the window to close
+brasa-other-apps kill ID          kill -9 its app
 ```
 
 ### Your own tiles

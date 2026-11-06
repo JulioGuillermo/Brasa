@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Sessions window (Super+Ctrl+s, and the Sessions button of the panel): dialogs and the keyring in
-this session, the remote session, sharing this desktop, where they listen and the SSH server. Everything it does goes
-through brasa-follow and brasa-remote."""
+this session, the apps open in other sessions, the remote session, sharing this desktop, where they listen and the SSH server. Everything it does goes
+through brasa-follow, brasa-other-apps and brasa-remote."""
 import json
 import os
 import sys
@@ -14,10 +14,12 @@ from gi.repository import Adw, Gio, GLib, Gtk
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
 import brasa_ui  # noqa: E402
+from brasa_other_apps_group import OtherAppsGroup  # noqa: E402
 
 BIN = os.path.dirname(os.path.realpath(__file__))
 REMOTE = os.path.join(BIN, "brasa-remote")
 FOLLOW = os.path.join(BIN, "brasa-follow")
+OTHER_APPS = os.path.join(BIN, "brasa-other-apps")
 REFRESH_SECONDS = 5
 PORT_TYPING_PAUSE_MS = 800
 ANY = "any"
@@ -92,6 +94,8 @@ class SessionsWindow(Adw.ApplicationWindow):
 
         page = Adw.PreferencesPage()
         page.add(self.build_here())
+        self.other_apps = OtherAppsGroup(run, OTHER_APPS)
+        page.add(self.other_apps)
         page.add(self.build_remote_session())
         page.add(self.build_share())
         page.add(self.build_network())
@@ -293,6 +297,7 @@ class SessionsWindow(Adw.ApplicationWindow):
         run([REMOTE, "state"], self.show_remote)
         run([FOLLOW, "where"], self.show_dialogs)
         run([FOLLOW, "keyring", "status"], self.show_keyring)
+        self.other_apps.refresh()
         return False
 
     def show_dialogs(self, output):
