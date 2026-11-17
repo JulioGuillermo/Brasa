@@ -15,7 +15,7 @@ import sys
 
 RUNTIME = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
 REMOTE_HYPRLAND = f"{RUNTIME}/brasa-remote/session-hypr"
-REMOTE_SWAY_UNIT = "brasa-remote-session.service"
+REMOTE_SWAY = f"{RUNTIME}/brasa-remote/session-sway"
 
 
 def output_json(argv, env=None):
@@ -63,7 +63,7 @@ def sway_sockets():
     for socket in glob.glob(f"{RUNTIME}/sway-ipc.{os.getuid()}.*.sock"):
         sway_pid = socket.split(".")[-2]
         if socket != own and os.path.exists(f"/proc/{sway_pid}"):
-            yield socket, sway_pid
+            yield socket
 
 
 def sway_views(node, workspace=None):
@@ -76,8 +76,8 @@ def sway_views(node, workspace=None):
 
 
 def sway_windows():
-    for socket, sway_pid in sway_sockets():
-        session = session_name("sway", REMOTE_SWAY_UNIT in first_line(f"/proc/{sway_pid}/cgroup"))
+    for socket in sway_sockets():
+        session = session_name("sway", socket == first_line(REMOTE_SWAY))
         tree = output_json(["swaymsg", "-s", socket, "-t", "get_tree"]) or {}
         for view, workspace in sway_views(tree):
             app = view.get("app_id") or view.get("window_properties", {}).get("class", "")

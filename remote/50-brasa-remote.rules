@@ -1,8 +1,10 @@
-// Brasa: each user starts and stops their own remote Hyprland session (brasa-remote session) without
-// a password, also over SSH.
+// Brasa: each user starts and stops their own remote session (brasa-remote session, on sway or
+// Hyprland) without a password, also over SSH.
 polkit.addRule(function (action, subject) {
+    var ownSessions = ["brasa-remote-sway@" + subject.user + ".service",
+                       "brasa-remote-hyprland@" + subject.user + ".service"];
     if (action.id == "org.freedesktop.systemd1.manage-units" &&
-        action.lookup("unit") == "brasa-remote-hyprland@" + subject.user + ".service" &&
+        ownSessions.indexOf(action.lookup("unit")) >= 0 &&
         ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0) {
         return polkit.Result.YES;
     }

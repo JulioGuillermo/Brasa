@@ -737,11 +737,16 @@ brasa-remote on | off | status | setup | help
 ```
 
 - **session**: a second, separate desktop that only exists remotely: sway with no physical screen
-  (`WLR_BACKENDS=headless`, `config/sway/remote.conf`), running as the user service
-  `brasa-remote-session`. It has its own bar, workspaces and windows and does not touch the local
+  (`WLR_BACKENDS=headless`, `config/sway/remote.conf`), running as the system service
+  `brasa-remote-sway@<user>`, which opens a logind session of its own (no second password: the VNC
+  login is the only one). So password dialogs (polkit: Free RAM, Clean /tmp...) show up in the remote
+  session, not on the local screen. It has its own bar, workspaces and windows and does not touch the local
   session (which may be Hyprland, locked, or nobody logged in). Closing the viewer leaves it running
-  with its windows; `session stop` ends it. `session boot` starts it when the machine boots, before
-  anyone logs in (enables `loginctl enable-linger`); `session noboot` undoes it. Its size is
+  with its windows; `session stop` ends it. The first start asks for sudo once to install `remote/`
+  (from the Sessions window it opens a terminal for it); after that a polkit rule lets you start and
+  stop it without a password. `session boot` starts it when the machine boots, before anyone logs
+  in (sudo); `session noboot` undoes it. Before, it was the user service `brasa-remote-session`: the
+  next start removes it and moves its start at boot to the system service. Its size is
   `REMOTE_SIZE`. It only starts at boot after `session boot`. The service never inherits the local compositor's variables, so keys and scripts in
   the remote session act on the remote session only.
 - **session on Hyprland** (`session wm hyprland`, saved as `REMOTE_WM=hyprland`; the default when
@@ -791,7 +796,7 @@ brasa-remote on | off | status | setup | help
   hangs at the handshake: use TigerVNC.
 - wayvnc for screen / mirror / take runs as a transient user service (`brasa-wayvnc`), so it survives
   closing the terminal or SSH session that started it. Logs: `journalctl --user -u brasa-wayvnc` or
-  `-u brasa-remote-session`.
+  `journalctl -u brasa-remote-sway@$USER`.
 - **Remote keyboard**: X11 viewers such as TigerVNC cannot grab the keyboard on Wayland, so the window
   manager would keep Super and its shortcuts. While a VNC/RDP/VM viewer has the focus (TigerVNC,
   FreeRDP, wlvncc, virt-viewer) Brasa switches to a "remote" key mode with no shortcuts: every key goes

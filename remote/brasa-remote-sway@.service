@@ -1,0 +1,19 @@
+# Brasa: the remote session on sway for user %i (brasa-remote session, the default window manager).
+# sway runs without a screen (headless backend), in a logind session of its own: polkit asks for
+# passwords on its own screen, and no password is needed to start it, the VNC login is the only one.
+[Unit]
+Description=Brasa remote session on sway for %i
+After=systemd-user-sessions.service systemd-logind.service
+
+[Service]
+User=%i
+PAMName=login
+Environment=XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user
+Environment=XDG_SESSION_DESKTOP=sway XDG_CURRENT_DESKTOP=sway BRASA_REMOTE_SESSION=1
+Environment=WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 QT_QPA_PLATFORMTHEME=qt5ct
+ExecStart=/usr/bin/bash -c 'exec dbus-run-session -- sway -c "$HOME/.config/sway/remote.conf"'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

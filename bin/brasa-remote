@@ -73,8 +73,9 @@ set -u
 CONF_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc
 STATE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote
 UNIT=brasa-wayvnc                 # screen / mirror / take
-SESSION_UNIT=brasa-remote-session # session on sway (user service)
+SWAY_UNIT=brasa-remote-sway@$USER.service     # session on sway (system service)
 HYPR_UNIT=brasa-remote-hyprland@$USER.service # session on Hyprland (system service)
+OLD_SWAY_UNIT=brasa-remote-session            # session on sway before, a user service
 VIRTUAL=BRASA-REMOTE
 SESSION_OUTPUT=HEADLESS-REMOTE    # the Hyprland session's desktop (wayvnc only resizes HEADLESS-*)
 B=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
@@ -242,14 +243,10 @@ remove_virtual() {
 }
 
 running() { systemctl --user -q is-active "$UNIT" 2>/dev/null; }
-session_running() {
-  if [ "$REMOTE_WM" = hyprland ]; then systemctl -q is-active "$HYPR_UNIT" 2>/dev/null
-  else systemctl --user -q is-active "$SESSION_UNIT" 2>/dev/null; fi
-}
-session_at_boot() {
-  if [ "$REMOTE_WM" = hyprland ]; then systemctl -q is-enabled "$HYPR_UNIT" 2>/dev/null
-  else systemctl --user -q is-enabled "$SESSION_UNIT" 2>/dev/null; fi
-}
+session_unit() { if [ "$REMOTE_WM" = hyprland ]; then echo "$HYPR_UNIT"; else echo "$SWAY_UNIT"; fi; }
+old_session_running() { systemctl --user -q is-active "$OLD_SWAY_UNIT" 2>/dev/null; }
+session_running() { systemctl -q is-active "$(session_unit)" 2>/dev/null || old_session_running; }
+session_at_boot() { systemctl -q is-enabled "$(session_unit)" 2>/dev/null; }
 busy() {  # one local mode at a time (they share port $REMOTE_LOCAL_PORT); the session is separate
   if running; then echo "Already on: $(cat "$STATE/mode" 2>/dev/null) on $(where_local). 'brasa-remote off' first."; return 0; fi
   return 1
@@ -496,10 +493,11 @@ rdp_install() {  # in a terminal: build tools, the build, the PAM service, the f
   rdp_pam_install || echo "No PAM service: sign in with an RDP password instead (brasa-remote rdp password)" >&2
   firewall_install
 }
-in_terminal() {  # ARGS...: brasa-remote ARGS in a terminal, where sudo and the build can be followed
+in_terminal() {  # TITLE ARGS...: brasa-remote ARGS in a terminal, where sudo and the build can be followed
+  local title=$1; shift
   local cmd; cmd=$(printf '%q ' "$HOME/.local/bin/brasa-remote" "$@")
   ~/.local/bin/brasa-app terminal bash -c "$cmd; echo; read -rp 'Enter closes this window'" &
-  say "Installing the RDP server" "In the terminal that opened"
+  say "$title" "In the terminal that opened"
 }
 protocol_name() { [ "$1" = rdp ] && echo RDP || echo VNC; }
 protocol_cmd() {  # [vnc|rdp]
@@ -509,7 +507,7 @@ protocol_cmd() {  # [vnc|rdp]
     *) echo "brasa-remote protocol vnc|rdp" >&2; exit 1 ;;
   esac
   if [ "$1" = rdp ] && ! rdp_up_to_date; then
-    [ -t 0 ] || { in_terminal protocol rdp; return; }
+    [ -t 0 ] || { in_terminal "Installing the RDP server" protocol rdp; return; }
     rdp_install || exit 1
   fi
   conf_set REMOTE_PROTOCOL "$1"
@@ -527,7 +525,7 @@ rdp_cmd() {
       case ${2:-} in
         password) rdp_password_set || { echo "Set the RDP password first: brasa-remote rdp password" >&2; exit 1; } ;;
         linux) [ -f "$RDP_PAM" ] || { [ -t 0 ] && rdp_pam_install; } ||
-                 { in_terminal rdp login linux; return; } ;;
+                 { in_terminal "Installing the RDP server" rdp login linux; return; } ;;
         *) echo "brasa-remote rdp login linux|password" >&2; exit 1 ;;
       esac
       conf_set REMOTE_RDP_LOGIN "$2" ;;
@@ -550,36 +548,43 @@ rdp_cmd() {
 }
 
 # ---------------------------------------------------------------- session: independent, persistent
-session_unit() {
-  mkdir -p ~/.config/systemd/user
-  cat > ~/.config/systemd/user/$SESSION_UNIT.service <<EOF
-# Written by brasa-remote: an independent remote-only session (sway without a physical screen + wayvnc)
-[Unit]
-Description=Brasa remote session (headless sway + wayvnc)
-
-[Service]
-Environment=BRASA_REMOTE_SESSION=1 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
-Environment=XDG_CURRENT_DESKTOP=sway XDG_SESSION_TYPE=wayland
-# Never inherit the local session's compositor from the user manager: the remote session's scripts would
-# talk to the local Hyprland/sway (wrong data, and keys acting on the local screen)
-UnsetEnvironment=HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY SWAYSOCK DISPLAY I3SOCK
-ExecStart=/usr/bin/dbus-run-session -- sway -c %h/.config/sway/remote.conf
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-EOF
-  systemctl --user daemon-reload
-}
-
-# ---- the session on Hyprland: a system service, a virtual screen in seat1, the files in remote/
-HYPR_FILES="72-brasa-remote-seat.rules:/etc/udev/rules.d
+# ---- the session: a system service with a logind session of its own, the files in remote/
+# (Hyprland also needs a virtual screen, vkms, in seat1)
+SYSTEM_FILES="72-brasa-remote-seat.rules:/etc/udev/rules.d
+brasa-remote-sway@.service:/etc/systemd/system
 brasa-remote-hyprland@.service:/etc/systemd/system
 50-brasa-remote.rules:/usr/share/polkit-1/rules.d"
-hypr_installed() {
+system_files_installed() {
   local f
-  while IFS=: read -r f dir; do cmp -s "$B/remote/$f" "$dir/$f" || return 1; done <<< "$HYPR_FILES"
+  while IFS=: read -r f dir; do cmp -s "$B/remote/$f" "$dir/$f" || return 1; done <<< "$SYSTEM_FILES"
+}
+system_files_install() {
+  system_files_installed && return 0
+  [ -t 0 ] || [ "$(id -u)" = 0 ] || { echo "Run it once in a terminal: it needs sudo to install the session's system service" >&2; exit 1; }
+  echo "Installing the system service of the remote session (sudo)"
+  local sudo f dir; sudo=$(sudo_prefix)
+  while IFS=: read -r f dir; do $sudo install -Dm644 "$B/remote/$f" "$dir/$f" || exit 1; done <<< "$SYSTEM_FILES"
+  $sudo udevadm control --reload
+  $sudo systemctl daemon-reload
+}
+session_installed() {
+  system_files_installed || return 1
+  [ "$REMOTE_WM" = sway ] || modinfo vkms >/dev/null 2>&1
+}
+session_install() {
+  if [ "$REMOTE_WM" = hyprland ]; then hypr_install; else system_files_install; fi
+  retire_old_session
+}
+retire_old_session() {  # the sway session's former user service goes, its start at boot moves to the system one
+  local file=~/.config/systemd/user/$OLD_SWAY_UNIT.service
+  [ -f "$file" ] || return 0
+  old_session_running && return 0
+  if systemctl --user -q is-enabled "$OLD_SWAY_UNIT" 2>/dev/null; then
+    systemctl --user disable "$OLD_SWAY_UNIT" >/dev/null 2>&1
+    $(sudo_prefix) systemctl enable "$SWAY_UNIT" >/dev/null 2>&1
+  fi
+  rm -f "$file"
+  systemctl --user daemon-reload
 }
 vkms_package() {  # the package with the vkms module for the running kernel, by distro
   if command -v apt-get >/dev/null; then echo "linux-modules-extra-$(uname -r)"
@@ -601,15 +606,10 @@ vkms_install() {  # the virtual screen of the Hyprland session: the kernel modul
   modinfo vkms >/dev/null 2>&1 || { echo "vkms is still missing after installing $pkg" >&2; exit 1; }
 }
 hypr_install() {
-  modinfo vkms >/dev/null 2>&1 && hypr_installed && return 0
+  modinfo vkms >/dev/null 2>&1 && system_files_installed && return 0
   [ -t 0 ] || [ "$(id -u)" = 0 ] || { echo "Run it once in a terminal: it needs sudo to install the virtual screen" >&2; exit 1; }
   vkms_install
-  hypr_installed && return 0
-  echo "Installing the virtual screen and the system service of the Hyprland session (sudo)"
-  local sudo f dir; sudo=$(sudo_prefix)
-  while IFS=: read -r f dir; do $sudo install -Dm644 "$B/remote/$f" "$dir/$f" || exit 1; done <<< "$HYPR_FILES"
-  $sudo udevadm control --reload
-  $sudo systemctl daemon-reload
+  system_files_install
 }
 hypr_session_size() {  # WxH: the monitor rule of the session's output, live and in the file remote.lua loads
   local rule="hl.monitor({ output = \"$SESSION_OUTPUT\", mode = \"$1@60\", position = \"0x0\", scale = $(scale_for "$1") })"
@@ -657,13 +657,7 @@ conf_set() {  # KEY VALUE: replace or add the line
 }
 conf_unset() { [ -f "$USER_CONF" ] && sed -i "/^$1=/d" "$USER_CONF"; return 0; }
 session_sway() {  # the remote session's sway IPC socket, if it is running
-  # (the service's main process is dbus-run-session, sway is its child; sway's own environment cannot be
-  # read, it makes itself non-dumpable)
-  local main p
-  main=$(systemctl --user show -p MainPID --value "$SESSION_UNIT" 2>/dev/null)
-  [ -n "$main" ] && [ "$main" != 0 ] || return 1
-  p=$(pgrep -P "$main" -x sway) || return 1
-  echo "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/sway-ipc.$(id -u).$p.sock"
+  session_running && [ -S "$(cat "$STATE/session-sway" 2>/dev/null)" ] && cat "$STATE/session-sway"
 }
 session_live() {  # apply the current size/scale settings to a running session
   if [ "$REMOTE_WM" = hyprland ]; then session_live_hypr; return; fi
@@ -726,7 +720,7 @@ restart_session_server() {  # the session's server starts again, reading remote.
   return 0
 }
 session_log() {
-  if [ "$REMOTE_WM" = hyprland ]; then echo "journalctl -u $HYPR_UNIT"; else echo "journalctl --user -u $SESSION_UNIT"; fi
+  echo "journalctl -u $(session_unit)"
 }
 session_restart_note() {
   session_running && echo "(follows the viewer or not from the next start: brasa-remote session stop, then session)"
@@ -811,18 +805,18 @@ session() {
     at-boot) session_at_boot ;;
     start)
       if session_running; then echo "The remote session is already running on $(where)"; return; fi
-      [ -f "$CONF_DIR/config" ] || setup || exit 1
-      firewall_install
       if [ "$REMOTE_WM" = hyprland ]; then
         command -v Hyprland >/dev/null || { echo "The remote session needs Hyprland installed." >&2; exit 1; }
-        hypr_install
       else
         command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; }
-        session_unit
       fi
+      session_installed || [ -t 0 ] || { in_terminal "Installing the remote session" session start; return; }
+      [ -f "$CONF_DIR/config" ] || setup || exit 1
+      firewall_install
+      session_install
       working "Remote session"
       rm -f "$STATE/session-layout" "$STATE/session-layout-index"   # a new session starts with your first layout
-      if [ "$REMOTE_WM" = hyprland ]; then systemctl start "$HYPR_UNIT"; else systemctl --user start "$SESSION_UNIT"; fi
+      systemctl start "$(session_unit)"
       sleep 3
       if session_running; then say "Remote session ON" "$REMOTE_WM · $(protocol_name "$(serves_rdp && echo rdp)") · $(where)
 $(also_on session)"
@@ -830,23 +824,17 @@ $(also_on session)"
     stop)
       if ! session_running; then echo "The remote session is not running"; return; fi
       working "Remote session"
-      if [ "$REMOTE_WM" = hyprland ]; then systemctl stop "$HYPR_UNIT"; else systemctl --user stop "$SESSION_UNIT"; fi &&
+      if old_session_running; then systemctl --user stop "$OLD_SWAY_UNIT"; else systemctl stop "$(session_unit)"; fi &&
         firewall_sync && say "Remote session OFF" "Port $REMOTE_PORT closed, its windows too
 $(also_on session)" ;;
     boot)
-      if [ "$REMOTE_WM" = hyprland ]; then
-        hypr_install
-        $(sudo_prefix) systemctl enable "$HYPR_UNIT" >/dev/null 2>&1 || exit 1
-      else
-        session_unit; systemctl --user enable "$SESSION_UNIT" >/dev/null 2>&1
-        # A user service starting at boot without anyone logged in needs "linger"
-        loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER"
-      fi
+      session_installed || [ -t 0 ] || { in_terminal "Installing the remote session" session boot; return; }
+      session_install
+      $(sudo_prefix) systemctl enable "$(session_unit)" >/dev/null 2>&1 || exit 1
       say "Remote session starts at boot" "Also with nobody logged in · port $REMOTE_PORT" ;;
     noboot)
-      if [ "$REMOTE_WM" = hyprland ]; then $(sudo_prefix) systemctl disable "$HYPR_UNIT" >/dev/null 2>&1 || exit 1
-      else systemctl --user disable "$SESSION_UNIT" >/dev/null 2>&1; fi
-      say "Remote session does not start at boot" "Linger left as it was" ;;
+      $(sudo_prefix) systemctl disable "$(session_unit)" >/dev/null 2>&1 || exit 1
+      say "Remote session does not start at boot" ;;
     *) usage; exit 1 ;;
   esac
 }
@@ -905,6 +893,7 @@ $(also_on local)"
       serve_session "$SESSION_OUTPUT"
       exit
     fi
+    echo "$SWAYSOCK" > "$STATE/session-sway"
     sleep 1
     out=$(swaymsg -t get_outputs -r | jq -r '.[0].name')
     wlr-randr --output "$out" --custom-mode "${REMOTE_SIZE}@60Hz" >/dev/null 2>&1
