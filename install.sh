@@ -49,7 +49,7 @@ source "$HERE/lib/install-apps.sh"
 # ---------------------------------------------------------------- links
 # Config Brasa owns entirely (directories) and single files inside other apps' directories
 DIRS="waybar swaync swayosd fuzzel nwg-bar sway hypr swaylock foot"
-FILES=""                                   # none at the moment
+FILES="xdg-desktop-portal/hyprland-portals.conf"
 # Links from older Brasa versions, removed on install (nwg-drawer was replaced by rofi)
 OBSOLETE="nwg-drawer/brasa.css"
 BINS=$(cd "$HERE/bin" && ls)

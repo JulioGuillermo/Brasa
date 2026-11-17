@@ -90,6 +90,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `config/nwg-bar/` | Exit dialog buttons and style | `~/.config/nwg-bar` |
 | `config/sway/` | sway/SwayFX: `config` (Super), `brasa.conf` (shared), `fx.*.conf` (effects), `test.conf` (Alt), `binds.conf` (generated) | `~/.config/sway` |
 | `config/hypr/` | Hyprland: `hyprland.lua`, `binds.lua` (generated), `hyprlock.conf` and `remote.lua` (the remote session) | `~/.config/hypr` |
+| `config/xdg-desktop-portal/hyprland-portals.conf` | Hyprland's portals without the Inhibit one, so a browser playing a video keeps the screen from locking through Wayland's idle inhibit (sway's own portals.conf does the same) | `~/.config/xdg-desktop-portal/` |
 | `config/swaylock/` | swaylock fallback | `~/.config/swaylock` |
 | `config/foot/foot.ini` | Terminal: colors, transparency with blur, bell | `~/.config/foot` |
 | `greeter/` | Login screen: greetd, nwg-hello and the sway that runs it | `/etc/greetd`, `/etc/nwg-hello` (copied with sudo) |
