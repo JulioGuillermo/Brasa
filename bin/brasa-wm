@@ -141,6 +141,17 @@ else
   }
   focused_node() { swaymsg -t get_tree | jq '[.. | objects | select(.focused? == true)][0]'; }
   focused_parent() { swaymsg -t get_tree | jq '[.. | objects | select(any((.nodes // [])[]; .focused))][0]'; }
+  # Where the next window opens: in the focused workspace itself, otherwise beside the focused node in its group
+  next_window_layout() {
+    swaymsg -t get_tree | jq -r '
+      [.. | objects | select(.type? == "workspace" and any(.. ; .focused? == true))][0] as $workspace
+      | [.. | objects | select(.focused? == true)][0] as $focused
+      | [.. | objects | select(any((.nodes // [])[]; .focused))][0] as $group
+      | if $focused.type == "workspace" then $focused.layout
+        else ($group.layout // $workspace.layout) end
+      | sub("^stacked$"; "stacking")'
+  }
+  bar_update() { swaymsg -q -t send_tick brasa-split; }
   # "layout" acts on the focused group, or on a window's own group when a window has the focus
   selected_group() {
     local node; node=$(focused_node)
@@ -197,19 +208,25 @@ else
                  done
                  swaymsg -q layout "$l"
                  [ -n "$win" ] && swaymsg -q "[con_id=$win] focus"
+                 bar_update
                  ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $(swaymsg -t get_workspaces -r | jq -r '.[] | select(.focused) | .name'): $(sway_layout_name "$l")" ;;
     group-layout-cycle) # the layout of the focused window's group, or of the group selected with focus-parent
                  l=$(next_sway_layout "$(selected_group | jq -r .layout)")
                  swaymsg -q layout "$l"
+                 bar_update
                  ~/.local/bin/brasa-osd view-grid-symbolic "Group: $(sway_layout_name "$l")" ;;
     split-toggle) swaymsg -q split toggle
-                 case $(focused_parent | jq -r .layout) in
+                 bar_update
+                 case $(next_window_layout) in
                    splitv) n="below this one" ;;
-                   *)      n="beside this one" ;;
+                   splith) n="beside this one" ;;
+                   *)      n="in the $(sway_layout_name "$(next_window_layout)")" ;;
                  esac
                  ~/.local/bin/brasa-osd view-grid-symbolic "Next window: $n" ;;
+    next-window) next_window_layout ;;   # for the bar: splith, splitv, tabbed or stacking
     focus-parent|focus-child)
                  swaymsg -q focus "${verb#focus-}"
+                 bar_update
                  ~/.local/bin/brasa-osd view-grid-symbolic "Selected: $(selected_description)" ;;
     dpms)        swaymsg -q output '*' power "$arg" ;;
     remote-keys) if [ "$(swaymsg -t get_binding_state -r | jq -r .name)" = remote ]; then swaymsg -q mode default; msg=off

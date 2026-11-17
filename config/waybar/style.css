@@ -64,7 +64,7 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
 #custom-notif { border-radius: 0 13px 13px 0; padding-right: 12px; font-size: 14px; }
 
 #cpu, #custom-thermal, #memory, #network, #battery, #custom-volt, #custom-hz,
-#bluetooth, #wireplumber, #backlight {
+#bluetooth, #wireplumber, #backlight, #custom-split {
   padding: 0 5px;
   transition: color 400ms ease, text-shadow 400ms ease;
 }

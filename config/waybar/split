@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# sway: where the next window opens, beside the focused one or below it (Super+v switches it). Nothing in
+# Hyprland. It follows focus changes and the ticks brasa-wm sends after changing a split or a layout.
+[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -n "${SWAYSOCK:-}" ] || exit 0
+
+show() {
+  local icon text
+  case $(~/.local/bin/brasa-wm next-window) in
+    splith)   icon=$'\ueb56' text="beside the focused one" ;;
+    splitv)   icon=$'\ueb57' text="below the focused one" ;;
+    tabbed)   icon=$'\U000f04e9' text="in a new tab" ;;
+    stacking) icon=$'\U000f0571' text="in the stack" ;;
+    *)        echo '{"text": ""}'; return ;;
+  esac
+  jq -cn --arg icon "$icon" --arg text "$text" \
+    '{text: $icon, tooltip: "Next window: \($text)\nSuper+v switches it, Super+z selects the group around it"}'
+}
+
+show
+swaymsg -m -t subscribe '["window", "workspace", "tick"]' |
+  jq --unbuffered -r 'select(.change == "focus" or .change == "new" or .change == "close"
+                             or .change == "move" or .payload == "brasa-split") | .change // "tick"' |
+  while read -r _; do show; done
