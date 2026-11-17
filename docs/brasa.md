@@ -399,6 +399,8 @@ Floating, with rounded corners, in three zones:
 - **Right**: clock (hover: calendar, scroll changes month; click: full date) ·
   layout: in sway where the next window opens, beside or below (click or `Super+v` switches it); in
   Hyprland the workspace's layout (click or `Super+w`: the next one) ·
+  a cup, lit while the screen is kept awake: by an app (a video playing; the tooltip names it) or by
+  hand (a click turns it on or off; swayidle then neither locks nor turns the screen off) ·
   keyboard layout · wifi · bluetooth · volume (scroll) · brightness (scroll) · tray · bell.
 
 **Folding.** Right click on the CPU, temperature, RAM, network, volts or Hz block folds it to its

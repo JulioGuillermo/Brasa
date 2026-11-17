@@ -43,8 +43,10 @@ done
 command -v cliphist >/dev/null && { here -f "wl-paste --watch cliphist" ||
   setsid -f wl-paste --watch cliphist store >/dev/null 2>&1; }
 
-# Lock after 15 min (like GNOME), screen off after 20, and always lock before suspending
+# Lock after 15 min (like GNOME), screen off after 20, and always lock before suspending. Neither while
+# the screen is kept awake by hand (the cup in the bar)
+awake='[ -e "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-awake" ]'
 run swayidle -w \
-  timeout 900  '~/.local/bin/brasa-lock' \
-  timeout 1200 '~/.local/bin/brasa-wm dpms off' resume '~/.local/bin/brasa-wm dpms on' \
+  timeout 900  "$awake || ~/.local/bin/brasa-lock" \
+  timeout 1200 "$awake || ~/.local/bin/brasa-wm dpms off" resume '~/.local/bin/brasa-wm dpms on' \
   before-sleep '~/.local/bin/brasa-lock'

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Whether the screen locks when idle: the apps keeping it awake (a video playing...), or awake by hand
+# after a click. swayidle's lock and screen-off skip while the file AWAKE exists (brasa-autostart).
+# Usage: awake          the bar's JSON
+#        awake toggle   keep the screen awake by hand, or stop
+AWAKE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-awake
+SIGNAL=9
+ICON_ON=$'\U000F0176'
+ICON_OFF=$'\U000F06CA'
+
+apps_keeping_awake() {
+  if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    hyprctl clients -j | jq -r '.[] | select(.inhibitingIdle) | .class'
+  else
+    swaymsg -t get_tree | jq -r '.. | objects | select(.inhibit_idle? == true) | .app_id // .window_properties.class'
+  fi | sort -u | paste -sd, | sed 's/,/, /g'
+}
+
+toggle() {
+  if [ -e "$AWAKE" ]; then
+    rm -f "$AWAKE"
+    ~/.local/bin/brasa-osd video-display-symbolic "The screen locks when idle again"
+  else
+    touch "$AWAKE"
+    ~/.local/bin/brasa-osd video-display-symbolic "Screen kept awake (a click on the cup stops it)"
+  fi
+  pkill "-RTMIN+$SIGNAL" -u "$(id -u)" -x waybar
+}
+
+status() {
+  local apps reasons=()
+  apps=$(apps_keeping_awake)
+  [ -e "$AWAKE" ] && reasons+=("by hand")
+  [ -n "$apps" ] && reasons+=("by $apps")
+  if [ ${#reasons[@]} -eq 0 ]; then
+    jq -cn --arg icon "$ICON_OFF" \
+      '{text: $icon, class: "off", tooltip: "The screen locks when idle\nA click keeps it awake"}'
+    return
+  fi
+  local why; why=$(printf '%s and ' "${reasons[@]}"); why=${why% and }
+  jq -cn --arg icon "$ICON_ON" --arg why "$why" \
+    '{text: $icon, class: "on", tooltip: "Screen kept awake \($why)\nA click: awake by hand on or off"}'
+}
+
+if [ "${1:-}" = toggle ]; then toggle; else status; fi

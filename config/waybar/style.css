@@ -64,7 +64,7 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
 #custom-notif { border-radius: 0 13px 13px 0; padding-right: 12px; font-size: 14px; }
 
 #cpu, #custom-thermal, #memory, #network, #battery, #custom-volt, #custom-hz,
-#bluetooth, #wireplumber, #backlight, #custom-split {
+#bluetooth, #wireplumber, #backlight, #custom-split, #custom-awake {
   padding: 0 5px;
   transition: color 400ms ease, text-shadow 400ms ease;
 }
@@ -95,6 +95,8 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
 #battery.critical:not(.charging) { color: @accent; text-shadow: 0 0 8px rgba(255, 0, 0, 0.85); }
 #battery.charging { color: #3fd9c0; }
 #custom-volt, #custom-hz { color: @sub; }
+#custom-awake.off { color: @dim; }
+#custom-awake.on { color: @accent; }
 
 /* Workspaces: the number inside a circle drawn by CSS; the active one filled red */
 #workspaces { padding: 0 6px; }
