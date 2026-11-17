@@ -62,7 +62,7 @@ waybar = {
   "group/g-power": {"orientation": "horizontal", "modules": ["battery", "custom/volt"]},
   "group/g-screen": {"orientation": "horizontal", "modules": ["custom/hz"]},
   "group/g-ctl": {"orientation": "horizontal",
-                  "modules": ["sway/language", "hyprland/language", "network#wifi"] + (["bluetooth"] if HAS["bluetooth"] else [])
+                  "modules": ["custom/split", "sway/language", "hyprland/language", "network#wifi"] + (["bluetooth"] if HAS["bluetooth"] else [])
                              + ["wireplumber"] + (["backlight"] if HAS["backlight"] else [])},
 
   "cpu": {"interval": 1, "states": load, "tooltip": False},
@@ -86,6 +86,8 @@ waybar = {
               "format-time": "{H}h{M:02}<small>m</small>",
               "format-icons": ICON["bat"], "tooltip-format": "{timeTo} · {power:.1f} W"},
   "custom/volt": {"exec": S + " volt", "return-type": "json", "interval": 3},
+  "custom/split": {"exec": "~/.config/waybar/split", "return-type": "json", "restart-interval": 5,
+                   "on-click": "~/.local/bin/brasa-wm split-toggle"},
   "custom/hz": {"exec": "~/.config/waybar/hz", "return-type": "json", "restart-interval": 5,
                 "on-click": "~/.local/bin/brasa-refresh menu", "on-click-middle": "~/.local/bin/brasa-hz-real",
                 "on-scroll-up": "~/.local/bin/brasa-refresh cycle", "on-scroll-down": "~/.local/bin/brasa-refresh cycle"},
