@@ -117,6 +117,7 @@ if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
                     d 'hl.dsp.layout("togglesplit")'
                   else ~/.local/bin/brasa-osd view-grid-symbolic "Split: only in the dwindle layout (Super+w)"; fi ;;
     focus-parent|focus-child) only_sway ;;
+    bar-layout-click) "$0" layout-cycle ;;
     layout-menu) MENU_IDS=("${LAYOUT_ORDER[@]}") MENU_NAMES=()
                  for l in "${LAYOUT_ORDER[@]}"; do MENU_NAMES+=("${LAYOUT_NAMES[$l]}"); done
                  picked=$(pick_layout "$("$0" layout-current)") && "$0" layout-set "$picked" ;;
@@ -223,7 +224,8 @@ else
                    *)      n="in the $(sway_layout_name "$(next_window_layout)")" ;;
                  esac
                  ~/.local/bin/brasa-osd view-grid-symbolic "Next window: $n" ;;
-    next-window) next_window_layout ;;   # for the bar: splith, splitv, tabbed or stacking
+    next-window) next_window_layout ;;
+    bar-layout-click) "$0" split-toggle ;;   # for the bar: splith, splitv, tabbed or stacking
     focus-parent|focus-child)
                  swaymsg -q focus "${verb#focus-}"
                  bar_update

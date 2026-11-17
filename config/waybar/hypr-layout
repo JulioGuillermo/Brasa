@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+# Hyprland: the window layout of the focused workspace (Super+w changes it). It follows Hyprland's
+# events, and the file where brasa-wm saves each workspace's layout.
+import json
+import os
+import select
+import socket
+import subprocess
+
+LAYOUTS = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")),
+                       "brasa", "workspace-layouts")
+EVENTS = os.path.join(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"), "hypr",
+                      os.environ["HYPRLAND_INSTANCE_SIGNATURE"], ".socket2.sock")
+WORKSPACE_EVENTS = ("workspace>>", "workspacev2>>", "focusedmon>>", "focusedmonv2>>")
+ICONS = {
+    "dwindle": ("\U000F056E", "dwindle: each window splits the focused one"),
+    "master": ("\U000F0574", "master: one big window and a column"),
+    "scrolling": ("\U000F0BCD", "scrolling, side by side"),
+    "scrolling-down": ("\U000F0BCE", "scrolling, one above the other"),
+    "focus": ("\U000F0293", "focus, side by side"),
+    "focus-down": ("\U000F0293", "focus, one above the other"),
+}
+
+
+def focused_workspace():
+    result = subprocess.run(["hyprctl", "activeworkspace", "-j"], capture_output=True, text=True)
+    try:
+        return str(json.loads(result.stdout)["id"])
+    except (json.JSONDecodeError, KeyError):
+        return None
+
+
+def saved_layout(workspace):
+    try:
+        with open(LAYOUTS) as file:
+            for line in file:
+                fields = line.split()
+                if len(fields) == 2 and fields[0] == workspace:
+                    return fields[1]
+    except OSError:
+        pass
+    return "dwindle"
+
+
+def layouts_changed_at():
+    try:
+        return os.stat(LAYOUTS).st_mtime
+    except OSError:
+        return 0
+
+
+def show():
+    icon, name = ICONS.get(saved_layout(focused_workspace()), ICONS["dwindle"])
+    tooltip = f"Layout of this workspace: {name}\nSuper+w or a click: the next one"
+    print(json.dumps({"text": icon, "tooltip": tooltip}, ensure_ascii=False), flush=True)
+
+
+def main():
+    events = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    events.connect(EVENTS)
+    pending = b""
+    seen_change = layouts_changed_at()
+    show()
+    while True:
+        readable, _, _ = select.select([events], [], [], 1)
+        if readable:
+            data = events.recv(4096)
+            if not data:
+                return
+            *lines, pending = (pending + data).split(b"\n")
+            if any(line.decode(errors="replace").startswith(WORKSPACE_EVENTS) for line in lines):
+                show()
+        if layouts_changed_at() != seen_change:
+            seen_change = layouts_changed_at()
+            show()
+
+
+main()

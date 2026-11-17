@@ -87,7 +87,7 @@ waybar = {
               "format-icons": ICON["bat"], "tooltip-format": "{timeTo} · {power:.1f} W"},
   "custom/volt": {"exec": S + " volt", "return-type": "json", "interval": 3},
   "custom/split": {"exec": "~/.config/waybar/split", "return-type": "json", "restart-interval": 5,
-                   "on-click": "~/.local/bin/brasa-wm split-toggle"},
+                   "on-click": "~/.local/bin/brasa-wm bar-layout-click"},
   "custom/hz": {"exec": "~/.config/waybar/hz", "return-type": "json", "restart-interval": 5,
                 "on-click": "~/.local/bin/brasa-refresh menu", "on-click-middle": "~/.local/bin/brasa-hz-real",
                 "on-scroll-up": "~/.local/bin/brasa-refresh cycle", "on-scroll-down": "~/.local/bin/brasa-refresh cycle"},

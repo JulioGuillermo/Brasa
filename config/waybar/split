@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# sway: where the next window opens, beside the focused one or below it (Super+v switches it). Nothing in
-# Hyprland. It follows focus changes and the ticks brasa-wm sends after changing a split or a layout.
-[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -n "${SWAYSOCK:-}" ] || exit 0
+# sway: where the next window opens, beside the focused one or below it (Super+v switches it). It follows
+# focus changes and the ticks brasa-wm sends after changing a split or a layout.
+# Hyprland does not tell where the next window opens: there it shows the workspace's layout instead.
+[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && exec ~/.config/waybar/hypr-layout
+[ -n "${SWAYSOCK:-}" ] || exit 0
 
 show() {
   local icon text

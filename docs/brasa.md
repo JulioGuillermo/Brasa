@@ -396,7 +396,8 @@ Floating, with rounded corners, in three zones:
   network ↑↓ · battery %, watts and voltage · screen Hz.
 - **Center**: workspaces (the active one in red with a glow).
 - **Right**: clock (hover: calendar, scroll changes month; click: full date) ·
-  where the next window opens, beside or below (sway only; click or `Super+v` switches it) ·
+  layout: in sway where the next window opens, beside or below (click or `Super+v` switches it); in
+  Hyprland the workspace's layout (click or `Super+w`: the next one) ·
   keyboard layout · wifi · bluetooth · volume (scroll) · brightness (scroll) · tray · bell.
 
 **Folding.** Right click on the CPU, temperature, RAM, network, volts or Hz block folds it to its
