@@ -13,6 +13,7 @@ pick_layout() {
     fuzzel --dmenu --index --prompt "Layout  " --width 36 --lines ${#MENU_IDS[@]} --select-index "$selected")
   [ -n "$picked" ] && [ "$picked" -ge 0 ] && echo "${MENU_IDS[$picked]}"
 }
+only_sway() { ~/.local/bin/brasa-osd view-grid-symbolic "Groups of windows: only in sway"; }
 if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
   d() { hyprctl -q dispatch "$1"; }
 
@@ -111,6 +112,11 @@ if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
                  save_layout "$ws" "$next"
                  ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $ws: ${LAYOUT_NAMES[$next]}" ;;
     layout-current) saved_layout "$(hyprctl activeworkspace -j | jq -r .id)" ;;   # for the control panel
+    group-layout-cycle) "$0" layout-cycle ;;   # no groups in Hyprland: the workspace's
+    split-toggle) if [ "$(saved_layout "$(hyprctl activeworkspace -j | jq -r .id)")" = dwindle ]; then
+                    d 'hl.dsp.layout("togglesplit")'
+                  else ~/.local/bin/brasa-osd view-grid-symbolic "Split: only in the dwindle layout (Super+w)"; fi ;;
+    focus-parent|focus-child) only_sway ;;
     layout-menu) MENU_IDS=("${LAYOUT_ORDER[@]}") MENU_NAMES=()
                  for l in "${LAYOUT_ORDER[@]}"; do MENU_NAMES+=("${LAYOUT_NAMES[$l]}"); done
                  picked=$(pick_layout "$("$0" layout-current)") && "$0" layout-set "$picked" ;;
@@ -127,6 +133,31 @@ if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
                  ~/.local/bin/brasa-osd input-touchpad-symbolic "Touchpad $([ $on = true ] && echo on || echo off)" ;;
   esac
 else
+  next_sway_layout() {
+    case $1 in splith) echo splitv ;; splitv) echo tabbed ;; tabbed) echo stacking ;; *) echo splith ;; esac
+  }
+  sway_layout_name() {
+    case $1 in splith) echo "side by side" ;; splitv) echo "one above the other" ;; tabbed) echo "tabs" ;; *) echo "stacked" ;; esac
+  }
+  focused_node() { swaymsg -t get_tree | jq '[.. | objects | select(.focused? == true)][0]'; }
+  focused_parent() { swaymsg -t get_tree | jq '[.. | objects | select(any((.nodes // [])[]; .focused))][0]'; }
+  # "layout" acts on the focused group, or on a window's own group when a window has the focus
+  selected_group() {
+    local node; node=$(focused_node)
+    if [ "$(jq -r '.type' <<< "$node")" = con ] && [ "$(jq '.nodes | length' <<< "$node")" = 0 ]; then
+      focused_parent
+    else
+      echo "$node"
+    fi
+  }
+  selected_description() {
+    local node; node=$(focused_node)
+    case $(jq -r '"\(.type) \(.nodes | length)"' <<< "$node") in
+      workspace*) echo "the whole workspace" ;;
+      "con 0")    echo "one window" ;;
+      *)          echo "a group of $(jq '[.. | objects | select(.pid?)] | length' <<< "$node") windows, $(sway_layout_name "$(jq -r .layout <<< "$node")")" ;;
+    esac
+  }
   case $verb in
     close)       swaymsg -q kill ;;
     kill)        pid=$(swaymsg -t get_tree | jq '.. | select(.focused? == true) | .pid' | head -1)
@@ -155,7 +186,7 @@ else
                  if [ "$verb" = layout-set ]; then
                    case $arg in splitv|scrolling-down|focus-down) l=splitv ;; tabbed|scrolling|focus) l=tabbed ;; stacking) l=stacking ;; *) l=splith ;; esac
                  else
-                   case $("$0" layout-current) in splith) l=splitv ;; splitv) l=tabbed ;; tabbed) l=stacking ;; *) l=splith ;; esac
+                   l=$(next_sway_layout "$("$0" layout-current)")
                  fi
                  # "layout" acts on the focused node's container: climb to the workspace, set it, give focus back.
                  # (One command each: criteria in a comma-separated list would apply to every command.)
@@ -166,8 +197,20 @@ else
                  done
                  swaymsg -q layout "$l"
                  [ -n "$win" ] && swaymsg -q "[con_id=$win] focus"
-                 case $l in splith) n="side by side" ;; splitv) n="one above the other" ;; tabbed) n="tabs" ;; *) n="stacked" ;; esac
-                 ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $(swaymsg -t get_workspaces -r | jq -r '.[] | select(.focused) | .name'): $n" ;;
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $(swaymsg -t get_workspaces -r | jq -r '.[] | select(.focused) | .name'): $(sway_layout_name "$l")" ;;
+    group-layout-cycle) # the layout of the focused window's group, or of the group selected with focus-parent
+                 l=$(next_sway_layout "$(selected_group | jq -r .layout)")
+                 swaymsg -q layout "$l"
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Group: $(sway_layout_name "$l")" ;;
+    split-toggle) swaymsg -q split toggle
+                 case $(focused_parent | jq -r .layout) in
+                   splitv) n="below this one" ;;
+                   *)      n="beside this one" ;;
+                 esac
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Next window: $n" ;;
+    focus-parent|focus-child)
+                 swaymsg -q focus "${verb#focus-}"
+                 ~/.local/bin/brasa-osd view-grid-symbolic "Selected: $(selected_description)" ;;
     dpms)        swaymsg -q output '*' power "$arg" ;;
     remote-keys) if [ "$(swaymsg -t get_binding_state -r | jq -r .name)" = remote ]; then swaymsg -q mode default; msg=off
                  else swaymsg -q mode remote; msg="on · Ctrl+Super+Esc to leave"; fi

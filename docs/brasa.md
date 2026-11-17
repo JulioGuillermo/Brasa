@@ -258,6 +258,9 @@ search; Enter or a click runs it.
 | `Super+Space` | Floating / tiled |
 | `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like: windows on a strip you scroll through, each half the screen) side by side → scrolling one above the other → focus side by side → focus one above the other (like scrolling, but each window nearly fills the screen, kept in the middle so a sliver of the neighbours shows on both sides; the first and the last stay at the edge, the sliver all on their one neighbour), remembered across logins. sway: side by side → one above the other → tabs → stacked |
 | `Super+Shift+w` | Window layout of the focused workspace, picked from a list (fuzzel) with the current one selected. Same layouts as `Super+w`, in Hyprland and sway |
+| `Super+Ctrl+w` | sway: layout of the focused window's group, the next one (side by side → one above the other → tabs → stacked); after `Super+z`, of the selected group. Hyprland has no groups: same as `Super+w` |
+| `Super+v` | sway: the next window opens beside the focused one or below it, each press switches (an OSD says which). With a group selected (`Super+z`), the next window splits the whole group. Hyprland: switches the focused split (dwindle only) |
+| `Super+z` / `Super+Shift+z` | sway: select one level up in the window tree (the group around the window, then the next one, up to the whole workspace) / one level down again |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |
