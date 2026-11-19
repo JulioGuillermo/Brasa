@@ -489,7 +489,7 @@ are skipped automatically (`fx.none.conf`).
 **Hyprland** (`config/hypr/hyprland.lua`, Lua, 0.56+): the same plus animations with a small "pop"
 when windows open, a red gradient border, and a three-finger touchpad swipe to switch workspaces.
 
-Shared: keyboard `es` + `us altgr-intl` (compose on Insert), repeat 500 ms / 33 per second,
+Shared (the three): keyboard `es` + `us altgr-intl` (compose on Insert), repeat 500 ms / 33 per second,
 tap to click and natural scrolling on the touchpad, touchscreen and pen mapped to the internal
 screen, the cursor theme you choose ([Icons and cursors](#icons-and-cursors)), 133 % scale on `eDP-1`, dynamic refresh rate.
 
