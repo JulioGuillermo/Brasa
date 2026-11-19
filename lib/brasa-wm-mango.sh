@@ -4,17 +4,24 @@
 
 dispatch() { mmsg dispatch "$1" >/dev/null; }
 
-# The layouts Super+w goes through, in config.conf's circle_layout order, and their names
-LAYOUT_ORDER=(dwindle tile scroller vertical_scroller center_tile monocle grid
-  right_tile vertical_tile deck vertical_deck vertical_grid fair vertical_fair)
+# The layouts Super+w and the menu go through, in config.conf's circle_layout order, and their names
+LAYOUT_ORDER=(dwindle tile right_tile center_tile vertical_tile deck vertical_deck
+  grid vertical_grid fair vertical_fair scroller vertical_scroller monocle)
 declare -A LAYOUT_NAMES=(
-  [dwindle]="dwindle" [tile]="master" [scroller]="scrolling, side by side"
-  [vertical_scroller]="scrolling, one above the other" [center_tile]="master in the middle"
-  [monocle]="one at a time" [grid]="grid"
-  [right_tile]="master on the right" [vertical_tile]="master on top"
-  [deck]="deck: the master and the rest stacked" [vertical_deck]="deck, the stack below"
-  [vertical_grid]="grid, by rows" [fair]="same size for all, in columns"
-  [vertical_fair]="same size for all, in rows")
+  [dwindle]="Split · new ones halve the focused"
+  [tile]="Main · big one on the left"
+  [right_tile]="Main · big one on the right"
+  [center_tile]="Main · big one in the middle"
+  [vertical_tile]="Main · big one on top"
+  [deck]="Cards · big one left, rest piled"
+  [vertical_deck]="Cards · big one on top, rest piled"
+  [grid]="Grid · in columns"
+  [vertical_grid]="Grid · in rows"
+  [fair]="Even · same size, in columns"
+  [vertical_fair]="Even · same size, in rows"
+  [scroller]="Scroll · side by side →"
+  [vertical_scroller]="Scroll · one above the other ↓"
+  [monocle]="Full · one window at a time")
 # mmsg reports a layout by its symbol
 declare -A LAYOUT_OF_SYMBOL=(
   [DW]=dwindle [T]=tile [S]=scroller [VS]=vertical_scroller [CT]=center_tile [M]=monocle [G]=grid
