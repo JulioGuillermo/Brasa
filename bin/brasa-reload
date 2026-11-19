@@ -6,7 +6,8 @@ for f in ~/.config/brasa/bin/brasa-*; do [ -e ~/.local/bin/"${f##*/}" ] || ln -s
 for f in ~/.local/bin/brasa-*; do [ -L "$f" ] && [ ! -e "$f" ] && rm "$f"; done
 # The islands are Rust: build what a pull changed (a moment when nothing did)
 (cd ~/.config/brasa/islands && cargo build --release --quiet) &&
-  ln -sfn ~/.config/brasa/islands/target/release/brasa-islands ~/.local/bin/brasa-islands
+  ln -sfn ~/.config/brasa/islands/target/release/brasa-islands ~/.local/bin/brasa-islands &&
+  ln -sfn ~/.config/brasa/islands/target/release/brasa-idle-watch ~/.local/bin/brasa-idle-watch
 # The remote session's RDP server, if installed: built again in the background when a pull changed its patch
 [ -x ~/.local/bin/hypr-rdp ] && setsid -f ~/.local/bin/brasa-remote rdp build >/dev/null 2>&1 < /dev/null
 # Key bindings: keys.tsv may have changed with a pull; the window manager reads them again only then
@@ -23,6 +24,10 @@ python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/n
 pkill -u "$(id -u)" -x swaync                                                  # the island serves the notifications
 islands=$(~/.local/bin/brasa-here brasa-islands) && { kill $islands; sleep 0.3; }   # islands: island.conf, new code
 setsid -f ~/.local/bin/brasa-islands >/dev/null 2>&1
+if [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then   # mango: what keeps the screen awake, for the cup (new code)
+  watcher=$(~/.local/bin/brasa-here -f brasa-idle-watch) && kill $watcher
+  setsid -f ~/.local/bin/brasa-idle-watch >/dev/null 2>&1
+fi
 for _ in $(seq 30); do   # until it serves the notifications: one sent before would start swaync through D-Bus
   busctl --user status org.freedesktop.Notifications >/dev/null 2>&1 && break; sleep 0.1
 done

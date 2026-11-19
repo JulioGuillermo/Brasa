@@ -62,7 +62,7 @@ bindings, identical in SwayFX, Hyprland and mango. All of it together uses about
 | `bin/brasa-exit` | Centered exit dialog (`Super+Shift+e`) | `~/.local/bin/` |
 | `bin/brasa-shot` | Screenshots | `~/.local/bin/` |
 | `bin/brasa-freeze` | Still image over every monitor while `brasa-shot area` (`Shift+Print`) picks the area | `~/.local/bin/` |
-| `islands/` | `brasa-islands`, in Rust: the island (music, notifications, `Super+m`), the app launcher (`Super+d`), quick settings (`Super+a`) and the window switcher (`Super+Tab`), one process | `~/.local/bin/` (built by `install.sh` and `brasa-reload`) |
+| `islands/` | `brasa-islands`, in Rust: the island (music, notifications, `Super+m`), the app launcher (`Super+d`), quick settings (`Super+a`) and the window switcher (`Super+Tab`), one process; also `brasa-idle-watch` (mango: whether an app keeps the screen awake) | `~/.local/bin/` (built by `install.sh` and `brasa-reload`) |
 | `bin/brasa-island-settings`, `lib/brasa_island_config.py` | Island window (`Super+Shift+m`, quick settings tile **Island**): music, notifications, launcher, quick settings, where each one sits | `~/.local/bin/` |
 | `bin/brasa-reload` | Reloads bar, notifications and menus (`Super+Ctrl+r`) | `~/.local/bin/` |
 | `bin/brasa-emoji` | Emoji picker (`Super+.`) | `~/.local/bin/` |
@@ -407,7 +407,10 @@ Floating, with rounded corners, in three zones:
   layout: in sway where the next window opens, beside or below (click or `Super+v` switches it); in
   Hyprland the workspace's layout, in mango the tag's (click or `Super+w`: the next one) ·
   a cup, lit while the screen is kept awake: by an app (a video playing; the tooltip names it) or by
-  hand (a click turns it on or off; swayidle then neither locks nor turns the screen off) ·
+  hand (a click turns it on or off; swayidle then neither locks nor turns the screen off). mango does not
+  say whether an app keeps the screen awake: `brasa-idle-watch` (in `islands/`) finds out from the two
+  idle timers of the standard protocol (one apps hold back, one that only counts keyboard and mouse), so
+  the cup lights up "by an app" once nobody has touched them for 30 s ·
   keyboard layout · wifi · bluetooth · volume (scroll) · brightness (scroll) · tray · bell.
 
 **Folding.** Right click on the CPU, temperature, RAM, network, volts or Hz block folds it to its
@@ -507,7 +510,7 @@ view, since mango tells nothing more (no faint empty 1–4 as in the other two).
 its layout across logins (`config/mango/layouts.conf`, written by `Super+w`). The window switcher, the
 island on the focused monitor, saved monitors, the remote keyboard in viewers, the keys cheat sheet,
 the wallpaper and "Apps in other sessions" work as in the other two. Not in mango: which apps keep the
-screen awake (the cup only knows "by hand"), `brasa-remote take`, and keys that do not repeat while held (mango 0.17 repeats every binding).
+screen awake (the cup says "an app", after 30 s without input: see the bar), `brasa-remote take`, and keys that do not repeat while held (mango 0.17 repeats every binding).
 The remote session on mango: see [Remote desktop](#remote-desktop-vnc-and-rdp).
 
 **Touchscreen gestures**: Hyprland supports them with the hyprgrass plugin, not in the installer yet
@@ -1120,7 +1123,7 @@ copy of its config with Alt instead of Super.
 - On the Zenbook, the camera key's light is driven by the ASUS firmware; Linux exposes no control for it.
 - **mango** (0.17): every key binding repeats while held (Super+q held closes several windows; mango's
   `n` flag that stops it is not in 0.17); the cup in the bar cannot name the app keeping the screen
-  awake (mango does not tell, though it does keep the screen awake); `brasa-remote take` is refused (no
+  awake, and knows that one does only after 30 s without keyboard or mouse (see the bar); `brasa-remote take` is refused (no
   way to switch off single input devices); no tag 10; X11 apps are drawn at 100 % and scaled up, so
   blurry on a scaled screen (as on sway). Package names for mango outside Arch are guesses: the
   installer reports it when it cannot find one.

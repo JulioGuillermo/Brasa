@@ -216,7 +216,7 @@ if [ $UNINSTALL = 1 ]; then
   say "Removing Brasa links (packages are not uninstalled)"
   for d in $DIRS; do unlink_ours ~/.config/$d; done
   for f in $FILES; do unlink_ours ~/.config/$f; done
-  for f in $BINS brasa-islands; do unlink_ours ~/.local/bin/$f; done
+  for f in $BINS brasa-islands brasa-idle-watch; do unlink_ours ~/.local/bin/$f; done
   [ -x ~/.local/bin/hypr-rdp ] && run rm -rf ~/.local/bin/hypr-rdp "${XDG_CACHE_HOME:-$HOME/.cache}/brasa/hypr-rdp"*
   unlink_ours ~/.config/brasa
   unlink_ours ~/.config/gtk-3.0/gtk.css
@@ -337,6 +337,7 @@ build_islands() {  # the island, launcher, notifications and quick settings: one
   fi
   if [ $DRY = 1 ] || (cd "$HERE/islands" && cargo build --release --quiet); then
     link "$HERE/islands/target/release/brasa-islands" ~/.local/bin/brasa-islands
+    link "$HERE/islands/target/release/brasa-idle-watch" ~/.local/bin/brasa-idle-watch
   else
     problem "The islands did not build (cd $HERE/islands && cargo build --release shows why)"
   fi

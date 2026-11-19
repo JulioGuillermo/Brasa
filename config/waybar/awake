@@ -12,7 +12,8 @@ apps_keeping_awake() {
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
     hyprctl clients -j | jq -r '.[] | select(.inhibitingIdle) | .class'
   elif [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
-    true   # mango does not tell which windows keep the screen awake
+    # mango does not say which: brasa-idle-watch only knows that one does, after 30 s without input
+    [ -e "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-kept-awake" ] && echo "an app"
   else
     swaymsg -t get_tree | jq -r '.. | objects | select(.inhibit_idle? == true) | .app_id // .window_properties.class'
   fi | sort -u | paste -sd, | sed 's/,/, /g'
@@ -35,9 +36,7 @@ status() {
   [ -e "$AWAKE" ] && reasons+=("by hand")
   [ -n "$apps" ] && reasons+=("by $apps")
   if [ ${#reasons[@]} -eq 0 ]; then
-    local idle="The screen locks when idle"
-    [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ] && idle+=", unless an app keeps it awake (a video playing: mango does not say which)"
-    jq -cn --arg icon "$ICON_OFF" --arg idle "$idle" '{text: $icon, class: "off", tooltip: "\($idle)\nA click keeps it awake"}'
+    jq -cn --arg icon "$ICON_OFF" '{text: $icon, class: "off", tooltip: "The screen locks when idle\nA click keeps it awake"}'
     return
   fi
   local why; why=$(printf '%s and ' "${reasons[@]}"); why=${why% and }

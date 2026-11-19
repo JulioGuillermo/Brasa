@@ -34,6 +34,9 @@ on_sway && [ -s ~/.config/brasa/appearance.conf ] && ~/.local/bin/brasa-themes a
 # sway and mango: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)
 [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && { here -f "brasa-wm remote-watch" ||
   setsid -f ~/.local/bin/brasa-wm remote-watch >/dev/null 2>&1; }
+# mango does not say whether an app keeps the screen awake: brasa-idle-watch finds out, for the cup
+[ -n "${MANGO_INSTANCE_SIGNATURE:-}" ] && { here -f brasa-idle-watch ||
+  setsid -f ~/.local/bin/brasa-idle-watch >/dev/null 2>&1; }
 run nm-applet --indicator
 run blueman-applet
 for a in /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \
