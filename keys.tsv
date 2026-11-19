@@ -7,6 +7,8 @@
 #   key: xkb name (d, Return, space, Left, F1, Print, XF86AudioMute...); "1..9" repeats the line with {n}.
 #   action: "wm <verb> [arg]" (close, kill, fullscreen, float, focus DIR, move DIR, ws N, movews N,
 #           focusmon DIR, movewsmon DIR, resize wider|narrower|taller|shorter, width-cycle, layout-next,
+#           mango only: overview, overview-jump, scratch-terminal, minimize, unminimize, global, on-top,
+#           maximize, main, focus-last, view-also N,
 #           reload, touchpad) or "exec <shell command>".
 #   options: locked (also works on the lock screen), repeat (repeats while held),
 #            release (runs on key release and lets the key through, for Caps Lock / Num Lock).
@@ -37,7 +39,7 @@ SUPER	q	wm close	Close window
 SUPER+SHIFT	q	wm kill	Kill the app (kill -9)
 SUPER	f	wm fullscreen	Fullscreen
 SUPER	space	wm float	Toggle floating / tiled
-SUPER	w	wm layout-cycle	Window layout, next one. Hyprland (this workspace): dwindle, master, scrolling side by side, scrolling one above the other, focus side by side, focus one above the other. sway (this workspace): side by side, one above the other, tabs, stacked. mango (this tag): dwindle, master, scrolling side by side, scrolling one above the other, master in the middle, one at a time, grid
+SUPER	w	wm layout-cycle	Window layout, next one. Hyprland (this workspace): dwindle, master, scrolling side by side, scrolling one above the other, focus side by side, focus one above the other. sway (this workspace): side by side, one above the other, tabs, stacked. mango (this tag): its 14 layouts, in the order of Super+Shift+w's list
 SUPER+SHIFT	w	exec ~/.local/bin/brasa-wm layout-menu	Window layout: pick one from a list
 SUPER+CTRL	w	exec ~/.local/bin/brasa-wm group-layout-cycle	Layout of the focused window's group, the next one (sway; selected with Super+z, otherwise the window's own group). Hyprland and mango have no groups: the workspace's or tag's, as Super+w
 SUPER	v	exec ~/.local/bin/brasa-wm split-toggle	The next window opens beside the focused one or below it: each press switches (sway). Hyprland and mango: switches the focused split (dwindle)
@@ -67,9 +69,21 @@ SUPER+CTRL	l	wm resize wider	Window wider (hold to keep going)	repeat
 SUPER+CTRL	k	wm resize shorter	Window shorter (hold to keep going)	repeat
 SUPER+CTRL	j	wm resize taller	Window taller (hold to keep going)	repeat
 SUPER	s	wm width-cycle	Window width in the scrolling layouts: 50 % → 75 % → 100 % (Hyprland and mango)
+# --- Windows, mango only (sway and Hyprland show a notice)
+SUPER	o	wm overview	Overview: every window at once; a click goes to one, a right click closes it (mango)
+SUPER+SHIFT	o	wm overview-jump	Overview with a letter on each window: press it to go there (mango)
+SUPER	grave	wm scratch-terminal	Floating terminal: shows and hides, keeps running (mango)
+SUPER	i	wm minimize	Minimize window: hidden until Super+Shift+i (mango)
+SUPER+SHIFT	i	wm unminimize	Bring back a minimized window, one per press (mango)
+SUPER	g	wm global	Window on every tag: it follows you, press again to undo (mango)
+SUPER+SHIFT	p	wm on-top	Window always on top of the others (mango)
+SUPER+CTRL	f	wm maximize	Maximize, keeping the bar (mango)
+SUPER+SHIFT	space	wm main	Make it the main (big) window (mango)
+SUPER	BackSpace	wm focus-last	Back to the previous window (mango)
 # --- Workspaces
 SUPER	1..9	wm ws {n}	Go to workspace {n}
 SUPER+SHIFT	1..9	wm movews {n}	Move window to workspace {n}
+SUPER+CTRL	1..9	wm view-also {n}	Show tag {n}'s windows here too, press again to hide them (mango)
 SUPER	0	wm ws 10	Go to workspace 10
 SUPER+SHIFT	0	wm movews 10	Move window to workspace 10
 SUPER+ALT	Left	wm focusmon left	Focus the monitor on the left

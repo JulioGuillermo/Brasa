@@ -132,6 +132,13 @@ case $verb in
   split-toggle) if [ "$(current_layout)" = dwindle ]; then dispatch dwindle_toggle_current_split
                 else ~/.local/bin/brasa-osd view-grid-symbolic "Split: only in the dwindle layout (Super+w)"; fi ;;
   focus-parent|focus-child) only_sway ;;
+  scratch-terminal-open) # the floating terminal of Super+º: the app id lets mango find it again
+                terminal=$(~/.local/bin/brasa-app --which terminal)
+                case $terminal in
+                  foot)    exec foot --app-id brasa.scratch ;;
+                  ghostty) exec ghostty --class=brasa.scratch --gtk-single-instance=false ;;
+                  *)       exec "$terminal" --class brasa.scratch ;;
+                esac ;;
   dpms)         if [ "$arg" = off ]; then action=sleep_monitor; else action=wakeup_monitor; fi
                 for monitor in $(each_monitor); do dispatch "$action,$monitor"; done ;;
   remote-keys)  if [ "$(mmsg get keymode | jq -r .keymode)" = remote ]; then dispatch setkeymode,default; msg=off

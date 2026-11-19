@@ -19,13 +19,19 @@ HYPR_WM = {"close": "hl.dsp.window.close()", "kill": "hl.dsp.window.kill()",
            "focus": 'hl.dsp.focus({{ direction = "{}" }})', "move": 'hl.dsp.window.move({{ direction = "{}" }})',
            "ws": "hl.dsp.focus({{ workspace = {} }})", "movews": "hl.dsp.window.move({{ workspace = {} }})",
            "focusmon": 'hl.dsp.focus({{ monitor = "{}" }})', "movewsmon": 'hl.dsp.workspace.move({{ monitor = "{}" }})'}
-MANGO_WM = {"close": "killclient", "kill": "killclient,force", "fullscreen": "togglefullscreen",
+# What only mango has: elsewhere brasa-wm shows a notice
+MANGO_ONLY = {"overview": "toggleoverview", "overview-jump": "togglejump",
+              "scratch-terminal": "toggle_named_scratchpad,brasa.scratch,none,~/.local/bin/brasa-wm scratch-terminal-open",
+              "minimize": "minimized", "unminimize": "restore_minimized", "global": "toggleglobal",
+              "on-top": "toggleoverlay", "maximize": "togglemaximizescreen", "main": "zoom",
+              "focus-last": "focuslast", "view-also": "toggleview,{}"}
+MANGO_WM = {**MANGO_ONLY, "close": "killclient", "kill": "killclient,force", "fullscreen": "togglefullscreen",
             "float": "togglefloating", "focus": "focusdir,{}", "move": "move_client,{}", "ws": "view,{},0",
             "movews": "tag,{},0", "focusmon": "focusmon,{}", "movewsmon": "tagmon,{}"}
 MANGO_TAGS = 9
 # "wm resize DIRECTION": the focused window's size, by this many pixels (x, y) a press
 RESIZE_STEPS = {"wider": (40, 0), "narrower": (-40, 0), "taller": (0, 40), "shorter": (0, -40)}
-BRASA_WM_VERBS = {"kill", "touchpad", "remote-keys", "layout-cycle", "width-cycle"}
+BRASA_WM_VERBS = {"kill", "touchpad", "remote-keys", "layout-cycle", "width-cycle"} | set(MANGO_ONLY)
 WM_VERBS = set(SWAY_WM) | BRASA_WM_VERBS | {"resize"}
 
 

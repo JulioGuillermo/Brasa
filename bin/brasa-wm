@@ -16,6 +16,7 @@ pick_layout() {
 # VNC, RDP and VM viewers: while one has the focus every key goes to it (the "remote" key mode)
 REMOTE_VIEWERS='^(Vncviewer|vncviewer|wlvncc|xfreerdp|wlfreerdp|sdl-freerdp|sdl3-freerdp|remote-viewer|virt-viewer)$'
 only_sway() { ~/.local/bin/brasa-osd view-grid-symbolic "Groups of windows: only in sway"; }
+only_mango() { ~/.local/bin/brasa-osd view-grid-symbolic "Only in mango (Super+F1 lists it)"; }
 if [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
   . "$(dirname "$(readlink -f "$0")")/../lib/brasa-wm-mango.sh"
   exit
@@ -128,6 +129,8 @@ if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
                     d 'hl.dsp.layout("togglesplit")'
                   else ~/.local/bin/brasa-osd view-grid-symbolic "Split: only in the dwindle layout (Super+w)"; fi ;;
     focus-parent|focus-child) only_sway ;;
+    overview|overview-jump|scratch-terminal|minimize|unminimize|global|on-top|maximize|main|focus-last|view-also)
+                 only_mango ;;
     bar-layout-click) "$0" layout-cycle ;;
     layout-menu) MENU_IDS=("${LAYOUT_ORDER[@]}") MENU_NAMES=()
                  for l in "${LAYOUT_ORDER[@]}"; do MENU_NAMES+=("${LAYOUT_NAMES[$l]}"); done
@@ -238,6 +241,8 @@ else
     next-window) next_window_layout ;;
     width-cycle) ~/.local/bin/brasa-osd view-grid-symbolic "Window widths: only in the scrolling layouts of Hyprland and mango" ;;
     bar-layout-click) "$0" split-toggle ;;   # for the bar: splith, splitv, tabbed or stacking
+    overview|overview-jump|scratch-terminal|minimize|unminimize|global|on-top|maximize|main|focus-last|view-also)
+                 only_mango ;;
     focus-parent|focus-child)
                  swaymsg -q focus "${verb#focus-}"
                  bar_update

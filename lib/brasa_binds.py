@@ -190,7 +190,7 @@ def action_category(action, key):
         return "Mouse"
     if re.search(r"workspace|monitor|output|^(view|tag)", action):
         return "Workspaces"
-    if re.search(r"^(window|focus|kill|fullscreen|floating|move|layout|split|toggle|setlayout|switch_layout)", action):
+    if re.search(r"^(window|focus|kill|fullscreen|floating|move|layout|split|toggle|setlayout|switch_layout|minimized|restore_minimized|zoom)", action):
         return "Windows"
     return "Window manager"
 
