@@ -277,35 +277,40 @@ index 33e8c3a..b83d56b 100644
          }
 diff --git a/src/compositor.rs b/src/compositor.rs
 new file mode 100644
-index 0000000..0f26122
+index 0000000..0db4845
 --- /dev/null
 +++ b/src/compositor.rs
-@@ -0,0 +1,111 @@
-+//! The window manager hypr-rdp drives, Hyprland or sway, found once at start. Everything that asks it
-+//! for outputs or keyboard settings goes through here; the screen capture and the input already use
-+//! Wayland protocols both of them have.
+@@ -0,0 +1,124 @@
++//! The window manager hypr-rdp drives, Hyprland, sway or mango, found once at start. Everything that
++//! asks it for outputs or keyboard settings goes through here; the screen capture and the input already
++//! use Wayland protocols all of them have.
 +
 +use std::sync::OnceLock;
 +use std::time::Duration;
 +
 +use anyhow::{Context, Result};
 +
-+use crate::{hyprland, sway};
++use crate::{hyprland, mango, sway};
 +
 +#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 +pub enum Compositor {
 +    Hyprland,
 +    Sway,
++    Mango,
 +}
 +
 +static COMPOSITOR: OnceLock<Compositor> = OnceLock::new();
 +
-+/// Sway when its socket is set and no Hyprland signature is; otherwise Hyprland, which is also found
-+/// from the instance that owns WAYLAND_DISPLAY.
++/// mango or sway when its socket is set and no Hyprland signature is; otherwise Hyprland, which is
++/// also found from the instance that owns WAYLAND_DISPLAY.
 +fn detect() -> Compositor {
 +    let hyprland_signature =
 +        std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").filter(|s| !s.is_empty());
-+    if hyprland_signature.is_none() && sway::running() {
++    if hyprland_signature.is_some() {
++        Compositor::Hyprland
++    } else if mango::running() {
++        Compositor::Mango
++    } else if sway::running() {
 +        Compositor::Sway
 +    } else {
 +        Compositor::Hyprland
@@ -316,7 +321,7 @@ index 0000000..0f26122
 +    *COMPOSITOR.get_or_init(detect)
 +}
 +
-+/// Returns the Hyprland instance signature, which session hooks get; sway has none.
++/// Returns the Hyprland instance signature, which session hooks get; sway and mango have none.
 +pub fn initialize() -> Result<Option<String>> {
 +    match current() {
 +        Compositor::Hyprland => hyprland::initialize()
@@ -326,11 +331,15 @@ index 0000000..0f26122
 +            sway::monitors().context("failed to reach sway through SWAYSOCK")?;
 +            Ok(None)
 +        }
++        Compositor::Mango => {
++            mango::monitors().context("failed to list mango's outputs through wlr-randr")?;
++            Ok(None)
++        }
 +    }
 +}
 +
-+pub fn is_sway() -> bool {
-+    current() == Compositor::Sway
++pub fn is_hyprland() -> bool {
++    current() == Compositor::Hyprland
 +}
 +
 +/// The outputs as Hyprland's `j/monitors` has them: name, x, y, and width and height in pixels.
@@ -338,15 +347,17 @@ index 0000000..0f26122
 +    match current() {
 +        Compositor::Hyprland => hyprland::monitors(),
 +        Compositor::Sway => sway::monitors(),
++        Compositor::Mango => mango::monitors(),
 +    }
 +}
 +
-+/// Creates a headless output and returns its name. Hyprland names it after `prefix`; sway names it
-+/// itself.
++/// Creates a headless output and returns its name. Hyprland names it after `prefix`; sway and mango
++/// name it themselves.
 +pub fn create_headless_output(prefix: &str) -> Result<String> {
 +    match current() {
 +        Compositor::Hyprland => create_hyprland_headless_output(prefix),
 +        Compositor::Sway => sway::create_headless_output(),
++        Compositor::Mango => mango::create_headless_output(),
 +    }
 +}
 +
@@ -366,12 +377,12 @@ index 0000000..0f26122
 +    }
 +}
 +
-+/// True for an output an earlier run created and left behind. Always false on sway: its HEADLESS-N
-+/// names do not say who created them.
++/// True for an output an earlier run created and left behind. Always false on sway and mango: their
++/// HEADLESS-N names do not say who created them.
 +pub fn is_own_headless_output(name: &str, prefix: &str) -> bool {
 +    match current() {
 +        Compositor::Hyprland => name.starts_with(prefix),
-+        Compositor::Sway => false,
++        Compositor::Sway | Compositor::Mango => false,
 +    }
 +}
 +
@@ -383,6 +394,7 @@ index 0000000..0f26122
 +            hyprland::keyword_monitor(&rule)
 +        }
 +        Compositor::Sway => sway::set_output_mode(name, width, height, scale),
++        Compositor::Mango => mango::set_output_mode(name, width, height, scale),
 +    }
 +}
 +
@@ -390,6 +402,7 @@ index 0000000..0f26122
 +    match current() {
 +        Compositor::Hyprland => hyprland::output_remove(name),
 +        Compositor::Sway => sway::remove_output(name),
++        Compositor::Mango => mango::remove_output(name),
 +    }
 +}
 diff --git a/src/config.rs b/src/config.rs
@@ -514,7 +527,7 @@ index 1758849..d21e183 100644
  }
  
 diff --git a/src/input/wayland.rs b/src/input/wayland.rs
-index 4db7484..4fa783b 100644
+index 4db7484..d579c72 100644
 --- a/src/input/wayland.rs
 +++ b/src/input/wayland.rs
 @@ -509,7 +509,12 @@ impl HyprInputHandler {
@@ -523,31 +536,32 @@ index 4db7484..4fa783b 100644
          // client, so external layout switches come from Hyprland IPC instead.
 -        let layout_listener = if keyboard_layout_policy == KeyboardLayoutPolicy::Compositor {
 +        let follows_layout_switches = keyboard_layout_policy == KeyboardLayoutPolicy::Compositor
-+            && !crate::compositor::is_sway();
++            && crate::compositor::is_hyprland();
 +        if keyboard_layout_policy == KeyboardLayoutPolicy::Compositor && !follows_layout_switches {
-+            tracing::warn!("On sway the compositor keymap is used as it is at connection; later layout switches are not followed");
++            tracing::warn!("Outside Hyprland the compositor keymap is used as it is at connection; later layout switches are not followed");
 +        }
 +        let layout_listener = if follows_layout_switches {
              Some(spawn_layout_listener(input_commands.as_ref().clone())?)
          } else {
              None
-@@ -760,7 +765,11 @@ fn load_keymap(
+@@ -760,7 +765,12 @@ fn load_keymap(
      generate_fallback_keymap()
  }
  
-+/// On sway, xkb's defaults: sway does not report the layout names it was configured with.
++/// Outside Hyprland, xkb's defaults: sway and mango do not report the layout names they were configured
++/// with.
  fn generate_fallback_keymap() -> Result<(Vec<u8>, &'static str)> {
-+    if crate::compositor::is_sway() {
++    if !crate::compositor::is_hyprland() {
 +        return generate_fallback_keymap_from_names(Ok(XkbKeymapNames::default()));
 +    }
      generate_fallback_keymap_from_names(hyprland_xkb_keymap_names())
  }
  
 diff --git a/src/main.rs b/src/main.rs
-index 338d49e..77da7eb 100644
+index 338d49e..c992683 100644
 --- a/src/main.rs
 +++ b/src/main.rs
-@@ -1,12 +1,14 @@
+@@ -1,12 +1,15 @@
  mod audio;
  mod capture;
  mod clipboard;
@@ -557,11 +571,172 @@ index 338d49e..77da7eb 100644
  mod egfx;
  mod hyprland;
  mod input;
++mod mango;
  mod server;
 +mod sway;
  
  use anyhow::Result;
  use tracing_subscriber::EnvFilter;
+diff --git a/src/mango.rs b/src/mango.rs
+new file mode 100644
+index 0000000..ffd1ee6
+--- /dev/null
++++ b/src/mango.rs
+@@ -0,0 +1,154 @@
++//! mango, through its client mmsg, and its outputs through wlr-randr (the standard output management
++//! protocol): mmsg gives sizes in logical pixels, wlr-randr in real ones, as RDP needs.
++
++use std::process::Command;
++use std::time::{Duration, Instant};
++
++use anyhow::{bail, Context, Result};
++use serde_json::{json, Value};
++
++const NEW_OUTPUT_TIMEOUT: Duration = Duration::from_secs(5);
++const NEW_OUTPUT_POLL: Duration = Duration::from_millis(50);
++
++pub fn running() -> bool {
++    std::env::var_os("MANGO_INSTANCE_SIGNATURE").is_some_and(|path| !path.is_empty())
++}
++
++fn command_output(program: &str, args: &[&str]) -> Result<String> {
++    let output = Command::new(program)
++        .args(args)
++        .output()
++        .with_context(|| format!("failed to run {program}"))?;
++    if !output.status.success() {
++        bail!(
++            "{program} {} failed: {}",
++            args.join(" "),
++            String::from_utf8_lossy(&output.stderr).trim()
++        );
++    }
++    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
++}
++
++fn dispatch(action: &str) -> Result<()> {
++    command_output("mmsg", &["dispatch", action]).map(|_| ())
++}
++
++fn enabled_outputs() -> Result<Vec<Value>> {
++    let outputs: Value = serde_json::from_str(&command_output("wlr-randr", &["--json"])?)
++        .context("failed to parse wlr-randr's output list")?;
++    let outputs = outputs.as_array().context("expected an outputs array")?;
++    Ok(outputs
++        .iter()
++        .filter(|output| output["enabled"] == true)
++        .cloned()
++        .collect())
++}
++
++/// The enabled outputs in the shape Hyprland's `j/monitors` has: name, position in the layout, and
++/// size in pixels.
++pub fn monitors() -> Result<Value> {
++    let monitors: Vec<Value> = enabled_outputs()?
++        .iter()
++        .filter_map(monitor_from_output)
++        .collect();
++    Ok(Value::Array(monitors))
++}
++
++fn monitor_from_output(output: &Value) -> Option<Value> {
++    let modes = output["modes"].as_array()?;
++    let current = modes.iter().find(|mode| mode["current"] == true)?;
++    Some(json!({
++        "name": output["name"],
++        "x": output["position"]["x"],
++        "y": output["position"]["y"],
++        "width": current["width"],
++        "height": current["height"],
++    }))
++}
++
++fn output_names() -> Result<Vec<String>> {
++    Ok(enabled_outputs()?
++        .iter()
++        .filter_map(|output| output["name"].as_str().map(str::to_owned))
++        .collect())
++}
++
++/// Returns the name mango gave the new output: the one that was not there before.
++pub fn create_headless_output() -> Result<String> {
++    let before = output_names()?;
++    dispatch("create_virtual_output")?;
++    let start = Instant::now();
++    loop {
++        if let Some(name) = output_names()?
++            .into_iter()
++            .find(|name| !before.contains(name))
++        {
++            return Ok(name);
++        }
++        if start.elapsed() >= NEW_OUTPUT_TIMEOUT {
++            bail!(
++                "mango created no output within {}ms",
++                NEW_OUTPUT_TIMEOUT.as_millis()
++            );
++        }
++        std::thread::sleep(NEW_OUTPUT_POLL);
++    }
++}
++
++/// Sets the size and scale, and places the output left of every other one.
++pub fn set_output_mode(name: &str, width: u32, height: u32, scale: f64) -> Result<()> {
++    let logical_width = (f64::from(width) / scale).round() as i64;
++    let x = left_edge_of_others(name)? - logical_width;
++    command_output(
++        "wlr-randr",
++        &[
++            "--output",
++            name,
++            "--custom-mode",
++            &format!("{width}x{height}@60Hz"),
++            "--scale",
++            &scale.to_string(),
++            "--pos",
++            &format!("{x},0"),
++        ],
++    )
++    .map(|_| ())
++}
++
++fn left_edge_of_others(name: &str) -> Result<i64> {
++    let left_edge = enabled_outputs()?
++        .iter()
++        .filter(|output| output["name"].as_str() != Some(name))
++        .filter_map(|output| output["position"]["x"].as_i64())
++        .min();
++    Ok(left_edge.unwrap_or(0))
++}
++
++/// mango destroys virtual outputs only all at once: this one is switched off instead.
++pub fn remove_output(name: &str) -> Result<()> {
++    dispatch(&format!("disable_monitor,{name}"))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn monitor_takes_the_layout_position_and_the_pixel_size() {
++        let output = json!({
++            "name": "HEADLESS-2",
++            "enabled": true,
++            "position": { "x": 1280, "y": 0 },
++            "scale": 2.0,
++            "modes": [
++                { "width": 1280, "height": 720, "refresh": 60.0, "current": false },
++                { "width": 2560, "height": 1440, "refresh": 60.0, "current": true },
++            ],
++        });
++
++        assert_eq!(
++            monitor_from_output(&output),
++            Some(json!({ "name": "HEADLESS-2", "x": 1280, "y": 0, "width": 2560, "height": 1440 }))
++        );
++    }
++}
 diff --git a/src/server/mod.rs b/src/server/mod.rs
 index 10a8744..b56e5aa 100644
 --- a/src/server/mod.rs

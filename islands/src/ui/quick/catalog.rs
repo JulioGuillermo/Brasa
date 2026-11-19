@@ -19,6 +19,15 @@ const SWAY_LAYOUTS: [(&str, &str); 4] = [
     ("tabbed", "Tabs"),
     ("stacking", "Stacked"),
 ];
+const MANGO_LAYOUTS: [(&str, &str); 7] = [
+    ("dwindle", "Dwindle · split the focused window"),
+    ("tile", "Master · one big + a column"),
+    ("scroller", "Scroll → · columns side by side"),
+    ("vertical_scroller", "Scroll ↓ · rows one above the other"),
+    ("center_tile", "Master in the middle"),
+    ("monocle", "One at a time"),
+    ("grid", "Grid"),
+];
 const POWER_PROFILES: [(&str, &str); 3] =
     [("power-saver", "Power saver"), ("balanced", "Balanced"), ("performance", "Performance")];
 const CHARGE_LIMITS: [u32; 4] = [60, 80, 90, 100];
@@ -79,7 +88,13 @@ fn radios() -> Vec<Item> {
 }
 
 fn layout_menu() -> Item {
-    let layouts: &[(&str, &str)] = if hardware::in_hyprland() { &HYPRLAND_LAYOUTS } else { &SWAY_LAYOUTS };
+    let layouts: &[(&str, &str)] = if hardware::in_hyprland() {
+        &HYPRLAND_LAYOUTS
+    } else if hardware::in_mango() {
+        &MANGO_LAYOUTS
+    } else {
+        &SWAY_LAYOUTS
+    };
     let choices = layouts
         .iter()
         .map(|(layout, label)| {

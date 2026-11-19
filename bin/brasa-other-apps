@@ -16,6 +16,7 @@ import sys
 RUNTIME = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
 REMOTE_HYPRLAND = f"{RUNTIME}/brasa-remote/session-hypr"
 REMOTE_SWAY = f"{RUNTIME}/brasa-remote/session-sway"
+REMOTE_MANGO = f"{RUNTIME}/brasa-remote/session-mango"
 
 
 def output_json(argv, env=None):
@@ -99,9 +100,10 @@ def mango_env(socket):
 
 def mango_windows():
     for socket in mango_sockets():
+        session = session_name("mango", socket == first_line(REMOTE_MANGO))
         clients = (output_json(["mmsg", "get", "all-clients"], mango_env(socket)) or {}).get("clients", [])
         for client in clients:
-            yield {"id": f"mango:{socket}:{client['id']}", "session": session_name("mango", False),
+            yield {"id": f"mango:{socket}:{client['id']}", "session": session,
                    "pid": client["pid"], "app": client["appid"], "title": client["title"],
                    "workspace": "+".join(str(tag) for tag in client["tags"])}
 

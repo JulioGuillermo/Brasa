@@ -64,6 +64,10 @@ pub fn in_hyprland() -> bool {
     std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok_and(|signature| !signature.is_empty())
 }
 
+pub fn in_mango() -> bool {
+    std::env::var("MANGO_INSTANCE_SIGNATURE").is_ok_and(|socket| !socket.is_empty())
+}
+
 fn on_path(program: &str) -> bool {
     let Some(path) = std::env::var_os("PATH") else { return false };
     std::env::split_paths(&path).any(|directory| directory.join(program).is_file())

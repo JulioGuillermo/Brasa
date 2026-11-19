@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Remote desktop over VNC (wayvnc) for Brasa, the same on Hyprland and sway/SwayFX.
+# Remote desktop over VNC (wayvnc) or RDP for Brasa, the same on Hyprland, sway/SwayFX and mango.
 #
 # Everything is off by default. Two independent servers, which can run at the same time:
 #   port 5900  session   your remote desktop
 #   port 5901  screen / mirror / take   the local desktop (whoever is logged in on the machine)
-# All of it works over SSH too: the local modes find the running Hyprland or sway by themselves.
+# All of it works over SSH too: the local modes find the running Hyprland, sway or mango by themselves.
 #
 # Modes
-#   session [stop|boot|noboot]   an independent remote-only session (sway without a physical screen,
-#                                or Hyprland on a virtual one), persistent: closing the viewer leaves
+#   session [stop|boot|noboot]   an independent remote-only session (sway or mango without a physical
+#                                screen, or Hyprland on a virtual one), persistent: closing the viewer leaves
 #                                it running with its windows.
 #                                boot/noboot: start it automatically when the machine boots (or not)
-#   session wm sway|hyprland     its window manager (sway by default, or Hyprland if it is the only
-#                                one). hyprland asks for sudo once, to install a virtual screen (the
-#                                kernel module vkms, if missing) and the system service that runs it
+#   session wm sway|hyprland|mango  its window manager (sway by default, else Hyprland, else mango).
+#                                The first start asks for sudo once, to install the system service that
+#                                runs it (and for hyprland a virtual screen, the kernel module vkms)
 #   session size auto|WxH        auto (default): starts at 1920x1080 and takes the viewer's size;
 #                                WxH: always that size, e.g. 2560x1440
 #   session scale auto|N         auto (default): picked from the height; N: fixed, e.g. 1.25
@@ -22,7 +22,7 @@
 #                                (size/scale apply at once to a running session, and are kept)
 #   screen [WxH]                 a virtual second monitor in the current session (default 1920x1080)
 #   mirror                       share the physical screen as it is (the focused monitor)
-#   take [WxH]                   take over the current session: physical screens off, local keyboard
+#   take [WxH]                   (sway and Hyprland) take over the current session: physical screens off, local keyboard
 #                                and mouse ignored, everything on a virtual monitor. When the last viewer
 #                                disconnects (or nobody connects within REMOTE_TAKE_WAIT seconds) it all
 #                                comes back and the session is locked
@@ -55,7 +55,7 @@
 #   help                         this help
 #
 # Settings, optional, in ~/.config/brasa/remote.conf:
-#   REMOTE_DEFAULT=session   REMOTE_WM=sway|hyprland (default: sway, or Hyprland if it is the only one)   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
+#   REMOTE_DEFAULT=session   REMOTE_WM=sway|hyprland|mango (default: sway, else Hyprland, else mango)   REMOTE_SIZE=1920x1080   REMOTE_SCALE=auto   REMOTE_RESIZE=yes
 #   REMOTE_LISTEN=vpn|any|<ip> <ip>...   (REMOTE_ADDRESS=<ip>, the older form, is still read)
 #   Session size: it starts at REMOTE_SIZE and then takes the viewer's size (TigerVNC asks for its window
 #   size: full screen = one remote pixel per screen pixel) unless REMOTE_RESIZE=no. VNC tells the size
@@ -75,12 +75,16 @@ STATE=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote
 UNIT=brasa-wayvnc                 # screen / mirror / take
 SWAY_UNIT=brasa-remote-sway@$USER.service     # session on sway (system service)
 HYPR_UNIT=brasa-remote-hyprland@$USER.service # session on Hyprland (system service)
+MANGO_UNIT=brasa-remote-mango@$USER.service   # session on mango (system service)
 OLD_SWAY_UNIT=brasa-remote-session            # session on sway before, a user service
 VIRTUAL=BRASA-REMOTE
 SESSION_OUTPUT=HEADLESS-REMOTE    # the Hyprland session's desktop (wayvnc only resizes HEADLESS-*)
 B=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
-installed_wm() {  # the remote session's window manager when none was chosen: sway, or Hyprland if it is the only one
-  if ! command -v sway >/dev/null && command -v Hyprland >/dev/null; then echo hyprland; else echo sway; fi
+installed_wm() {  # the remote session's window manager when none was chosen: sway, else Hyprland, else mango
+  if command -v sway >/dev/null; then echo sway
+  elif command -v Hyprland >/dev/null; then echo hyprland
+  elif command -v mango >/dev/null; then echo mango
+  else echo sway; fi
 }
 REMOTE_DEFAULT=session REMOTE_WM=$(installed_wm) REMOTE_SIZE=1920x1080 REMOTE_SCALE=auto REMOTE_RESIZE=yes REMOTE_PORT=5900 REMOTE_LOCAL_PORT=5901 REMOTE_TAKE_WAIT=180
 REMOTE_PROTOCOL=vnc REMOTE_RDP_PORT=3389 REMOTE_RDP_LOGIN=linux REMOTE_RDP_SOUND=remote
@@ -181,10 +185,10 @@ where() {  # the session
 }
 where_local() { where_on "$REMOTE_LOCAL_PORT"; }
 
-local_desktop() {  # over SSH, or from inside the remote session: point at the local Hyprland / sway
+local_desktop() {  # over SSH, or from inside the remote session: point at the local Hyprland / sway / mango
   [ -n "${WAYLAND_DISPLAY:-}" ] && [ -z "${BRASA_REMOTE_SESSION:-}" ] && return 0
   export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
-  unset HYPRLAND_INSTANCE_SIGNATURE SWAYSOCK WAYLAND_DISPLAY BRASA_REMOTE_SESSION
+  unset HYPRLAND_INSTANCE_SIGNATURE SWAYSOCK MANGO_INSTANCE_SIGNATURE WAYLAND_DISPLAY BRASA_REMOTE_SESSION
   local p env
   # Hyprland lists its instances with their Wayland socket; the remote session's one is not local
   if command -v hyprctl >/dev/null; then
@@ -194,19 +198,28 @@ local_desktop() {  # over SSH, or from inside the remote session: point at the l
       export HYPRLAND_INSTANCE_SIGNATURE=${env% *} WAYLAND_DISPLAY=${env#* }; return 0
     fi
   fi
-  # sway: take the variables from a process of the local session (its bar), not the remote one
+  # sway and mango: take the variables from a process of the local session (its bar), not the remote one
   for p in $(pgrep -u "$(id -u)" -x waybar) $(pgrep -u "$(id -u)" -x swaync); do
     env=$(tr '\0' '\n' < /proc/$p/environ 2>/dev/null) || continue
     grep -q '^BRASA_REMOTE_SESSION=' <<< "$env" && continue
-    grep -q '^SWAYSOCK=' <<< "$env" || continue
-    export SWAYSOCK=$(sed -n 's/^SWAYSOCK=//p' <<< "$env") WAYLAND_DISPLAY=$(sed -n 's/^WAYLAND_DISPLAY=//p' <<< "$env")
-    [ -S "$SWAYSOCK" ] && return 0
+    export WAYLAND_DISPLAY=$(sed -n 's/^WAYLAND_DISPLAY=//p' <<< "$env")
+    if grep -q '^MANGO_INSTANCE_SIGNATURE=' <<< "$env"; then
+      export MANGO_INSTANCE_SIGNATURE=$(sed -n 's/^MANGO_INSTANCE_SIGNATURE=//p' <<< "$env")
+      [ -S "$MANGO_INSTANCE_SIGNATURE" ] && return 0
+      unset MANGO_INSTANCE_SIGNATURE
+    elif grep -q '^SWAYSOCK=' <<< "$env"; then
+      export SWAYSOCK=$(sed -n 's/^SWAYSOCK=//p' <<< "$env")
+      [ -S "$SWAYSOCK" ] && return 0
+      unset SWAYSOCK
+    fi
   done
   echo "No local desktop running (nobody logged in?). 'brasa-remote session' works without one." >&2
   exit 1
 }
 
 hypr() { [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; }
+mango() { [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; }
+output_names() { wlr-randr --json | jq -r '.[] | select(.enabled) | .name'; }
 
 scale_for() {  # WxH -> the scale to use: REMOTE_SCALE, or with "auto" one picked from the height
   [ "$REMOTE_SCALE" != auto ] && { echo "$REMOTE_SCALE"; return; }
@@ -230,6 +243,10 @@ layout() {  # your first keyboard layout, for wayvnc's key mapping (characters s
 create_virtual() {  # size -> prints the virtual monitor's name
   local name
   if hypr; then hyprctl -q output create headless "$VIRTUAL"; name=$VIRTUAL
+  elif mango; then
+    local before; before=$(output_names)
+    mmsg dispatch create_virtual_output >/dev/null; sleep 0.3
+    name=$(output_names | grep -vxF "$before" | head -1)
   else swaymsg -q create_output; name=$(swaymsg -t get_outputs -r | jq -r '[.[] | select(.name | startswith("HEADLESS"))] | last | .name'); fi
   sleep 0.5
   wlr-randr --output "$name" --custom-mode "${1}@60Hz" >/dev/null 2>&1
@@ -238,12 +255,21 @@ create_virtual() {  # size -> prints the virtual monitor's name
 }
 remove_virtual() {
   local name; name=$(cat "$STATE/virtual" 2>/dev/null) || return 0
-  if hypr; then hyprctl -q output remove "$name"; else swaymsg -q output "$name" unplug; fi
+  # mango destroys its virtual outputs only all at once, the remote session's one too: switched off instead
+  if hypr; then hyprctl -q output remove "$name"
+  elif mango; then mmsg dispatch "disable_monitor,$name" >/dev/null
+  else swaymsg -q output "$name" unplug; fi
   rm -f "$STATE/virtual"
 }
 
 running() { systemctl --user -q is-active "$UNIT" 2>/dev/null; }
-session_unit() { if [ "$REMOTE_WM" = hyprland ]; then echo "$HYPR_UNIT"; else echo "$SWAY_UNIT"; fi; }
+session_unit() {
+  case $REMOTE_WM in
+    hyprland) echo "$HYPR_UNIT" ;;
+    mango)    echo "$MANGO_UNIT" ;;
+    *)        echo "$SWAY_UNIT" ;;
+  esac
+}
 old_session_running() { systemctl --user -q is-active "$OLD_SWAY_UNIT" 2>/dev/null; }
 session_running() { systemctl -q is-active "$(session_unit)" 2>/dev/null || old_session_running; }
 session_at_boot() { systemctl -q is-enabled "$(session_unit)" 2>/dev/null; }
@@ -264,6 +290,7 @@ start_vnc() {  # mode output [extra wayvnc args...] -- runs wayvnc as a transien
     --setenv=WAYLAND_DISPLAY="$WAYLAND_DISPLAY" --setenv=XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
     ${HYPRLAND_INSTANCE_SIGNATURE:+--setenv=HYPRLAND_INSTANCE_SIGNATURE="$HYPRLAND_INSTANCE_SIGNATURE"} \
     ${SWAYSOCK:+--setenv=SWAYSOCK="$SWAYSOCK"} \
+    ${MANGO_INSTANCE_SIGNATURE:+--setenv=MANGO_INSTANCE_SIGNATURE="$MANGO_INSTANCE_SIGNATURE"} \
     ${STOP_POST:+-p ExecStopPost="$STOP_POST"} \
     wayvnc -C "$CONF_DIR/config" -o "$out" ${kb:+-k "$kb"} -g -f 60 -r -L info -S "$STATE/wayvnc.sock" "$@" \
       $(listen_args "$REMOTE_LOCAL_PORT")
@@ -376,6 +403,10 @@ $(also_on local)"
   ~/.local/bin/brasa-lock
 }
 take() {
+  if mango; then   # mango cannot switch off single keyboards and mice: the local ones would still type
+    echo "Take over is not available on mango: its local keyboard and mouse cannot be switched off. Use screen or mirror." >&2
+    exit 1
+  fi
   busy && exit 0
   [ -f "$CONF_DIR/config" ] || setup || exit 1
   ~/.local/bin/brasa-monitors list | jq -r '.[].name' > "$STATE/take-outputs"
@@ -422,14 +453,14 @@ $(ssh_info "$u")" ;;
 }
 
 # ---------------------------------------------------------------- rdp: hypr-rdp for the remote session
-RDP_SOURCE=$B/remote/hypr-rdp   # COMMIT: the upstream commit built; sway.patch: Brasa's changes to it
+RDP_SOURCE=$B/remote/hypr-rdp   # COMMIT: the upstream commit built; brasa.patch: Brasa's changes to it (sway, mango, --resize-output)
 RDP_URL=https://github.com/MuNeNICK/hypr-rdp
 RDP_DIR=${XDG_CACHE_HOME:-$HOME/.cache}/brasa/hypr-rdp
 RDP_BIN=~/.local/bin/hypr-rdp
 RDP_PASSWORD=~/.config/brasa/rdp-password
 RDP_PAM=/etc/pam.d/hypr-rdp
 
-rdp_version() { cat "$RDP_SOURCE/COMMIT" "$RDP_SOURCE/sway.patch" | sha256sum | cut -c1-16; }
+rdp_version() { cat "$RDP_SOURCE/COMMIT" "$RDP_SOURCE/brasa.patch" | sha256sum | cut -c1-16; }
 rdp_up_to_date() { [ -x "$RDP_BIN" ] && [ "$(cat "$RDP_DIR.version" 2>/dev/null)" = "$(rdp_version)" ]; }
 rdp_password_set() { [ -s "$RDP_PASSWORD" ]; }
 rdp_ready() {  # installed, and its sign-in can work
@@ -475,7 +506,7 @@ rdp_build() {  # hypr-rdp at the pinned commit with Brasa's patch; nothing to do
   [ -d "$RDP_DIR/.git" ] || git clone -q "$RDP_URL" "$RDP_DIR" || return 1
   git -C "$RDP_DIR" cat-file -e "$commit^{commit}" 2>/dev/null || git -C "$RDP_DIR" fetch -q origin || return 1
   git -C "$RDP_DIR" checkout -q -f "$commit" && git -C "$RDP_DIR" clean -q -f -d &&
-    git -C "$RDP_DIR" apply "$RDP_SOURCE/sway.patch" || return 1
+    git -C "$RDP_DIR" apply "$RDP_SOURCE/brasa.patch" || return 1
   echo "Building the RDP server (hypr-rdp): a few minutes the first time"
   (cd "$RDP_DIR" && cargo build --release --locked --quiet) || return 1
   install -Dm755 "$RDP_DIR/target/release/hypr-rdp" "$RDP_BIN" && rdp_version > "$RDP_DIR.version"
@@ -553,6 +584,7 @@ rdp_cmd() {
 SYSTEM_FILES="72-brasa-remote-seat.rules:/etc/udev/rules.d
 brasa-remote-sway@.service:/etc/systemd/system
 brasa-remote-hyprland@.service:/etc/systemd/system
+brasa-remote-mango@.service:/etc/systemd/system
 50-brasa-remote.rules:/usr/share/polkit-1/rules.d"
 system_files_installed() {
   local f
@@ -569,7 +601,7 @@ system_files_install() {
 }
 session_installed() {
   system_files_installed || return 1
-  [ "$REMOTE_WM" = sway ] || modinfo vkms >/dev/null 2>&1
+  [ "$REMOTE_WM" != hyprland ] || modinfo vkms >/dev/null 2>&1
 }
 session_install() {
   if [ "$REMOTE_WM" = hyprland ]; then hypr_install; else system_files_install; fi
@@ -632,11 +664,12 @@ hypr_follow_viewer() {  # wayvnc resizes the output to the viewer's window, and 
 }
 session_wm() {
   case ${1:-} in
-    sway|hyprland) ;;
+    sway|hyprland|mango) ;;
     "") echo "window manager: $REMOTE_WM"; return ;;
-    *) echo "brasa-remote session wm sway|hyprland" >&2; exit 1 ;;
+    *) echo "brasa-remote session wm sway|hyprland|mango" >&2; exit 1 ;;
   esac
   [ "$1" = hyprland ] && { command -v Hyprland >/dev/null || { echo "Hyprland is not installed" >&2; exit 1; }; hypr_install; }
+  [ "$1" = mango ] && { command -v mango >/dev/null || { echo "mango is not installed" >&2; exit 1; }; system_files_install; }
   [ "$1" = "$REMOTE_WM" ] && { echo "The remote session already uses $1"; return; }
   local was_running=no was_at_boot=no
   session_running && was_running=yes
@@ -661,6 +694,7 @@ session_sway() {  # the remote session's sway IPC socket, if it is running
 }
 session_live() {  # apply the current size/scale settings to a running session
   if [ "$REMOTE_WM" = hyprland ]; then session_live_hypr; return; fi
+  if [ "$REMOTE_WM" = mango ]; then session_live_mango; return; fi
   local sock out size
   sock=$(session_sway) || return 0
   out=$(swaymsg -s "$sock" -t get_outputs -r | jq -r '.[0].name')
@@ -668,6 +702,19 @@ session_live() {  # apply the current size/scale settings to a running session
   size=$(swaymsg -s "$sock" -t get_outputs -r | jq -r '.[0] | "\(.current_mode.width)x\(.current_mode.height)"')
   swaymsg -q -s "$sock" output "$out" scale "$(scale_for "$size")"
   echo "Applied to the running session: $size at scale $(scale_for "$size")"
+}
+session_live_mango() {
+  session_running || return 0
+  local out size
+  export WAYLAND_DISPLAY; WAYLAND_DISPLAY=$(cat "$STATE/session-mango-wayland" 2>/dev/null) || return 0
+  out=$(output_names | head -1)
+  [ "$REMOTE_RESIZE" = no ] && wlr-randr --output "$out" --custom-mode "${REMOTE_SIZE}@60Hz"
+  size=$(output_size "$out")
+  wlr-randr --output "$out" --scale "$(scale_for "$size")"
+  echo "Applied to the running session: $size at scale $(scale_for "$size")"
+}
+output_size() {  # OUTPUT -> its mode, WxH in pixels
+  wlr-randr --json | jq -r --arg o "$1" '.[] | select(.name == $o) | .modes[] | select(.current) | "\(.width)x\(.height)"'
 }
 session_live_hypr() {
   session_running || return 0
@@ -684,7 +731,9 @@ session_settings() {
   if [ "$REMOTE_SCALE" = auto ]; then echo "scale: auto (from the height)"; else echo "scale: $REMOTE_SCALE (fixed)"; fi
 }
 compositor_alive() {
-  if hypr; then hyprctl version >/dev/null 2>&1; else swaymsg -t get_version >/dev/null 2>&1; fi
+  if hypr; then hyprctl version >/dev/null 2>&1
+  elif mango; then mmsg get version >/dev/null 2>&1
+  else swaymsg -t get_version >/dev/null 2>&1; fi
 }
 serve_session() {  # OUTPUT: VNC or RDP, as remote.conf says each time, for as long as the session lives
   while compositor_alive; do
@@ -733,6 +782,7 @@ installed_wms() {
   local wms=()
   command -v sway >/dev/null && wms+=(sway)
   command -v Hyprland >/dev/null && wms+=(hyprland)
+  command -v mango >/dev/null && wms+=(mango)
   printf '%s\n' "${wms[@]}" | jq -R . | jq -s -c .
 }
 ssh_state() {
@@ -805,11 +855,11 @@ session() {
     at-boot) session_at_boot ;;
     start)
       if session_running; then echo "The remote session is already running on $(where)"; return; fi
-      if [ "$REMOTE_WM" = hyprland ]; then
-        command -v Hyprland >/dev/null || { echo "The remote session needs Hyprland installed." >&2; exit 1; }
-      else
-        command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; }
-      fi
+      case $REMOTE_WM in
+        hyprland) command -v Hyprland >/dev/null || { echo "The remote session needs Hyprland installed." >&2; exit 1; } ;;
+        mango)    command -v mango >/dev/null || { echo "The remote session needs mango installed." >&2; exit 1; } ;;
+        *)        command -v sway >/dev/null || { echo "The remote session needs sway or SwayFX installed." >&2; exit 1; } ;;
+      esac
       session_installed || [ -t 0 ] || { in_terminal "Installing the remote session" session start; return; }
       [ -f "$CONF_DIR/config" ] || setup || exit 1
       firewall_install
@@ -891,6 +941,24 @@ $(also_on local)"
       hyprctl -q output create headless "$SESSION_OUTPUT"
       [ "$REMOTE_RESIZE" = no ] || hypr_follow_viewer &
       serve_session "$SESSION_OUTPUT"
+      exit
+    fi
+    if mango; then
+      echo "$MANGO_INSTANCE_SIGNATURE" > "$STATE/session-mango"
+      echo "$WAYLAND_DISPLAY" > "$STATE/session-mango-wayland"
+      out=$(output_names | head -1)
+      wlr-randr --output "$out" --custom-mode "${REMOTE_SIZE}@60Hz" >/dev/null 2>&1
+      wlr-randr --output "$out" --scale "$(scale_for "$REMOTE_SIZE")" >/dev/null 2>&1
+      # The viewer resizes the output (wayvnc or hypr-rdp do it for the size it asks): follow with the scale
+      if [ "$REMOTE_SCALE" = auto ] && [ "$REMOTE_RESIZE" != no ]; then
+        ( last=""
+          mmsg watch all-monitors 2>/dev/null | while read -r _; do
+            size=$(output_size "$out")
+            [ -n "$size" ] && [ "$size" != "$last" ] || continue
+            last=$size; wlr-randr --output "$out" --scale "$(scale_for "$size")" >/dev/null 2>&1
+          done ) &
+      fi
+      serve_session "$out"
       exit
     fi
     echo "$SWAYSOCK" > "$STATE/session-sway"

@@ -95,7 +95,7 @@ bindings, identical in SwayFX, Hyprland and mango. All of it together uses about
 | `config/swaylock/` | swaylock fallback | `~/.config/swaylock` |
 | `config/foot/foot.ini` | Terminal: colors, transparency with blur, bell | `~/.config/foot` |
 | `greeter/` | Login screen: greetd, nwg-hello and the sway that runs it | `/etc/greetd`, `/etc/nwg-hello` (copied with sudo) |
-| `remote/` | The remote session on Hyprland: virtual screen in seat1 (udev), system service, polkit rule; `hypr-rdp/`: the RDP server's upstream commit and Brasa's patch | `/etc/udev/rules.d`, `/etc/systemd/system`, `/usr/share/polkit-1/rules.d` (copied with sudo by `brasa-remote session wm hyprland`) |
+| `remote/` | The remote session: its system services (sway, Hyprland, mango), polkit rule, and for Hyprland a virtual screen in seat1 (udev); `hypr-rdp/`: the RDP server's upstream commit and Brasa's patch | `/etc/udev/rules.d`, `/etc/systemd/system`, `/usr/share/polkit-1/rules.d` (copied with sudo by the first `brasa-remote session`) |
 | `config/kvantum/Brasa/` | Flat Kvantum theme for Qt apps (made by `docs/gen-kvantum.py`) | `~/.config/Kvantum/Brasa` |
 | `config/qt/brasa-colors.conf` | Brasa colors for Qt apps without Kvantum (qt5ct / qt6ct, Fusion style) | read from `~/.config/brasa` |
 | `config/gtk-3.0/gtk.css`, `config/gtk-4.0/gtk.css` | Brasa colors for GTK3 and GTK4/libadwaita apps | `~/.config/gtk-3.0/`, `~/.config/gtk-4.0/` |
@@ -504,8 +504,8 @@ shows the tags through the standard ext-workspace protocol, and the keyboard lay
 its layout across logins (`config/mango/layouts.conf`, written by `Super+w`). The window switcher, the
 island on the focused monitor, saved monitors, the remote keyboard in viewers, the keys cheat sheet,
 the wallpaper and "Apps in other sessions" work as in the other two. Not in mango: which apps keep the
-screen awake (the cup only knows "by hand"), the remote session (sway or Hyprland serve it), and keys
-that do not repeat while held (mango 0.17 repeats every binding).
+screen awake (the cup only knows "by hand"), `brasa-remote take`, and keys that do not repeat while held (mango 0.17 repeats every binding).
+The remote session on mango: see [Remote desktop](#remote-desktop-vnc-and-rdp).
 
 **Touchscreen gestures**: Hyprland supports them with the hyprgrass plugin, not in the installer yet
 (it still has to be checked against the Lua configuration).
@@ -722,7 +722,7 @@ desktop from its next start.
 
 **VNC or RDP for the remote session**: one of them at a time, chosen in the Sessions window (Protocol) or
 with `brasa-remote protocol vnc|rdp`. RDP is served by **hypr-rdp**, built from source with Brasa's patch
-(`remote/hypr-rdp/`: the upstream commit and `sway.patch`, which adds sway and `--resize-output`). It
+(`remote/hypr-rdp/`: the upstream commit and `brasa.patch`, which adds sway, mango and `--resize-output`). It
 works with Windows Remote Desktop and any RDP client, sends the sound, syncs the clipboard (text and
 images) and uses the viewer's keyboard layout; the screen follows the viewer's window, as with VNC.
 
@@ -745,14 +745,14 @@ password and a hook on the SSH service. Its rules carry the comment `brasa` in `
 
 ```
 brasa-remote session [stop|boot|noboot]  an independent remote-only session (the default for "on")
-brasa-remote session wm sway|hyprland    its window manager (sway, or Hyprland if it is the only one)
+brasa-remote session wm sway|hyprland|mango  its window manager (sway, else Hyprland, else mango)
 brasa-remote session size auto|WxH       auto: 1920x1080, then the viewer's size; WxH: always that size
 brasa-remote session scale auto|N        auto: from the height; N: fixed, e.g. 1.25
 brasa-remote session defaults            size and scale back to auto
 brasa-remote session settings            show them
 brasa-remote screen [WxH]                a virtual second monitor in the current session
 brasa-remote mirror                      share the physical screen (the focused monitor)
-brasa-remote take [WxH]                  take over the current session; the laptop goes dark
+brasa-remote take [WxH]                  take over the current session; the laptop goes dark (not on mango)
 brasa-remote ssh [on|off|boot|noboot]   the SSH server, now and at boot
 brasa-remote listen [vpn|any|IP...]      where to listen: the VPN (default), every network, or addresses
 brasa-remote port session|local|rdp N    the session's VNC port (5900), the local desktop's (5901), RDP's (3389)
@@ -763,7 +763,7 @@ brasa-remote rdp sound remote|both|off   where the session sounds while connecte
 brasa-remote on | off | status | setup | help
 ```
 
-- **session**: a second, separate desktop that only exists remotely: sway with no physical screen
+- **session**: a second, separate desktop that only exists remotely: sway (or mango, below) with no physical screen
   (`WLR_BACKENDS=headless`, `config/sway/remote.conf`), running as the system service
   `brasa-remote-sway@<user>`, which opens a logind session of its own (no second password: the VNC
   login is the only one). So password dialogs (polkit: Free RAM, Clean /tmp...) show up in the remote
@@ -793,11 +793,17 @@ brasa-remote on | off | status | setup | help
   On a machine with GDM, GDM also tries a login screen on `seat1` while the session runs, fails and
   gives up: harmless. `brasa-monitors` does nothing in either remote session, so your saved monitors
   stay the local ones.
+- **session on mango** (`session wm mango`, saved as `REMOTE_WM=mango`; the default when only mango is
+  installed): like sway, mango runs with no physical screen, as the system service
+  `brasa-remote-mango@<user>` with a logind session of its own, loading `config/mango/remote.conf`
+  (`config.conf` plus `brasa-remote _session-vnc`). The output follows the viewer's size over VNC and RDP,
+  and its scale follows when `REMOTE_SCALE=auto`. Logs: `journalctl -u brasa-remote-mango@$USER`.
 - **screen**: a headless output created in the current compositor (Hyprland `output create headless`,
-  sway `create_output`) at the requested size, scale 1. Move windows/workspaces to it with
+  sway `create_output`, mango `create_virtual_output`; mango can only switch it off when it ends) at the requested size, scale 1. Move windows/workspaces to it with
   `Super+Alt+Shift+←/→`. `off` removes it. To switch between screen / mirror / take: `off`, then the new one.
 - **mirror**: the physical screen as it is, shared with whoever is in front of it.
-- **take**: the physical screens are switched off, local keyboard, mouse and touchscreen are ignored,
+- **take** (sway and Hyprland; mango cannot switch off single keyboards and mice, so it refuses): the
+  physical screens are switched off, local keyboard, mouse and touchscreen are ignored,
   and the session moves to a virtual monitor. When the last viewer disconnects, or nobody connects
   within `REMOTE_TAKE_WAIT` seconds (180), everything comes back and the session is locked.
 - **ssh**: turns the system's SSH server (`sshd`, or `ssh` on Debian/Ubuntu) on or off now, and

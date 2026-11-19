@@ -28,7 +28,7 @@ SIZES = ["auto", "1280x720", "1600x900", "1920x1080", "2560x1440", "3840x2160"]
 SCALES = ["auto", "1", "1.25", "1.5", "1.75", "2"]
 SHARE_MODES = [("off", "Off", "not shared"), ("mirror", "Mirror", "share this screen"),
                ("screen", "Screen", "add a virtual monitor"), ("take", "Take", "use it remotely, screens off")]
-WM_NAMES = {"sway": "sway", "hyprland": "Hyprland"}
+WM_NAMES = {"sway": "sway", "hyprland": "Hyprland", "mango": "mango"}
 PROTOCOLS = [("vnc", "VNC"), ("rdp", "RDP")]
 RDP_LOGINS = [("linux", "Linux password"), ("password", "Own password")]
 RDP_SOUNDS = [("remote", "Where you connect from"), ("both", "There and here"), ("off", "Off")]
