@@ -273,6 +273,8 @@ search; Enter or a click runs it.
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |
 | `Super+Shift+1…9` | Move the window to a workspace |
+| `Super+Alt+←→`, `Super+Alt+h/l` | Focus the monitor on the left / right |
+| `Super+Alt+Shift+←→`, `Super+Alt+Shift+h/l` | Move the workspace to the monitor on the left / right (mango: the window, it cannot move a tag) |
 | `Super+Escape` | Lock the screen |
 | `Super+Shift+Escape` | Suspend (it locks first) |
 | `Ctrl+Super+Escape` | Remote keyboard on/off: every key goes to the focused window (automatic in VNC/RDP viewers) |
@@ -281,7 +283,7 @@ search; Enter or a click runs it.
 | `Super+Ctrl+r` | Reload bar, notifications and menus |
 | `Super+Alt+Space` | Switch keyboard layout (es ↔ us altgr-intl) |
 | `Super+Shift+b` | Blur on/off |
-| `Super+Shift+a` | Animations on/off (Hyprland only) |
+| `Super+Shift+a` | Animations on/off (Hyprland and mango) |
 | `Super+Shift+f` | All effects on/off |
 | `Print`, `Super+Shift+s` / `Shift+Print` / `Ctrl+Print` | Screenshot of an area / of an area on a frozen screen / of the screen |
 | `Ctrl+Super+Space` | Play / pause |

@@ -70,6 +70,10 @@ SUPER+ALT	Left	wm focusmon left	Focus the monitor on the left
 SUPER+ALT	Right	wm focusmon right	Focus the monitor on the right
 SUPER+ALT+SHIFT	Left	wm movewsmon left	Move this workspace to the monitor on the left
 SUPER+ALT+SHIFT	Right	wm movewsmon right	Move this workspace to the monitor on the right
+SUPER+ALT	h	wm focusmon left	Focus the monitor on the left
+SUPER+ALT	l	wm focusmon right	Focus the monitor on the right
+SUPER+ALT+SHIFT	h	wm movewsmon left	Move this workspace to the monitor on the left
+SUPER+ALT+SHIFT	l	wm movewsmon right	Move this workspace to the monitor on the right
 # --- Session and system
 SUPER+SHIFT	e	exec ~/.local/bin/brasa-exit	Log out, lock, power off...
 SUPER	Escape	exec ~/.local/bin/brasa-lock	Lock screen
