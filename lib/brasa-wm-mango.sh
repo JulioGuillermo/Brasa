@@ -94,7 +94,12 @@ case $verb in
   kill)         dispatch killclient,force ;;
   fullscreen)   dispatch togglefullscreen ;;
   float)        dispatch togglefloating ;;
-  focus)        dispatch "focusdir,$arg" ;;
+  focus)        # Cards: up and down go through the pile on the right, one card after another
+                case $(current_layout),$arg in
+                  deck,up)   dispatch focusstack,prev ;;
+                  deck,down) dispatch focusstack,next ;;
+                  *)         dispatch "focusdir,$arg" ;;
+                esac ;;
   move)         dispatch "move_client,$arg" ;;
   ws)           dispatch "view,$arg,0" ;;
   movews)       dispatch "tag,$arg,0" ;;

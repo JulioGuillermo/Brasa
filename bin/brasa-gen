@@ -77,6 +77,8 @@ def mango_bind(mods, key, action, opts):
         dispatch = "spawn_shell," + rest
     elif verb == "resize":
         dispatch = mango_resize(arg)
+    elif verb == "focus" and arg in ("up", "down"):
+        dispatch = f"spawn_shell,~/.local/bin/brasa-wm focus {arg}"   # through the pile of the Cards layout
     elif verb in MANGO_WM:
         if verb in ("ws", "movews") and arg.isdigit() and int(arg) > MANGO_TAGS:
             return None
