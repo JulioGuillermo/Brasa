@@ -48,12 +48,12 @@ SUPER+SHIFT	z	exec ~/.local/bin/brasa-wm focus-child	Select one level down again
 SUPER	Tab	exec ~/.local/bin/brasa-islands switch	Window switcher, this workspace: hold Super, Tab goes to the next window, letting Super go focuses it
 SUPER+SHIFT	Tab	exec ~/.local/bin/brasa-islands switch-all	Window switcher, every workspace: hold Super, Tab goes to the next window, letting Super go focuses it
 SUPER+CTRL	Tab	exec ~/.local/bin/brasa-islands windows	Window switcher, every workspace, open until Enter, a click or Escape
-SUPER	Left	wm focus left	Focus left
-SUPER	Right	wm focus right	Focus right
+SUPER	Left	wm focus left	Focus left (mango's Cards layout with the big one on top: the previous card)
+SUPER	Right	wm focus right	Focus right (mango's Cards layout with the big one on top: the next card)
 SUPER	Up	wm focus up	Focus up (mango's Cards layout: the previous card)
 SUPER	Down	wm focus down	Focus down (mango's Cards layout: the next card)
-SUPER	h	wm focus left	Focus left
-SUPER	l	wm focus right	Focus right
+SUPER	h	wm focus left	Focus left (mango's Cards layout with the big one on top: the previous card)
+SUPER	l	wm focus right	Focus right (mango's Cards layout with the big one on top: the next card)
 SUPER	k	wm focus up	Focus up (mango's Cards layout: the previous card)
 SUPER	j	wm focus down	Focus down (mango's Cards layout: the next card)
 SUPER+SHIFT	Left	wm move left	Move window left
