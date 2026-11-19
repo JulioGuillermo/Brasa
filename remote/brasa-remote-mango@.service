@@ -11,7 +11,9 @@ PAMName=login
 Environment=XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user
 Environment=XDG_SESSION_DESKTOP=mango XDG_CURRENT_DESKTOP=mango BRASA_REMOTE_SESSION=1
 Environment=WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 QT_QPA_PLATFORMTHEME=qt5ct
-ExecStart=/usr/bin/bash -c 'exec dbus-run-session -- mango -c "$HOME/.config/mango/remote.conf"'
+# mango would hand the remote session's environment to the user's systemd, which the local session uses
+# too: remote/mango-session-bin/systemctl drops those calls
+ExecStart=/usr/bin/bash -c 'PATH="$HOME/.config/brasa/remote/mango-session-bin:$PATH" exec dbus-run-session -- mango -c "$HOME/.config/mango/remote.conf"'
 Restart=on-failure
 RestartSec=5
 

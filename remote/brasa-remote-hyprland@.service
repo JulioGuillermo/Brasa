@@ -10,6 +10,8 @@ User=%i
 PAMName=login
 Environment=XDG_SEAT=seat1 XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user
 Environment=XDG_SESSION_DESKTOP=Hyprland XDG_CURRENT_DESKTOP=Hyprland BRASA_REMOTE_SESSION=1
+# Its environment stays out of the user's systemd, which the local session uses too
+Environment=HYPRLAND_NO_SD_VARS=1
 ExecStartPre=+/usr/bin/modprobe vkms
 ExecStartPre=+/usr/bin/bash -c 'for i in $(seq 50); do loginctl show-seat seat1 >/dev/null 2>&1 && exit 0; sleep 0.1; done; echo "seat1 did not appear" >&2; exit 1'
 ExecStart=/usr/bin/setpriv --inh-caps=-all --ambient-caps=-all /usr/bin/bash -c 'exec dbus-run-session -- start-hyprland -- --config "$HOME/.config/hypr/remote.lua"'

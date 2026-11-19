@@ -1,0 +1,9 @@
+#!/bin/sh
+# Brasa's remote session on mango: mango hands its environment to the user's systemd and starts and stops
+# the graphical session target, as a local session should. The remote session shares that systemd with the
+# local one, so those calls are dropped here; everything else goes to the real systemctl.
+case " $* " in
+  " --user import-environment "*|" --user unset-environment "*|\
+  *" start mango-session.target "|*" stop graphical-session.target ") exit 0 ;;
+esac
+exec /usr/bin/systemctl "$@"

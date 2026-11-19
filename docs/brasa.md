@@ -798,6 +798,11 @@ brasa-remote on | off | status | setup | help
   `brasa-remote-mango@<user>` with a logind session of its own, loading `config/mango/remote.conf`
   (`config.conf` plus `brasa-remote _session-vnc`). The output follows the viewer's size over VNC and RDP,
   and its scale follows when `REMOTE_SCALE=auto`. Logs: `journalctl -u brasa-remote-mango@$USER`.
+- **The local session's environment**: Hyprland and mango hand theirs to the user's systemd when they
+  start (which display, which compositor), so services and apps started through D-Bus open in that
+  session. The remote sessions share that systemd with the local one, so they must not: the Hyprland
+  service sets `HYPRLAND_NO_SD_VARS=1`, and the mango one puts `remote/mango-session-bin/systemctl` first
+  in its `PATH`, which drops those calls (and the stop of `graphical-session.target` when it ends).
 - **screen**: a headless output created in the current compositor (Hyprland `output create headless`,
   sway `create_output`, mango `create_virtual_output`; mango can only switch it off when it ends) at the requested size, scale 1. Move windows/workspaces to it with
   `Super+Alt+Shift+←/→`. `off` removes it. To switch between screen / mirror / take: `off`, then the new one.
