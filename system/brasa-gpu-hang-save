@@ -1,0 +1,14 @@
+#!/bin/sh
+# Brasa (brasa-gpu-hangs): run by udev when a GPU reports a hang. Keeps the driver's error state, which the
+# next hang would overwrite, in /var/log/brasa-gpu-hangs (the newest 20).
+card=$1
+dir=/var/log/brasa-gpu-hangs
+mkdir -p "$dir"
+error=/sys/class/drm/$card/error
+[ -r "$error" ] || exit 0
+saved=$dir/$(date +%Y%m%d-%H%M%S)-$card.txt
+# Only root reads them: the report can hold pieces of other programs' GPU memory
+(umask 077; cat "$error" > "$saved")
+# Writing to the file clears it, so the next hang is recorded too
+echo 1 > "$error" 2>/dev/null
+ls -1t "$dir"/*.txt | tail -n +21 | xargs -r rm -f

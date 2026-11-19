@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# GPU hangs: keeps the driver's report of each one (which the next hang would overwrite), to find out what
+# the GPU was doing.
+# Usage: brasa-gpu-hangs install     the udev rule that saves them in /var/log/brasa-gpu-hangs (sudo)
+#        brasa-gpu-hangs uninstall   remove it (the saved reports stay)
+#        brasa-gpu-hangs [list]      the hangs the kernel logged since boot, and the saved reports
+#        brasa-gpu-hangs show [FILE] the main lines of a report (the newest by default; sudo, only root
+#                                    reads them)
+set -u
+B=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+SAVER=/usr/local/sbin/brasa-gpu-hang-save
+RULE=/etc/udev/rules.d/99-brasa-gpu-hang.rules
+DIR=/var/log/brasa-gpu-hangs
+
+case ${1:-list} in
+  install)
+    sudo install -Dm755 "$B/system/brasa-gpu-hang-save" "$SAVER" &&
+      sudo install -Dm644 "$B/system/99-brasa-gpu-hang.rules" "$RULE" &&
+      sudo udevadm control --reload &&
+      echo "GPU hangs are saved in $DIR from now on" ;;
+  uninstall)
+    sudo rm -f "$SAVER" "$RULE" && sudo udevadm control --reload && echo "Removed; $DIR stays" ;;
+  list)
+    echo "Hangs since boot:"
+    journalctl -k -b --no-pager -o short 2>/dev/null | grep 'GPU HANG' | sed 's/^/  /' || true
+    echo "Saved reports ($DIR):"
+    ls -1t "$DIR" 2>/dev/null | sed 's/^/  /' || echo "  none (brasa-gpu-hangs install saves them)" ;;
+  show)
+    file=${2:-$DIR/$(ls -1t "$DIR" 2>/dev/null | head -1)}
+    [ -f "$file" ] || { echo "No saved report" >&2; exit 1; }
+    sudo grep -a -E '^(Kernel|Time|Uptime|Active process|GPU HANG|  ESR|  IPEHR|  INSTDONE|  ACTHD|  ECODE|  IPEIR|.*command stream|  hung|  banned|  guilty|  context)' "$file" | head -60 ;;
+  *) sed -n '4,8p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

@@ -1,0 +1,2 @@
+# Brasa (brasa-gpu-hangs): when a GPU reports a hang, keep the driver's error state
+ACTION=="change", SUBSYSTEM=="drm", ENV{ERROR}=="1", RUN+="/usr/local/sbin/brasa-gpu-hang-save %k"

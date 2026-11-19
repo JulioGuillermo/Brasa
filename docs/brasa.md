@@ -22,7 +22,8 @@
 19. [Wallpaper](#wallpaper)
 20. [Icons and cursors](#icons-and-cursors)
 21. [Colors](#colors)
-22. [Trying it inside GNOME](#trying-it-inside-gnome)
+22. [GPU hangs](#gpu-hangs)
+23. [Trying it inside GNOME](#trying-it-inside-gnome)
 23. [Known issues and untested bits](#known-issues-and-untested-bits)
 
 ## What it is
@@ -54,6 +55,7 @@ bindings, identical in SwayFX, Hyprland and mango. All of it together uses about
 | `lib/brasa_binds.py` | Reads those bindings from Hyprland (`hyprctl binds` and the Lua files) or sway (its config) | read from `~/.config/brasa` |
 | `bin/brasa-sessions` | Sessions window (`Super+Ctrl+s`): remote session, sharing, SSH, dialogs and keyring here, apps in other sessions (`lib/brasa_other_apps_group.py`) | `~/.local/bin/` |
 | `bin/brasa-follow` | Sends the dialogs of the user's D-Bus (passwords, keyring, portals) to this session; locks and unlocks the keyring | `~/.local/bin/` |
+| `bin/brasa-gpu-hangs` | Keeps the driver's report of each GPU hang (`system/`: its udev rule and the script it runs) | `~/.local/bin/` |
 | `bin/brasa-other-apps` | Lists the windows open in the user's other sessions; closes or kills them | `~/.local/bin/` |
 | `bin/brasa-clean` | Clean menu (`Super+Ctrl+c`): a window to clean `/tmp`, and freeing RAM | `~/.local/bin/` |
 | `bin/brasa-tmpclean` | Finds the leftovers in `/tmp` that nothing uses, and removes them | `~/.local/bin/` |
@@ -1090,6 +1092,15 @@ Taken from the user's terminal and mo's Redline theme:
 | Idle / cool | `#99ccff` |
 | Warning | `#ffaa33` |
 | High | `#ff7a3d` |
+
+## GPU hangs
+
+When an Intel GPU hangs, the kernel logs one line (`GPU HANG: ecode ..., in Hyprland`) and keeps a
+report of what the GPU was running in `/sys/class/drm/cardN/error`, until the next hang overwrites it.
+`brasa-gpu-hangs install` (sudo) adds a udev rule that saves each report in `/var/log/brasa-gpu-hangs`
+(the newest 20, readable by root only: they can hold pieces of GPU memory). `brasa-gpu-hangs` lists the
+hangs since boot and the saved reports; `brasa-gpu-hangs show` prints the main lines of the newest.
+`intel_error_decode` (igt-gpu-tools) decodes the commands in a report.
 
 ## Trying it inside GNOME
 
