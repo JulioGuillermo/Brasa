@@ -150,8 +150,17 @@ case $verb in
   remote-keys)  if [ "$(mmsg get keymode | jq -r .keymode)" = remote ]; then dispatch setkeymode,default; msg=off
                 else dispatch setkeymode,remote; msg="on · Ctrl+Super+Esc to leave"; fi
                 ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard $msg" ;;
-  remote-watch) # the remote key mode while a viewer has the focus, as Hyprland's config does
-                mmsg watch focusing-client | jq --unbuffered -r '.appid // ""' | while read -r app; do
+  remote-watch) # the remote key mode while a viewer has the focus, as Hyprland's config does. Also: mango
+                # keeps a floating window at its old size when the app grows it (a password dialog that
+                # rearranges itself once focused), so its buttons end up cut off; resizing it by nothing makes
+                # mango take the new size
+                mmsg watch focusing-client | jq --unbuffered -r '"\(.id) \(.is_floating) \(.appid // "")"' |
+                while read -r id floating app; do
+                  # mango reports one focus change several times
+                  if [ "$floating" = true ] && [ "$id" != "${last_floating:-}" ]; then
+                    (for wait in 0.3 1; do sleep "$wait"; mmsg dispatch resizewin,+0,+0 "client,$id" >/dev/null; done &)
+                  fi
+                  last_floating=$id
                   mode=$(mmsg get keymode | jq -r .keymode)
                   if [[ $app =~ $REMOTE_VIEWERS ]]; then
                     [ "$mode" = remote ] || { dispatch setkeymode,remote
