@@ -211,10 +211,11 @@ def hypr_rules(every, todo):
 
 
 def x11_dpi():
-    """Hyprland draws X11 apps unscaled (xwayland:force_zero_scaling), so tell them the scale of the main
-    monitor (the focused one) through Xft.dpi, as GNOME does: they draw themselves at that size, sharp.
+    """Hyprland and mango draw X11 apps unscaled (force_zero_scaling, xwayland_ignore_scale), so tell them
+    the scale of the main monitor (the focused one) through Xft.dpi, as GNOME does: they draw themselves at
+    that size, sharp.
     Read by X11 apps when they start. Only one value for all of them, whatever monitor they are on."""
-    if not HYPR or not os.environ.get("DISPLAY") or not shutil.which("xrdb"):
+    if not (HYPR or MANGO) or not os.environ.get("DISPLAY") or not shutil.which("xrdb"):
         return
     outs = outputs()
     main = next((o for o in outs if o["focused"]), outs[0] if outs else None)

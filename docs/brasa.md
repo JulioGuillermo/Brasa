@@ -990,9 +990,9 @@ sets the same value through UPower; the last one to change it wins.
 ## X11 apps on a scaled screen
 
 TigerVNC and other X11 apps run through XWayland. With a fractional scale (133 %), a compositor
-normally draws them at 100 % and blows them up, which makes them blurry. On Hyprland, Brasa uses the
-same trick as GNOME instead: `xwayland:force_zero_scaling` lets them see the screen at its real
-resolution, and `brasa-monitors apply` tells them the main monitor's scale through `Xft.dpi` (and the
+normally draws them at 100 % and blows them up, which makes them blurry. On Hyprland and mango, Brasa
+uses the same trick as GNOME instead: `xwayland:force_zero_scaling` (Hyprland) or
+`xwayland_ignore_scale=1` (mango) lets them see the screen at its real resolution, and `brasa-monitors apply` tells them the main monitor's scale through `Xft.dpi` (and the
 cursor size through `Xcursor.size`), so the apps that honour it (GTK, Qt, FLTK 1.4, Electron...) draw
 themselves at the right size, sharp. Old X11 apps that ignore `Xft.dpi` look small but sharp. Apps read
 it when they start; with several monitors of different scales there is one value, the focused one's.
@@ -1124,6 +1124,5 @@ copy of its config with Alt instead of Super.
 - **mango** (0.17): every key binding repeats while held (Super+q held closes several windows; mango's
   `n` flag that stops it is not in 0.17); the cup in the bar cannot name the app keeping the screen
   awake, and knows that one does only after 30 s without keyboard or mouse (see the bar); `brasa-remote take` is refused (no
-  way to switch off single input devices); no tag 10; X11 apps are drawn at 100 % and scaled up, so
-  blurry on a scaled screen (as on sway). Package names for mango outside Arch are guesses: the
+  way to switch off single input devices); no tag 10. Package names for mango outside Arch are guesses: the
   installer reports it when it cannot find one.
