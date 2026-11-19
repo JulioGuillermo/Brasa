@@ -1123,11 +1123,16 @@ copy of its config with Alt instead of Super.
 
 - The Hyprland touchpad toggle uses `hl.device({ name, enabled })`, untested.
 - **nwg-bar** uses icon theme names (`system-lock-screen`…); if the icon theme lacks them they show empty.
-- Package names for apt, dnf, zypper and apk were written from memory; the installer reports the ones it cannot find.
+- Package names were checked on 2026-11-19 against Debian stable, Ubuntu, Fedora and Alpine (openSUSE's are
+  still unchecked). Not in those distros' own repositories, so the installer reports them as missing: on
+  Fedora nwg-bar, hyprlock, swayosd, starship, Hyprland and its portal and nwg-hello (they are in COPR); on
+  Alpine nwg-bar, hyprlock, swayosd, cliphist, Hyprland's portal and nwg-hello; on Debian stable Hyprland,
+  its portal and hyprlock (Ubuntu has them); the adw-gtk3 theme on Debian and Ubuntu; mango everywhere
+  but Arch and Alpine.
 - `Super+/` is not used for the key bindings window because `/` needs Shift on a Spanish keyboard.
 - On the Zenbook, the camera key's light is driven by the ASUS firmware; Linux exposes no control for it.
 - **mango** (0.17): every key binding repeats while held (Super+q held closes several windows; mango's
   `n` flag that stops it is not in 0.17); the cup in the bar cannot name the app keeping the screen
   awake, and knows that one does only after 30 s without keyboard or mouse (see the bar); `brasa-remote take` is refused (no
-  way to switch off single input devices); no tag 10. Package names for mango outside Arch are guesses: the
-  installer reports it when it cannot find one.
+  way to switch off single input devices); no tag 10. mango is packaged only on Arch and Alpine (on
+  openSUSE unchecked): elsewhere the installer reports it missing.

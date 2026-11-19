@@ -273,7 +273,7 @@ libadwaita        libadwaita              gir1.2-adw-1                libadwaita
 gtk4-layer-shell  gtk4-layer-shell        gir1.2-gtk4layershell-1.0   gtk4-layer-shell          typelib-1_0-Gtk4LayerShell-1_0 gtk4-layer-shell
 rust              rust                    cargo                       cargo                     cargo                     cargo
 pkg-config        pkgconf                 pkg-config                  pkgconf-pkg-config        pkg-config                pkgconf
-gtk4-dev          gtk4                    libgtk-4-dev                gtk4-devel                gtk4-devel                gtk4-dev
+gtk4-dev          gtk4                    libgtk-4-dev                gtk4-devel                gtk4-devel                gtk4.0-dev
 layer-shell-dev   gtk4-layer-shell        libgtk4-layer-shell-dev     gtk4-layer-shell-devel    gtk4-layer-shell-devel    gtk4-layer-shell-dev
 curl              curl                    curl                        curl                      curl                      curl
 ss                iproute2                iproute2                    iproute                   iproute2                  iproute2
@@ -289,14 +289,14 @@ archiver          file-roller             file-roller                 file-rolle
 tumbler           tumbler                 tumbler                     tumbler                   tumbler                   tumbler
 thumbs-video      ffmpegthumbnailer       ffmpegthumbnailer           ffmpegthumbnailer         ffmpegthumbnailer         ffmpegthumbnailer
 thumbs-extra      poppler-glib            tumbler-plugins-extra       poppler-glib              libpoppler-glib8          poppler-glib
-thumbs-webp       webp-pixbuf-loader      webp-pixbuf-loader          webp-pixbuf-loader        webp-pixbuf-loader        webp-pixbuf-loader
-polkit-agent      polkit-gnome            mate-polkit|policykit-1-gnome polkit-gnome              polkit-gnome              polkit-gnome
+thumbs-webp       webp-pixbuf-loader      webp-pixbuf-loader          -                         webp-pixbuf-loader        -
+polkit-agent      polkit-gnome            mate-polkit|policykit-1-gnome polkit-gnome|mate-polkit|lxpolkit polkit-gnome         polkit-gnome
 qt5ct             qt5ct                   qt5ct                       qt5ct                     qt5ct                     -
 kvantum           kvantum                 qt-style-kvantum            kvantum                   kvantum-qt6               kvantum
 kvantum-qt5       kvantum-qt5             -                           kvantum-qt5               kvantum-qt5               -
 qt6ct             qt6ct                   qt6ct                       qt6ct                     qt6ct                     -
 icons-papirus     papirus-icon-theme      papirus-icon-theme          papirus-icon-theme        papirus-icon-theme        papirus-icon-theme
-gtk-theme         adw-gtk-theme           adw-gtk3                    adw-gtk3-theme            adw-gtk3                  -
+gtk-theme         adw-gtk-theme           -                           adw-gtk3-theme            adw-gtk3                  -
 portal-gtk        xdg-desktop-portal-gtk  xdg-desktop-portal-gtk      xdg-desktop-portal-gtk    xdg-desktop-portal-gtk    xdg-desktop-portal-gtk
 wtype             wtype                   wtype                       wtype                     wtype                     wtype
 wdisplays         wdisplays               wdisplays                   wdisplays                 wdisplays                 wdisplays
@@ -315,7 +315,7 @@ portal-hypr       xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland xdg-de
 hyprmod           hyprmod@aur             -                           -                         -                         -
 '
 PKGS_MANGO='
-mango             mangowm                 mangowm|mangowc             mangowm|mangowc           mangowm|mangowc           mangowm
+mango             mangowm                 -                           -                         mangowm|mangowc           mangowm
 portal-wlr        xdg-desktop-portal-wlr  xdg-desktop-portal-wlr      xdg-desktop-portal-wlr    xdg-desktop-portal-wlr    xdg-desktop-portal-wlr
 '
 PKGS_ZSH='

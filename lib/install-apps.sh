@@ -23,7 +23,7 @@ ghostty             ghostty                 -                       -           
 zen-browser         zen-browser-bin@aur     -                       -                       -                       -
 firefox             firefox                 firefox-esr|firefox     firefox                 MozillaFirefox          firefox
 google-chrome-stable google-chrome@aur      -                       -                       -                       -
-chromium            chromium                chromium                chromium                chromium                chromium
+chromium            chromium                chromium|chromium-browser chromium              chromium                chromium
 thunar              thunar                  thunar                  Thunar                  thunar                  thunar
 nautilus            nautilus                nautilus                nautilus                nautilus                nautilus
 nemo                nemo                    nemo                    nemo                    nemo                    nemo
