@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# mango: the window layout of the focused tag (Super+w changes it), following mango's monitor updates.
+declare -A ICON=(
+  [DW]=$'\U000F056E' [T]=$'\U000F0574' [CT]=$'\U000F0574' [S]=$'\U000F0BCD' [VS]=$'\U000F0BCE'
+  [M]=$'\U000F0293' [G]=$'\U000F0570')
+declare -A NAME=(
+  [DW]="dwindle: each window splits the focused one" [T]="master: one big window and a column"
+  [CT]="master in the middle" [S]="scrolling, side by side" [VS]="scrolling, one above the other"
+  [M]="one at a time" [G]="grid")
+
+last=""
+mmsg watch all-monitors | while read -r update; do
+  symbol=$(jq -r '[.monitors[] | select(.active)][0].layout_symbol // .monitors[0].layout_symbol' <<< "$update")
+  [ "$symbol" = "$last" ] && continue
+  last=$symbol
+  jq -cn --arg icon "${ICON[$symbol]:-${ICON[DW]}}" --arg name "${NAME[$symbol]:-$symbol}" \
+    '{text: $icon, tooltip: "Layout of this tag: \($name)\nSuper+w or a click: the next one"}'
+done

@@ -10,10 +10,12 @@ for f in ~/.local/bin/brasa-*; do [ -L "$f" ] && [ ! -e "$f" ] && rm "$f"; done
 # The remote session's RDP server, if installed: built again in the background when a pull changed its patch
 [ -x ~/.local/bin/hypr-rdp ] && setsid -f ~/.local/bin/brasa-remote rdp build >/dev/null 2>&1 < /dev/null
 # Key bindings: keys.tsv may have changed with a pull; the window manager reads them again only then
-binds_before=$(cat ~/.config/brasa/config/hypr/binds.lua ~/.config/brasa/config/sway/binds.conf 2>/dev/null | md5sum)
+binds() { cat ~/.config/brasa/config/{hypr/binds.lua,sway/binds.conf,mango/binds.conf} 2>/dev/null | md5sum; }
+binds_before=$(binds)
 ~/.local/bin/brasa-gen >/dev/null
-if [ "$(cat ~/.config/brasa/config/hypr/binds.lua ~/.config/brasa/config/sway/binds.conf 2>/dev/null | md5sum)" != "$binds_before" ]; then
+if [ "$(binds)" != "$binds_before" ]; then
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then hyprctl reload config-only >/dev/null
+  elif [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then mmsg dispatch reload_config >/dev/null
   elif [ -n "${SWAYSOCK:-}" ]; then swaymsg reload >/dev/null; fi
 fi
 python3 ~/.config/brasa/docs/gen-waybar-swaync.py ~/.config/brasa/config >/dev/null 2>&1   # bar + panel (panel.conf)

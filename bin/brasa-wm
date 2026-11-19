@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Window actions that work the same in sway/SwayFX and Hyprland. Usage: brasa-wm <verb> [arg]
+# Window actions that work the same in sway/SwayFX, Hyprland and mango. Usage: brasa-wm <verb> [arg]
 verb=$1 arg=$2
 LAYOUTS=${XDG_STATE_HOME:-$HOME/.local/state}/brasa/workspace-layouts   # Hyprland: "workspace layout" lines
 
@@ -14,6 +14,10 @@ pick_layout() {
   [ -n "$picked" ] && [ "$picked" -ge 0 ] && echo "${MENU_IDS[$picked]}"
 }
 only_sway() { ~/.local/bin/brasa-osd view-grid-symbolic "Groups of windows: only in sway"; }
+if [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
+  . "$(dirname "$(readlink -f "$0")")/../lib/brasa-wm-mango.sh"
+  exit
+fi
 if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
   d() { hyprctl -q dispatch "$1"; }
 

@@ -47,7 +47,8 @@ waybar = {
   "margin-top": 6, "margin-left": 8, "margin-right": 8, "spacing": 0,
   # Left: resource blocks this machine has, each followed by a triangle (l1, l2...)
   "modules-left": [m for i, g in enumerate(LEFT) for m in (f"group/{g}", f"custom/l{i + 1}")],
-  "modules-center": ["custom/c1", "sway/workspaces#sway", "hyprland/workspaces#hypr", "custom/c2"],
+  "modules-center": ["custom/c1", "sway/workspaces#sway", "hyprland/workspaces#hypr", "ext/workspaces#mango",
+                     "custom/c2"],
   # Network sits on the right, nearest the center: its width changes the most and nothing else moves
   "modules-right": ["custom/r0", "group/g-net", "custom/r1", "clock", "custom/r2", "group/g-ctl", "custom/r3",
                     "tray", "custom/quick", "custom/notif"],
@@ -95,9 +96,11 @@ waybar = {
                 "on-scroll-up": "~/.local/bin/brasa-refresh cycle", "on-scroll-down": "~/.local/bin/brasa-refresh cycle"},
 
   # Each bar shows its own monitor's workspaces: the number, inside a circle drawn in style.css.
-  # "#sway" / "#hypr" become CSS classes: the two modules mark empty workspaces differently.
+  # "#sway" / "#hypr" / "#mango" become CSS classes: the modules mark empty workspaces differently.
+  # mango's tags come through the standard ext-workspace protocol; brasa-bar keeps that module for mango only.
   "sway/workspaces#sway": {"format": "{name}", "disable-scroll": False, "all-outputs": False,
                       "persistent-workspaces": {str(n): [INTERNAL] if INTERNAL else [] for n in range(1, 5)}},
+  "ext/workspaces#mango": {"format": "{name}", "on-click": "activate"},
   "hyprland/workspaces#hypr": {"format": "{name}", "all-outputs": False,
                           "persistent-workspaces": {INTERNAL: [1, 2, 3, 4]} if INTERNAL else {"*": 4}},
 

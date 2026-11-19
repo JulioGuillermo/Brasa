@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# What starts with the session, the same in sway/SwayFX and Hyprland.
+# What starts with the session, the same in sway/SwayFX, Hyprland and mango.
 # Brasa commands added by a later "git pull": link any that is missing (install.sh does the rest)
 for f in ~/.config/brasa/bin/brasa-*; do [ -e ~/.local/bin/"${f##*/}" ] || ln -s "$f" ~/.local/bin/ 2>/dev/null; done
 # The remote session (brasa-remote session) must not overwrite the local session's environment
 [ -n "${BRASA_REMOTE_SESSION:-}" ] || \
-  dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SWAYSOCK HYPRLAND_INSTANCE_SIGNATURE 2>/dev/null
+  dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SWAYSOCK HYPRLAND_INSTANCE_SIGNATURE \
+    MANGO_INSTANCE_SIGNATURE 2>/dev/null
 ~/.local/bin/brasa-fx reset
 ~/.local/bin/brasa-monitors apply --settle   # saved layout + refresh rate of every monitor
 # Start a program unless this session already runs it. Only this session's processes count: the remote
 # session (brasa-remote session) and the local one each have their own bar, notifications, lock...
 here() { ~/.local/bin/brasa-here "$@" >/dev/null; }
+on_sway() { [ -n "${SWAYSOCK:-}" ] && [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}${MANGO_INSTANCE_SIGNATURE:-}" ]; }
 run() {
   here "$1" && return
   setsid -f "$@" >/dev/null 2>&1
 }
 
-# Hyprland draws no wallpaper: swaybg does it (sway does it itself with "output * bg")
-[ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && run swaybg -m fill -c '#00040f' -i ~/.local/share/backgrounds/brasa.png
+# Hyprland and mango draw no wallpaper: swaybg does it (sway does it itself with "output * bg")
+on_sway || run swaybg -m fill -c '#00040f' -i ~/.local/share/backgrounds/brasa.png
 
 run swayosd-server
 here -f 'brasa-monitors watch' || \
@@ -25,12 +27,12 @@ here -f 'brasa-monitors watch' || \
 pkill -u "$(id -u)" -x swaync
 here brasa-islands || setsid -f ~/.local/bin/brasa-islands >/dev/null 2>&1   # music, notifications, launcher, quick settings
 ~/.local/bin/brasa-bar   # one bar per monitor, folded on narrow ones
-# sway: your keyboard layouts (brasa-keyboard; Hyprland loads them in hyprland.lua)
-[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -s ~/.config/brasa/keyboard.conf ] && ~/.local/bin/brasa-keyboard apply
-# sway: your cursor theme (brasa-themes; Hyprland loads it in hyprland.lua)
-[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -s ~/.config/brasa/appearance.conf ] && ~/.local/bin/brasa-themes apply
+# sway: your keyboard layouts (brasa-keyboard; Hyprland and mango load them from their config)
+on_sway && [ -s ~/.config/brasa/keyboard.conf ] && ~/.local/bin/brasa-keyboard apply
+# sway: your cursor theme (brasa-themes; Hyprland and mango load it from their config)
+on_sway && [ -s ~/.config/brasa/appearance.conf ] && ~/.local/bin/brasa-themes apply
 # sway: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)
-[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && { here -f "brasa-wm remote-watch" ||
+on_sway && { here -f "brasa-wm remote-watch" ||
   setsid -f ~/.local/bin/brasa-wm remote-watch >/dev/null 2>&1; }
 run nm-applet --indicator
 run blueman-applet

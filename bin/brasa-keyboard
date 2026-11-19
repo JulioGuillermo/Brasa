@@ -4,12 +4,15 @@
 #        brasa-keyboard list             your layouts, the active one marked
 #        brasa-keyboard add LAYOUT [VARIANT] | remove LAYOUT [VARIANT] | use N | apply
 # Saved in ~/.config/brasa/keyboard.conf (one "layout variant" per line). Hyprland loads it when it
-# starts (~/.local/state/brasa/keyboard.lua); on sway brasa-autostart runs "brasa-keyboard apply".
+# starts (~/.local/state/brasa/keyboard.lua), mango too (config/mango/keyboard.conf); on sway
+# brasa-autostart runs "brasa-keyboard apply".
 set -u
 CONF=~/.config/brasa/keyboard.conf
 LUA=${XDG_STATE_HOME:-$HOME/.local/state}/brasa/keyboard.lua
+MANGO_CONF=~/.config/brasa/config/mango/keyboard.conf
 LST=/usr/share/X11/xkb/rules/evdev.lst
 hypr() { [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; }
+mango() { [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; }
 osd() { ~/.local/bin/brasa-osd input-keyboard-symbolic "$1" 2>/dev/null; echo "$1"; }
 
 LAYOUTS=() VARIANTS=()
@@ -30,7 +33,10 @@ joined() { local IFS=,; echo "$*"; }
 
 apply() {
   local L V; L=$(joined "${LAYOUTS[@]}"); V=$(joined "${VARIANTS[@]}")
-  if hypr; then
+  printf '# Written by brasa-keyboard: your keyboard layouts\nxkb_rules_layout=%s\nxkb_rules_variant=%s\n' "$L" "$V" > "$MANGO_CONF"
+  if mango; then
+    mmsg dispatch reload_config >/dev/null
+  elif hypr; then
     hyprctl -q eval "hl.config({ input = { kb_layout = \"$L\", kb_variant = \"$V\" } })"
     mkdir -p "$(dirname "$LUA")"
     printf -- '-- Written by brasa-keyboard: your keyboard layouts\nhl.config({ input = { kb_layout = "%s", kb_variant = "%s" } })\n' "$L" "$V" > "$LUA"
@@ -43,6 +49,7 @@ active() {  # index of the layout in use
   if [ -n "${BRASA_REMOTE_SESSION:-}" ]; then
     cat "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/brasa-remote/session-layout-index" 2>/dev/null || echo 0; return
   fi
+  if mango; then mango_active; return; fi
   if hypr; then hyprctl devices -j | jq -r '[.keyboards[] | select(.main)][0].active_layout_index // 0'
   else swaymsg -t get_inputs -r | jq -r '[.[] | select(.type == "keyboard")][0].xkb_active_layout_index // 0'; fi
 }
@@ -56,8 +63,17 @@ use() {
     for p in $(pgrep -u "$(id -u)" -f "brasa-remote/session.sock"); do kill "$p"; done
     echo "Keyboard: $(name "${LAYOUTS[$1]}" "${VARIANTS[$1]}") (the viewer reconnects)"; return
   fi
-  if hypr; then hyprctl -q switchxkblayout all "$1"; else swaymsg -q "input type:keyboard xkb_switch_layout $1"; fi
+  if mango; then mmsg dispatch "switch_keyboard_layout,$1" >/dev/null
+  elif hypr; then hyprctl -q switchxkblayout all "$1"
+  else swaymsg -q "input type:keyboard xkb_switch_layout $1"; fi
   osd "Keyboard: $(name "${LAYOUTS[$1]}" "${VARIANTS[$1]}")"
+}
+mango_active() {  # mango tells the active layout by its description only
+  local active i; active=$(mmsg get keyboardlayout | jq -r .layout)
+  for i in "${!LAYOUTS[@]}"; do
+    [ "$(name "${LAYOUTS[$i]}" "${VARIANTS[$i]}")" = "$active" ] && { echo "$i"; return; }
+  done
+  echo 0
 }
 name() {  # layout [variant] -> its description from xkb's list
   if [ -n "${2:-}" ]; then awk -v l="$1" -v v="$2" '/^! variant/{s=1;next} /^!/{s=0} s && $1==v && $2==l":" {sub(/^ *[^ ]+ +[^ ]+ /,""); print; exit}' "$LST"

@@ -13,6 +13,13 @@ apply() {  # effect  true|false
       shadow) hyprctl -q eval "hl.config({ decoration = { shadow = { enabled = $2 } } })" ;;
       anim)   hyprctl -q eval "hl.config({ animations = { enabled = $2 } })" ;;
     esac
+  elif [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
+    v=$([ "$2" = true ] && echo 1 || echo 0)
+    case $1 in
+      blur)   mmsg dispatch "setoption,blur,$v" >/dev/null; mmsg dispatch "setoption,blur_layer,$v" >/dev/null ;;
+      shadow) mmsg dispatch "setoption,shadows,$v" >/dev/null ;;
+      anim)   mmsg dispatch "setoption,animations,$v" >/dev/null; mmsg dispatch "setoption,layer_animations,$v" >/dev/null ;;
+    esac
   else
     v=$([ "$2" = true ] && echo enable || echo disable)
     case $1 in
@@ -33,7 +40,7 @@ case $1 in
     done
     say "Effects $([ $v = true ] && echo on || echo off)" ;;
   blur|anim|shadow)
-    if [ "$1" = anim ] && [ -z "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+    if [ "$1" = anim ] && [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}${MANGO_INSTANCE_SIGNATURE:-}" ]; then
       say "Animations" "SwayFX has no animations"; exit 0
     fi
     v=$(flip "$1"); apply "$1" "$v"

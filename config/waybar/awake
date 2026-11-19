@@ -11,6 +11,8 @@ ICON_OFF=$'\U000F06CA'
 apps_keeping_awake() {
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
     hyprctl clients -j | jq -r '.[] | select(.inhibitingIdle) | .class'
+  elif [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
+    true   # mango does not tell which windows keep the screen awake
   else
     swaymsg -t get_tree | jq -r '.. | objects | select(.inhibit_idle? == true) | .app_id // .window_properties.class'
   fi | sort -u | paste -sd, | sed 's/,/, /g'

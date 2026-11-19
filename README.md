@@ -1,6 +1,6 @@
 # Brasa
 
-A light desktop for **SwayFX** or **Hyprland**: near-black night blue, pure red details and a
+A light desktop for **SwayFX**, **Hyprland** or **mango**: near-black night blue, pure red details and a
 bar with triangle separators.
 
 ## Install
@@ -12,9 +12,10 @@ cd ~/brasa
 
 It installs whatever is missing with your package manager (pacman, apt, dnf, zypper or apk),
 links each config file into place and backs up anything that was there before.
-Then log out and pick **SwayFX** or **Hyprland** on the login screen.
+It asks which window managers you want. Then log out and pick **SwayFX**, **Hyprland** or **Mango** on
+the login screen.
 
-Only one of them? `./install.sh --wm swayfx` or `./install.sh --wm hyprland`.
+Choose without being asked: `./install.sh --wm swayfx,mango` (any of `swayfx`, `hyprland`, `mango`, or `all`).
 It also asks whether to use the Brasa login screen instead of GDM (preview it first with `brasa-greeter test`).
 And whether to set up **zsh** (your old config goes to `~/zsh_backup/`; your own paths, aliases and tools
 live in `~/.config/zsh/`). The prompt is **starship** with the same look as the bar.

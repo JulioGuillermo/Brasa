@@ -12,7 +12,8 @@ STYLE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "brasa.css")
 
 
 def in_brasa():
-    return bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") or os.environ.get("SWAYSOCK"))
+    return bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") or os.environ.get("SWAYSOCK")
+                or os.environ.get("MANGO_INSTANCE_SIGNATURE"))
 
 
 def load_style():

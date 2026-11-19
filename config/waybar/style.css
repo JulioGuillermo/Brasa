@@ -131,13 +131,17 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
 /* Shown on its monitor but that monitor is not focused: red outline */
 /* The states below name both modules (.hypr / .sway) so they win over the "has windows" style above */
 #workspaces.hypr button.visible, #workspaces.sway button.visible { border-color: @accent; color: @text; }
-#workspaces.hypr button.active, #workspaces.sway button.focused, #workspaces.sway button.active {
+#workspaces.hypr button.active, #workspaces.sway button.focused, #workspaces.sway button.active,
+#workspaces.mango button.active {
   background: @accent;
   border-color: @accent;
   color: #00040f;
   box-shadow: 0 0 8px rgba(255, 0, 0, 0.75);
 }
-#workspaces.hypr button.urgent, #workspaces.sway button.urgent { border-color: @amber; color: @amber; }
+#workspaces.hypr button.urgent, #workspaces.sway button.urgent, #workspaces.mango button.urgent {
+  border-color: @amber;
+  color: @amber;
+}
 
 /* Interactive */
 #network.wifi, #network.ethernet, #network.disconnected, #bluetooth, #wireplumber, #backlight {

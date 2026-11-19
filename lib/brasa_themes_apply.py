@@ -17,6 +17,7 @@ DEFAULTS = {"icons": "Brasa-Slot-Navy", "cursor": "Fuchsia-Red", "icon_base": "B
 CURSOR_SIZE = 24
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "brasa")
 HYPRLAND_CURSOR = os.path.join(STATE, "cursor.lua")
+MANGO_CURSOR = os.path.join(BRASA, "config", "mango", "cursor.conf")
 GTK_SETTINGS = [os.path.expanduser(f"~/.config/gtk-{version}/settings.ini") for version in ("3.0", "4.0")]
 QT_SETTINGS = [os.path.expanduser(f"~/.config/{tool}/{tool}.conf") for tool in ("qt5ct", "qt6ct")]
 XCURSOR_DEFAULT = os.path.expanduser("~/.icons/default/index.theme")
@@ -78,9 +79,13 @@ def use_cursor(theme):
     with open(HYPRLAND_CURSOR, "w", encoding="utf-8") as file:
         file.write("-- Written by brasa-themes: your cursor theme\n"
                    f'hl.env("XCURSOR_THEME", {lua_string(theme)})\n')
+    with open(MANGO_CURSOR, "w", encoding="utf-8") as file:
+        file.write(f"# Written by brasa-themes: your cursor theme\ncursor_theme={theme}\nenv=XCURSOR_THEME,{theme}\n")
     if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
         quiet(["hyprctl", "setcursor", theme, str(CURSOR_SIZE)])
         quiet(["hyprctl", "eval", f'hl.env("XCURSOR_THEME", {lua_string(theme)})'])
+    elif os.environ.get("MANGO_INSTANCE_SIGNATURE"):
+        quiet(["mmsg", "dispatch", "reload_config"])
     elif os.environ.get("SWAYSOCK"):
         quiet(["swaymsg", f'seat seat0 xcursor_theme "{theme}" {CURSOR_SIZE}'])
 

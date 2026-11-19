@@ -8,16 +8,29 @@
 # brasa-monitors runs it after every monitor change, brasa-autostart at login, brasa-reload with --reload.
 NARROW_BELOW=${BRASA_BAR_NARROW_BELOW:-1280}
 WAYBAR_DIR=~/.config/waybar
-SESSION=${HYPRLAND_INSTANCE_SIGNATURE:-${SWAYSOCK##*/}}
+MANGO_SOCKET=${MANGO_INSTANCE_SIGNATURE:-}
+SESSION=${HYPRLAND_INSTANCE_SIGNATURE:-${MANGO_SOCKET##*/}}
+SESSION=${SESSION:-${SWAYSOCK##*/}}
 CONFIG=${XDG_RUNTIME_DIR:-/tmp}/brasa-bar-${SESSION:-default}.json
 
 # "name logical-width" of every monitor; a monitor turned a quarter swaps its width and height
 monitor_widths() {
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
     hyprctl monitors -j | jq -r '.[] | "\(.name) \((if .transform % 2 == 1 then .height else .width end) / .scale | floor)"'
+  elif [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
+    mmsg get all-monitors | jq -r '.monitors[] | "\(.name) \(.width / .scale | floor)"'
   elif [ -n "${SWAYSOCK:-}" ]; then
     swaymsg -t get_outputs -r | jq -r '.[] | select(.active) | "\(.name) \(.rect.width)"'
   fi
+}
+
+# mango's tags come through ext-workspace, a standard protocol other compositors may offer too: their own
+# workspaces module already shows them
+only_this_compositor() {
+  [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ] && return
+  jq 'def drop: if type == "array" then map(select(. != "ext/workspaces#mango")) else . end;
+      if type == "array" then map(.["modules-center"] |= drop) else .["modules-center"] |= drop end' "$1" > "$1.tmp" &&
+    mv "$1.tmp" "$1"
 }
 
 # The waybar config: a list of bars, each for the monitors it is meant for
@@ -36,6 +49,7 @@ write_config() {
        | map(select(.output | length > 0))' \
       --args "${wide[@]}" "${narrow[@]}" > "$CONFIG.new"
   fi
+  only_this_compositor "$CONFIG.new"
   if cmp -s "$CONFIG.new" "$CONFIG"; then
     rm "$CONFIG.new"
     return 1

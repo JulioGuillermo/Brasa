@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Brasa installer: dependencies (for your package manager) and config links.
-# Usage: ./install.sh [--wm swayfx|hyprland|both] [--greeter|--no-greeter] [--zsh|--no-zsh] [--no-gtk] [--no-prompt]
+# Usage: ./install.sh [--wm LIST] [--greeter|--no-greeter] [--zsh|--no-zsh] [--no-gtk] [--no-prompt]
 #                     [--root-prompt] [--no-deps] [--dry-run] [--apps] [--yes]
+#        --wm: the window managers, any of swayfx, hyprland and mango separated by commas, or all.
+#        Without it, it asks (in a terminal) or keeps the ones installed.
 #        --root-prompt: the same starship prompt for root too (asks for sudo).
 #        Without --greeter/--no-greeter or --zsh/--no-zsh it asks about the login screen and zsh.
 #        It asks which terminal, browser, file manager... the keys open, once (apps.conf);
@@ -9,7 +11,7 @@
 #      ./install.sh --uninstall
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
-WM=both GTK=1 PROMPT=1 ROOT_PROMPT=0 GREETER=ask ZSH=ask DEPS=1 DRY=0 UNINSTALL=0 ASK_APPS=0 YES=0
+WM=ask GTK=1 PROMPT=1 ROOT_PROMPT=0 GREETER=ask ZSH=ask DEPS=1 DRY=0 UNINSTALL=0 ASK_APPS=0 YES=0
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 while [ $# -gt 0 ]; do
@@ -28,14 +30,46 @@ while [ $# -gt 0 ]; do
     --root-prompt) ROOT_PROMPT=1 ;;
     --apps) ASK_APPS=1 ;;
     --yes) YES=1 ;;
-    -h|--help) sed -n 2,9p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n 2,11p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
   shift
 done
-case $WM in swayfx|hyprland|both) ;; *) echo "--wm must be swayfx, hyprland or both" >&2; exit 1 ;; esac
 ASK=0
 [ -t 0 ] && [ $YES = 0 ] && ASK=1
+
+# ---------------------------------------------------------------- window managers
+ALL_WMS="swayfx hyprland mango"
+installed_wms() {
+  local found=()
+  command -v sway >/dev/null && found+=(swayfx)
+  command -v Hyprland >/dev/null && found+=(hyprland)
+  command -v mango >/dev/null && found+=(mango)
+  echo "${found[*]:-swayfx hyprland}"
+}
+normalized_wms() {  # "swayfx,mango" or "both" or "all" -> "swayfx mango"; nothing for an unknown name
+  local list=${1//,/ } wm out=()
+  for wm in $list; do
+    case $wm in
+      all)            out+=($ALL_WMS) ;;
+      both)           out+=(swayfx hyprland) ;;
+      sway|swayfx)    out+=(swayfx) ;;
+      hyprland|mango) out+=("$wm") ;;
+      *)              return 1 ;;
+    esac
+  done
+  [ ${#out[@]} -gt 0 ] || return 1
+  printf '%s\n' "${out[@]}" | awk '!seen[$0]++' | paste -sd' '
+}
+if [ "$WM" = ask ]; then
+  WM=$(installed_wms)
+  if [ $ASK = 1 ]; then
+    read -r -p "Window managers to install, any of: $ALL_WMS [$WM]: " a
+    [ -n "$a" ] && WM=$a
+  fi
+fi
+WM=$(normalized_wms "$WM") || { echo "--wm takes swayfx, hyprland and mango separated by commas, or all" >&2; exit 1; }
+wants() { [[ " $WM " == *" $1 "* ]]; }
 
 r=$'\e[1;31m' b=$'\e[1;34m' g=$'\e[0;37m' n=$'\e[0m'
 say()  { printf '%s▶%s %s\n' "$r" "$n" "$*"; }
@@ -48,7 +82,7 @@ source "$HERE/lib/install-apps.sh"
 
 # ---------------------------------------------------------------- links
 # Config Brasa owns entirely (directories) and single files inside other apps' directories
-DIRS="waybar swaync swayosd fuzzel nwg-bar sway hypr swaylock foot"
+DIRS="waybar swaync swayosd fuzzel nwg-bar sway hypr mango swaylock foot"
 FILES="xdg-desktop-portal/hyprland-portals.conf"
 # Links from older Brasa versions, removed on install (nwg-drawer was replaced by rofi)
 OBSOLETE="nwg-drawer/brasa.css"
@@ -280,6 +314,10 @@ hyprland          hyprland                hyprland                    hyprland  
 portal-hypr       xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-hyprland
 hyprmod           hyprmod@aur             -                           -                         -                         -
 '
+PKGS_MANGO='
+mango             mangowm                 mangowm|mangowc             mangowm|mangowc           mangowm|mangowc           mangowm
+portal-wlr        xdg-desktop-portal-wlr  xdg-desktop-portal-wlr      xdg-desktop-portal-wlr    xdg-desktop-portal-wlr    xdg-desktop-portal-wlr
+'
 PKGS_ZSH='
 zsh               zsh                     zsh                         zsh                       zsh                       zsh
 fzf               fzf                     fzf                         fzf                       fzf                       fzf
@@ -333,19 +371,41 @@ install_repo() {
   esac
 }
 
+# mango needs scenefx 0.5, and swayfx-git is built on scenefx-git, which pacman cannot keep beside it: the
+# stable SwayFX (on scenefx 0.5) takes its place
+stable_swayfx_for_mango() {
+  [ "$PM" = pacman ] && wants mango && pacman -Qq scenefx-git >/dev/null 2>&1 || return 0
+  say "mango and SwayFX share scenefx: replacing swayfx-git with the stable SwayFX"
+  if [ -z "$AUR" ]; then
+    problem "swayfx-git is in the way of mango: replace it with the AUR package swayfx (needs yay or paru)"
+    return 1
+  fi
+  run $SUDO pacman -Rdd --noconfirm swayfx-git scenefx-git &&
+    run $SUDO pacman -S --needed --noconfirm --asdeps scenefx &&
+    run $AUR -S --needed swayfx && return 0
+  problem "The stable SwayFX did not install: putting swayfx-git back ($AUR -S swayfx-git)"
+  run $AUR -S --needed swayfx-git
+  return 1
+}
+
 install_deps() {
   say "Package manager: $PM${AUR:+ (AUR via $AUR)}"
   if [ "$PM" = none ]; then
     warn "Unknown package manager: install the list in docs/brasa.md by hand"; return
   fi
   [ "$PM" = apt-get ] && run $SUDO apt-get update -qq
+  stable_swayfx_for_mango || WM=${WM/mango/}   # without it, everything but mango
   local list="$PKGS" c; c=$(col)
-  case $WM in swayfx) list+="$PKGS_SWAY" ;; hyprland) list+="$PKGS_HYPR" ;; both) list+="$PKGS_SWAY$PKGS_HYPR" ;; esac
+  wants swayfx && list+="$PKGS_SWAY"
+  wants hyprland && list+="$PKGS_HYPR"
+  wants mango && list+="$PKGS_MANGO"
+  # mango and SwayFX share scenefx: only the stable SwayFX uses mango's version of it
+  wants mango && list=${list//|swayfx-git@aur/@aur}
   [ $GREETER = 1 ] && list+="$PKGS_GREETER"
   [ $ZSH = 1 ] && list+="$PKGS_ZSH"
   list+=$'\n'"$(app_package_lines)"$'\n'
   # The greeter runs on sway: add it when no sway/SwayFX is coming with the window manager
-  [ $GREETER = 1 ] && [ "$WM" = hyprland ] && ! command -v sway >/dev/null && list+=$'\nsway sway sway sway sway sway\n'
+  [ $GREETER = 1 ] && ! wants swayfx && ! command -v sway >/dev/null && list+=$'\nsway sway sway sway sway sway\n'
   local repo=() aur=() missing=()
   while read -r line; do
     [ -z "$line" ] && continue
@@ -411,14 +471,14 @@ verify() {  # are the pieces Brasa relies on really there?
   python3 -c 'import gi; gi.require_version("Gtk", "4.0"); gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk' 2>/dev/null ||
     problem "Python cannot load GTK 4 and libadwaita (python-gobject, gtk4, libadwaita): the Sessions, Clean and Keys windows need them"
-  case $WM in
-    swayfx|both)
-      if ! command -v sway >/dev/null; then problem "sway/SwayFX is not installed"
-      elif ! sway --version 2>/dev/null | grep -qi swayfx; then
-        problem "Plain sway is installed, not SwayFX: no blur or rounded corners${AUR:+  ->  $AUR -S swayfx (or swayfx-git if it fails to build), then ./install.sh --no-deps}"
-      fi ;;
-  esac
-  case $WM in hyprland|both) command -v Hyprland >/dev/null || problem "Hyprland is not installed" ;; esac
+  if wants swayfx; then
+    if ! command -v sway >/dev/null; then problem "sway/SwayFX is not installed"
+    elif ! sway --version 2>/dev/null | grep -qi swayfx; then
+      problem "Plain sway is installed, not SwayFX: no blur or rounded corners${AUR:+  ->  $AUR -S swayfx (or swayfx-git if it fails to build), then ./install.sh --no-deps}"
+    fi
+  fi
+  wants hyprland && ! command -v Hyprland >/dev/null && problem "Hyprland is not installed"
+  wants mango && ! command -v mango >/dev/null && problem "mango is not installed"
   if [ $GREETER = 1 ]; then
     command -v greetd >/dev/null || problem "greetd is not installed: the login screen was not changed"
     command -v nwg-hello >/dev/null || problem "nwg-hello is not installed: the login screen was not changed"
@@ -463,7 +523,7 @@ install_vkms() {  # the virtual screen of the remote session on Hyprland (brasa-
   "$HERE/bin/brasa-remote" _vkms || problem "No vkms: the remote session can only use sway"
 }
 [ $DEPS = 1 ] && { install_deps; install_font; }
-[ $DEPS = 1 ] && case $WM in hyprland|both) install_vkms ;; esac
+[ $DEPS = 1 ] && wants hyprland && install_vkms
 # ufw: the remote desktop's and SSH's ports open to any address while they are on (brasa-firewall)
 if [ $DEPS = 1 ] && command -v ufw >/dev/null; then
   say "Letting ufw open the remote desktop and SSH ports while they are on"
@@ -623,9 +683,16 @@ if [ ${#PROBLEMS[@]} -gt 0 ]; then
   exit 1
 fi
 say "Ready"
+session_names() {  # as the login screen lists them
+  local names=()
+  wants swayfx && names+=(SwayFX)
+  wants hyprland && names+=(Hyprland)
+  wants mango && names+=(Mango)
+  local IFS=/; echo "${names[*]}"
+}
 cat <<TXT
 
-  To use it: log out and pick ${b}SwayFX${n} or ${b}Hyprland${n} on the login screen
+  To use it: log out and pick ${b}$(session_names)${n} on the login screen
   (gear icon at the bottom right in GDM).
   To try it without leaving GNOME: ${b}brasa-test${n} (sway in a window, Alt instead of Super).
   Key bindings cheat sheet: ${b}Super+F1${n}.   Undo: ${b}./install.sh --uninstall${n}

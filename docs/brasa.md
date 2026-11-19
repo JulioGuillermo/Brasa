@@ -29,7 +29,7 @@
 
 A complete theme and configuration for a light tiling desktop, made for a laptop whose RAM and GPU
 are shared with language models: bar, notifications, launchers, lock screen, exit dialog and key
-bindings, identical in SwayFX and Hyprland. All of it together uses about 150-250 MB, against
+bindings, identical in SwayFX, Hyprland and mango. All of it together uses about 150-250 MB, against
 ~300 MB for gnome-shell alone.
 
 ## Folder layout
@@ -43,7 +43,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `data/wallpapers/` | Other wallpapers: the earlier campfire and peaks drafts, and the previous default | — |
 | `data/emoji.tsv` | 3963 Unicode emoji with English names and CLDR keywords | — |
 | `bin/brasa-gen` | Generates the sway and Hyprland bindings from `keys.tsv` | `~/.local/bin/` |
-| `bin/brasa-wm` | Window actions that work in both (close, kill, focus, workspaces, exit…) | `~/.local/bin/` |
+| `bin/brasa-wm` | Window actions that work in all three (close, kill, focus, workspaces, exit…); mango's in `lib/brasa-wm-mango.sh` | `~/.local/bin/` |
 | `bin/brasa-fx` | Turns blur, animations and shadows on/off | `~/.local/bin/` |
 | `bin/brasa-refresh` | Screen refresh rate per monitor: dynamic (VRR) or fixed | `~/.local/bin/` |
 | `bin/brasa-monitors` | Saves and applies each monitor's layout and refresh rate; re-applies on hotplug | `~/.local/bin/` |
@@ -90,6 +90,7 @@ bindings, identical in SwayFX and Hyprland. All of it together uses about 150-25
 | `config/nwg-bar/` | Exit dialog buttons and style | `~/.config/nwg-bar` |
 | `config/sway/` | sway/SwayFX: `config` (Super), `brasa.conf` (shared), `fx.*.conf` (effects), `test.conf` (Alt), `binds.conf` (generated) | `~/.config/sway` |
 | `config/hypr/` | Hyprland: `hyprland.lua`, `binds.lua` (generated), `hyprlock.conf` and `remote.lua` (the remote session) | `~/.config/hypr` |
+| `config/mango/` | mango: `config.conf`, `binds.conf` (generated), `keyboard.conf` and `cursor.conf` (your choices) | `~/.config/mango` |
 | `config/xdg-desktop-portal/hyprland-portals.conf` | Hyprland's portals without the Inhibit one, so a browser playing a video keeps the screen from locking through Wayland's idle inhibit (sway's own portals.conf does the same) | `~/.config/xdg-desktop-portal/` |
 | `config/swaylock/` | swaylock fallback | `~/.config/swaylock` |
 | `config/foot/foot.ini` | Terminal: colors, transparency with blur, bell | `~/.config/foot` |
@@ -106,12 +107,16 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
 ## Installer
 
 ```
-./install.sh [--wm swayfx|hyprland|both] [--greeter|--no-greeter] [--zsh|--no-zsh] [--no-gtk] [--no-prompt]
+./install.sh [--wm LIST] [--greeter|--no-greeter] [--zsh|--no-zsh] [--no-gtk] [--no-prompt]
              [--root-prompt] [--no-deps] [--dry-run] [--apps] [--yes]
 ./install.sh --uninstall
 ```
 
-- `--wm`: which window manager to install (both by default).
+- `--wm`: the window managers to install, any of `swayfx`, `hyprland` and `mango` separated by commas
+  (`--wm swayfx,mango`), or `all`. **Without it the installer asks**, offering the ones already installed
+  (SwayFX and Hyprland on a new machine); with `--yes` it keeps those. With mango on Arch, a `swayfx-git`
+  gives way to the stable `swayfx`: both share the scenefx library and only the stable SwayFX uses
+  mango's version of it.
 - `--greeter` / `--no-greeter`: install greetd + nwg-hello as the login screen instead of the current display manager, or skip it (see [Login screen](#login-screen)). **Without either option the installer asks**, or, when the Brasa login screen is already in use, updates it.
 - `--zsh` / `--no-zsh`: set up zsh with Brasa's config (see [Shell](#shell-zsh-and-starship)) or skip it.
   **Without either option the installer asks.**
@@ -398,7 +403,7 @@ Floating, with rounded corners, in three zones:
 - **Center**: workspaces (the active one in red with a glow).
 - **Right**: clock (hover: calendar, scroll changes month; click: full date) ·
   layout: in sway where the next window opens, beside or below (click or `Super+v` switches it); in
-  Hyprland the workspace's layout (click or `Super+w`: the next one) ·
+  Hyprland the workspace's layout, in mango the tag's (click or `Super+w`: the next one) ·
   a cup, lit while the screen is kept awake: by an app (a video playing; the tooltip names it) or by
   hand (a click turns it on or off; swayidle then neither locks nor turns the screen off) ·
   keyboard layout · wifi · bluetooth · volume (scroll) · brightness (scroll) · tray · bell.
@@ -487,6 +492,18 @@ when windows open, a red gradient border, and a three-finger touchpad swipe to s
 Shared: keyboard `es` + `us altgr-intl` (compose on Insert), repeat 500 ms / 33 per second,
 tap to click and natural scrolling on the touchpad, touchscreen and pen mapped to the internal
 screen, the cursor theme you choose ([Icons and cursors](#icons-and-cursors)), 133 % scale on `eDP-1`, dynamic refresh rate.
+
+**mango** (`config/mango/config.conf`, mango 0.17+): the same look (rounded corners, red border, blur,
+shadows) and Hyprland-like animations; tags instead of workspaces, `Super+1…9` as elsewhere (no tag 10).
+Layouts per tag, `Super+w` goes through dwindle → master → scrolling side by side → scrolling one above
+the other → master in the middle → one at a time → grid. `Super+v` switches the split in dwindle. Key
+bindings are generated into `config/mango/binds.conf` like the others; `config/mango/keyboard.conf` and
+`cursor.conf` hold your layouts and cursor (written by `brasa-keyboard` and `brasa-themes`). The bar
+shows the tags through the standard ext-workspace protocol. `brasa-wm` drives it with `mmsg`
+(`lib/brasa-wm-mango.sh`). Not yet in mango: the window switcher and the island following the focused
+monitor, the keyboard layout in the bar, which apps keep the screen awake (the cup only knows "by
+hand"), saved monitors, the remote keyboard switching by itself in viewers, the remote session, and
+keys that do not repeat while held (mango 0.17 repeats every binding).
 
 **Touchscreen gestures**: Hyprland supports them with the hyprgrass plugin, not in the installer yet
 (it still has to be checked against the Lua configuration).

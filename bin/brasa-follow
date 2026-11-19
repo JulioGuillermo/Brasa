@@ -16,7 +16,8 @@ import sys
 
 RUNTIME = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
 USER_BUS = f"unix:path={RUNTIME}/bus"
-SESSION_VARS = ("WAYLAND_DISPLAY", "DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE", "SWAYSOCK", "XDG_CURRENT_DESKTOP")
+SESSION_VARS = ("WAYLAND_DISPLAY", "DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE", "SWAYSOCK", "MANGO_INSTANCE_SIGNATURE",
+                "XDG_CURRENT_DESKTOP")
 DISPLAY_SOCKET = re.compile(rf"^({re.escape(RUNTIME)}/wayland-\d+|@?/tmp/\.X11-unix/X\d+)$")
 USER_MANAGER = re.compile(rf"/user@{os.getuid()}\.service/(.+)$")
 
