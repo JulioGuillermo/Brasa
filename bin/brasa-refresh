@@ -4,7 +4,7 @@
 # rate from its EDID. Each monitor keeps its own choice (brasa-monitors stores and applies it).
 # Usage: brasa-refresh [--output NAME] menu | cycle | dynamic[:<Hz>] | <Hz> | max
 #        brasa-refresh apply            re-apply every monitor's saved choice (login, reload)
-# Without --output it acts on the monitor under the mouse (Hyprland) or the focused one (sway), so
+# Without --output it acts on the monitor under the mouse (Hyprland) or the focused one (sway, mango), so
 # clicking the Hz block of a bar changes that bar's monitor.
 M=~/.local/bin/brasa-monitors
 out=""

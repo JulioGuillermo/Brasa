@@ -65,7 +65,7 @@ class KeysWindow(Adw.ApplicationWindow):
         for bind in binds:
             self.list.append(BindRow(bind))
         if not binds:
-            self.list.set_placeholder(label("No Hyprland or sway running here", xalign=0.5, margin_top=24))
+            self.list.set_placeholder(label("No Hyprland, sway or mango running here", xalign=0.5, margin_top=24))
 
         header = brasa_ui.header(self.search)
         view = Adw.ToolbarView(content=Gtk.ScrolledWindow(child=self.list, vexpand=True))

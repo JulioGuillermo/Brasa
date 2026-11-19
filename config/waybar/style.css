@@ -118,9 +118,11 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
    transition each redraw fades in from the plain style, which flickers. Instant changes there. */
 #workspaces.sway button { transition: none; }
 /* Workspaces with windows stand out (light blue) from empty ones (faint). Hyprland marks empty ones
-   ".empty"; sway only lists workspaces that exist, the others are ".persistent" placeholders. */
+   ".empty"; sway only lists workspaces that exist, the others are ".persistent" placeholders; mango's bar
+   lists only the tags with windows and the one in view (red below, whether empty or not). */
 #workspaces.hypr button:not(.empty),
-#workspaces.sway button:not(.persistent) {
+#workspaces.sway button:not(.persistent),
+#workspaces.mango button {
   border-color: @steel;
   color: @text;
   background: rgba(153, 204, 255, 0.14);

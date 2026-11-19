@@ -42,22 +42,16 @@ mango_layout() {
 }
 
 LAYOUTS_CONF=$(dirname "$(readlink -f "$0")")/../config/mango/layouts.conf
-PERSISTENT_TAGS=4   # always in the bar (no_hide), as config.conf says
 
 # Remembered per tag as rules config.conf loads; dwindle, the default, is not written
 save_layout() {
-  local tag=$1 layout=$2 rule
-  rule=$(tagrule "$tag" "$layout")
+  local tag=$1 layout=$2
   {
     echo "# Written by brasa-wm (Super+w): each tag's window layout"
     grep '^tagrule=' "$LAYOUTS_CONF" 2>/dev/null | grep -v "^tagrule=id:$tag,"
-    [ "$layout" = dwindle ] || echo "$rule"
+    [ "$layout" = dwindle ] || echo "tagrule=id:$tag,layout_name:$layout"
   } > "$LAYOUTS_CONF.new"
   mv "$LAYOUTS_CONF.new" "$LAYOUTS_CONF"
-}
-tagrule() {
-  if [ "$1" -le $PERSISTENT_TAGS ]; then echo "tagrule=id:$1,no_hide:1,layout_name:$2"
-  else echo "tagrule=id:$1,layout_name:$2"; fi
 }
 
 set_layout() {

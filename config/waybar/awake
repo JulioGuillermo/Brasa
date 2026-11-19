@@ -35,8 +35,9 @@ status() {
   [ -e "$AWAKE" ] && reasons+=("by hand")
   [ -n "$apps" ] && reasons+=("by $apps")
   if [ ${#reasons[@]} -eq 0 ]; then
-    jq -cn --arg icon "$ICON_OFF" \
-      '{text: $icon, class: "off", tooltip: "The screen locks when idle\nA click keeps it awake"}'
+    local idle="The screen locks when idle"
+    [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ] && idle+=", unless an app keeps it awake (a video playing: mango does not say which)"
+    jq -cn --arg icon "$ICON_OFF" --arg idle "$idle" '{text: $icon, class: "off", tooltip: "\($idle)\nA click keeps it awake"}'
     return
   fi
   local why; why=$(printf '%s and ' "${reasons[@]}"); why=${why% and }

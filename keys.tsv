@@ -1,4 +1,4 @@
-# Brasa key bindings: one source for sway/SwayFX, Hyprland and the cheat sheet (Super+F1).
+# Brasa key bindings: one source for sway/SwayFX, Hyprland, mango and the cheat sheet (Super+F1).
 # After editing: Super+Shift+r (runs brasa-gen and reloads the window manager).
 # Your own bindings: ~/.config/brasa/my-keys.tsv, same format; they add to these or replace them (action
 # "none" removes one). Better there than here: git leaves that file alone.
@@ -36,12 +36,12 @@ SUPER	q	wm close	Close window
 SUPER+SHIFT	q	wm kill	Kill the app (kill -9)
 SUPER	f	wm fullscreen	Fullscreen
 SUPER	space	wm float	Toggle floating / tiled
-SUPER	w	wm layout-cycle	Window layout, next one. Hyprland (this workspace): dwindle, master, scrolling side by side, scrolling one above the other, focus side by side, focus one above the other. sway (this workspace): side by side, one above the other, tabs, stacked
+SUPER	w	wm layout-cycle	Window layout, next one. Hyprland (this workspace): dwindle, master, scrolling side by side, scrolling one above the other, focus side by side, focus one above the other. sway (this workspace): side by side, one above the other, tabs, stacked. mango (this tag): dwindle, master, scrolling side by side, scrolling one above the other, master in the middle, one at a time, grid
 SUPER+SHIFT	w	exec ~/.local/bin/brasa-wm layout-menu	Window layout: pick one from a list
-SUPER+CTRL	w	exec ~/.local/bin/brasa-wm group-layout-cycle	Layout of the focused window's group, the next one (sway; selected with Super+z, otherwise the window's own group). Hyprland has no groups: the workspace's, as Super+w
-SUPER	v	exec ~/.local/bin/brasa-wm split-toggle	The next window opens beside the focused one or below it: each press switches (sway). Hyprland: switches the focused split (dwindle)
-SUPER	z	exec ~/.local/bin/brasa-wm focus-parent	Select the group around the focused window, one level up (sway): Super+v and Super+Ctrl+w then act on the whole group
-SUPER+SHIFT	z	exec ~/.local/bin/brasa-wm focus-child	Select one level down again (sway)
+SUPER+CTRL	w	exec ~/.local/bin/brasa-wm group-layout-cycle	Layout of the focused window's group, the next one (sway; selected with Super+z, otherwise the window's own group). Hyprland and mango have no groups: the workspace's or tag's, as Super+w
+SUPER	v	exec ~/.local/bin/brasa-wm split-toggle	The next window opens beside the focused one or below it: each press switches (sway). Hyprland and mango: switches the focused split (dwindle)
+SUPER	z	exec ~/.local/bin/brasa-wm focus-parent	Select the group around the focused window, one level up (sway only): Super+v and Super+Ctrl+w then act on the whole group
+SUPER+SHIFT	z	exec ~/.local/bin/brasa-wm focus-child	Select one level down again (sway only)
 SUPER	Tab	exec ~/.local/bin/brasa-islands switch	Window switcher, this workspace: hold Super, Tab goes to the next window, letting Super go focuses it
 SUPER+SHIFT	Tab	exec ~/.local/bin/brasa-islands switch-all	Window switcher, every workspace: hold Super, Tab goes to the next window, letting Super go focuses it
 SUPER+CTRL	Tab	exec ~/.local/bin/brasa-islands windows	Window switcher, every workspace, open until Enter, a click or Escape

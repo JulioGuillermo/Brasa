@@ -43,7 +43,7 @@ bindings, identical in SwayFX, Hyprland and mango. All of it together uses about
 | `wallpaper.svg` | Source of `wallpaper.png`: `rsvg-convert -w 3840 -h 2160 wallpaper.svg -o wallpaper.png` | — |
 | `data/wallpapers/` | Other wallpapers: the earlier campfire and peaks drafts, and the previous default | — |
 | `data/emoji.tsv` | 3963 Unicode emoji with English names and CLDR keywords | — |
-| `bin/brasa-gen` | Generates the sway and Hyprland bindings from `keys.tsv` | `~/.local/bin/` |
+| `bin/brasa-gen` | Generates the sway, Hyprland and mango bindings from `keys.tsv` | `~/.local/bin/` |
 | `bin/brasa-wm` | Window actions that work in all three (close, kill, focus, workspaces, exit…); mango's in `lib/brasa-wm-mango.sh` | `~/.local/bin/` |
 | `bin/brasa-fx` | Turns blur, animations and shadows on/off | `~/.local/bin/` |
 | `bin/brasa-refresh` | Screen refresh rate per monitor: dynamic (VRR) or fixed | `~/.local/bin/` |
@@ -51,8 +51,8 @@ bindings, identical in SwayFX, Hyprland and mango. All of it together uses about
 | `bin/brasa-bar` | Starts waybar, one bar per monitor: folded on narrow monitors | `~/.local/bin/` |
 | `bin/brasa-hz-real` | Switches the bar's Hz between the real rate and the compositor's mode | `~/.local/bin/` |
 | `bin/brasa-keys` | Key bindings window (`Super+F1`): every binding the window manager really has, by kind | `~/.local/bin/` |
-| `lib/brasa_ui.py`, `lib/brasa.css` | The look of Brasa's own windows (the notification panel's), and no window buttons under Hyprland or sway (Escape closes) | read from `~/.config/brasa` |
-| `lib/brasa_binds.py` | Reads those bindings from Hyprland (`hyprctl binds` and the Lua files) or sway (its config) | read from `~/.config/brasa` |
+| `lib/brasa_ui.py`, `lib/brasa.css` | The look of Brasa's own windows (the notification panel's), and no window buttons under Hyprland, sway or mango (Escape closes) | read from `~/.config/brasa` |
+| `lib/brasa_binds.py` | Reads those bindings from Hyprland (`hyprctl binds` and the Lua files), sway or mango (their config) | read from `~/.config/brasa` |
 | `bin/brasa-sessions` | Sessions window (`Super+Ctrl+s`): remote session, sharing, SSH, dialogs and keyring here, apps in other sessions (`lib/brasa_other_apps_group.py`) | `~/.local/bin/` |
 | `bin/brasa-follow` | Sends the dialogs of the user's D-Bus (passwords, keyring, portals) to this session; locks and unlocks the keyring | `~/.local/bin/` |
 | `bin/brasa-gpu-hangs` | Keeps the driver's report of each GPU hang (`system/`: its udev rule and the script it runs) | `~/.local/bin/` |
@@ -264,11 +264,11 @@ search; Enter or a click runs it.
 | `Super+Shift+q` | Kill the focused window's app (`kill -9` to its PID, nothing else) |
 | `Super+f` | Fullscreen |
 | `Super+Space` | Floating / tiled |
-| `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like: windows on a strip you scroll through, each half the screen) side by side → scrolling one above the other → focus side by side → focus one above the other (like scrolling, but each window nearly fills the screen, kept in the middle so a sliver of the neighbours shows on both sides; the first and the last stay at the edge, the sliver all on their one neighbour), remembered across logins. sway: side by side → one above the other → tabs → stacked |
-| `Super+Shift+w` | Window layout of the focused workspace, picked from a list (fuzzel) with the current one selected. Same layouts as `Super+w`, in Hyprland and sway |
-| `Super+Ctrl+w` | sway: layout of the focused window's group, the next one (side by side → one above the other → tabs → stacked); after `Super+z`, of the selected group. Hyprland has no groups: same as `Super+w` |
-| `Super+v` | sway: the next window opens beside the focused one or below it, each press switches (an OSD says which). With a group selected (`Super+z`), the next window splits the whole group. Hyprland: switches the focused split (dwindle only) |
-| `Super+z` / `Super+Shift+z` | sway: select one level up in the window tree (the group around the window, then the next one, up to the whole workspace) / one level down again |
+| `Super+w` | Window layout of the focused workspace, the next one; each workspace keeps its own. Hyprland: dwindle (each window splits the focused one) → master (one big window and a column) → scrolling (niri-like: windows on a strip you scroll through, each half the screen) side by side → scrolling one above the other → focus side by side → focus one above the other (like scrolling, but each window nearly fills the screen, kept in the middle so a sliver of the neighbours shows on both sides; the first and the last stay at the edge, the sliver all on their one neighbour), remembered across logins. sway: side by side → one above the other → tabs → stacked. mango (the focused tag): dwindle → master → scrolling side by side → scrolling one above the other → master in the middle → one at a time → grid, remembered across logins |
+| `Super+Shift+w` | Window layout of the focused workspace, picked from a list (fuzzel) with the current one selected. Same layouts as `Super+w`, in the three |
+| `Super+Ctrl+w` | sway: layout of the focused window's group, the next one (side by side → one above the other → tabs → stacked); after `Super+z`, of the selected group. Hyprland and mango have no groups: same as `Super+w` |
+| `Super+v` | sway: the next window opens beside the focused one or below it, each press switches (an OSD says which). With a group selected (`Super+z`), the next window splits the whole group. Hyprland and mango: switch the focused split (dwindle only) |
+| `Super+z` / `Super+Shift+z` | sway only: select one level up in the window tree (the group around the window, then the next one, up to the whole workspace) / one level down again |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
 | `Super+1…9` | Go to workspace |
@@ -501,7 +501,8 @@ Layouts per tag, `Super+w` goes through dwindle → master → scrolling side by
 the other → master in the middle → one at a time → grid. `Super+v` switches the split in dwindle. Key
 bindings are generated into `config/mango/binds.conf` like the others; `config/mango/keyboard.conf` and
 `cursor.conf` hold your layouts and cursor (written by `brasa-keyboard` and `brasa-themes`). The bar
-shows the tags through the standard ext-workspace protocol, and the keyboard layout with
+shows the tags through the standard ext-workspace protocol: only the ones with windows and the one in
+view, since mango tells nothing more (no faint empty 1–4 as in the other two). It shows the keyboard layout with
 `config/waybar/mango-language`. `brasa-wm` drives it with `mmsg` (`lib/brasa-wm-mango.sh`); each tag keeps
 its layout across logins (`config/mango/layouts.conf`, written by `Super+w`). The window switcher, the
 island on the focused monitor, saved monitors, the remote keyboard in viewers, the keys cheat sheet,
@@ -891,7 +892,7 @@ pointer leaves it.
 
 | Menu | Choices |
 |---|---|
-| Layout | the focused workspace's window layout (like `Super+w`). Hyprland: dwindle, master, scrolling and focus, each side by side (→) or one above the other (↓). sway: side by side, above/below, tabs, stacked |
+| Layout | the focused workspace's window layout (like `Super+w`). Hyprland: dwindle, master, scrolling and focus, each side by side (→) or one above the other (↓). sway: side by side, above/below, tabs, stacked. mango: its seven, as `Super+w` |
 | Power | power profile: power saver, balanced, performance (`brasa-power`, with power-profiles-daemon) |
 | Charge limit | 60 / 80 / 90 / 100 % (laptops that support it, see below) |
 | Key light | keyboard backlight level, the levels the driver offers (`brasa-kbd set N`; only with one) |
@@ -1117,3 +1118,9 @@ copy of its config with Alt instead of Super.
 - Package names for apt, dnf, zypper and apk were written from memory; the installer reports the ones it cannot find.
 - `Super+/` is not used for the key bindings window because `/` needs Shift on a Spanish keyboard.
 - On the Zenbook, the camera key's light is driven by the ASUS firmware; Linux exposes no control for it.
+- **mango** (0.17): every key binding repeats while held (Super+q held closes several windows; mango's
+  `n` flag that stops it is not in 0.17); the cup in the bar cannot name the app keeping the screen
+  awake (mango does not tell, though it does keep the screen awake); `brasa-remote take` is refused (no
+  way to switch off single input devices); no tag 10; X11 apps are drawn at 100 % and scaled up, so
+  blurry on a scaled screen (as on sway). Package names for mango outside Arch are guesses: the
+  installer reports it when it cannot find one.

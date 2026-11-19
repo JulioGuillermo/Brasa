@@ -80,6 +80,11 @@ def mode():
             ms = json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
             m = next((m for m in ms if m["name"] == OUTPUT), None) or next(m for m in ms if m.get("focused"))
             return round(m["refreshRate"]), bool(m.get("vrr"))
+        if os.environ.get("MANGO_INSTANCE_SIGNATURE"):
+            os_ = json.loads(subprocess.check_output(["wlr-randr", "--json"]))
+            o = next((o for o in os_ if o["name"] == OUTPUT), None) or next(o for o in os_ if o.get("enabled"))
+            current = next(m for m in o["modes"] if m.get("current"))
+            return round(current["refresh"]), bool(o.get("adaptive_sync"))
         if shutil.which("swaymsg"):
             os_ = json.loads(subprocess.check_output(["swaymsg", "-t", "get_outputs", "-r"]))
             o = next((o for o in os_ if o["name"] == OUTPUT), None) or next(o for o in os_ if o.get("focused"))

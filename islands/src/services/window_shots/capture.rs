@@ -1,5 +1,5 @@
-//! Copies windows into memory through Wayland's standard capture protocols, which Hyprland and sway
-//! both offer: the window list names each window by an identifier, a capture source is made from it,
+//! Copies windows into memory through Wayland's standard capture protocols, which Hyprland, sway and
+//! mango offer: the window list names each window by an identifier, a capture source is made from it,
 //! and a capture session copies the window into a shared memory buffer.
 
 use std::collections::HashMap;
