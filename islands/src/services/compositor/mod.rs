@@ -1,8 +1,9 @@
 //! The only part that knows which window manager runs: which monitor has the focus, which windows are
-//! open and how to focus one. Wayland has no standard way to ask, so Hyprland and sway are asked through
-//! their own sockets.
+//! open and how to focus one. Wayland has no standard way to ask, so Hyprland, sway and mango are asked
+//! their own way.
 
 mod hyprland;
+mod mango;
 mod sway;
 mod window;
 
@@ -15,6 +16,8 @@ pub fn follow_focus(events: &EventSender) {
     let on_focus = |connector: String| events::send(events, Event::FocusedMonitor(connector));
     if hyprland::running() {
         hyprland::follow_focus(on_focus);
+    } else if mango::running() {
+        mango::follow_focus(on_focus);
     } else if sway::running() {
         sway::follow_focus(on_focus);
     }
@@ -24,6 +27,8 @@ pub fn follow_focus(events: &EventSender) {
 pub fn windows(scope: Scope) -> Vec<Window> {
     if hyprland::running() {
         hyprland::windows(scope)
+    } else if mango::running() {
+        mango::windows(scope)
     } else if sway::running() {
         sway::windows(scope)
     } else {
@@ -35,6 +40,8 @@ pub fn windows(scope: Scope) -> Vec<Window> {
 pub fn focus(window: &Window) {
     if hyprland::running() {
         hyprland::focus(&window.id);
+    } else if mango::running() {
+        mango::focus(&window.id);
     } else if sway::running() {
         sway::focus(&window.id);
     }

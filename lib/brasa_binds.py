@@ -1,5 +1,5 @@
-"""The key bindings the running window manager really has (Hyprland or sway), each with what it does, what
-it runs and what kind of thing it is."""
+"""The key bindings the running window manager really has (Hyprland, sway or mango), each with what it does,
+what it runs and what kind of thing it is."""
 import glob
 import json
 import os
@@ -23,10 +23,12 @@ MOD_NAMES = {"SUPER": "Super", "WIN": "Super", "LOGO": "Super", "MOD4": "Super",
 MOD_ORDER = ["Super", "Ctrl", "Alt", "Shift"]
 KEY_NAMES = {"mouse:272": "Left button", "mouse:273": "Right button", "mouse:274": "Middle button",
              "mouse_down": "Wheel down", "mouse_up": "Wheel up", "button1": "Left button",
-             "button3": "Right button", "button4": "Wheel up", "button5": "Wheel down", "Return": "Enter",
+             "button3": "Right button", "button4": "Wheel up", "button5": "Wheel down", "btn_left": "Left button",
+             "btn_right": "Right button", "btn_middle": "Middle button", "axis_up": "Wheel up",
+             "axis_down": "Wheel down", "Return": "Enter",
              "period": ".", "comma": ",", "space": "Space", "Escape": "Esc"}
 MODIFIER_KEYS = {"Super_L": "Super", "Super_R": "Super"}
-MOUSE_KEY = re.compile(r"^(mouse|button\d)")
+MOUSE_KEY = re.compile(r"^(mouse|button\d|btn_|axis_)")
 
 HYPR_ACTIONS = [
     (r"^window\.close", "Close window"), (r"^window\.kill", "Kill the app"),
@@ -44,6 +46,17 @@ SWAY_ACTIONS = [
     (r"^move", "Move window"), (r"^workspace", "Go to a workspace"), (r"^focus output", "Focus a monitor"),
     (r"^focus", "Focus a window"), (r"^layout", "Layout"), (r"^mode", "Key mode"), (r"^reload", "Reload sway"),
     (r"^exit", "Quit sway"), (r"^input", "Keyboard / mouse setting"), (r"^split", "Split"),
+]
+
+MANGO_ACTIONS = [
+    (r"^killclient,force", "Kill the app"), (r"^killclient", "Close window"),
+    (r"^togglefullscreen", "Fullscreen"), (r"^togglefloating", "Floating / tiled"),
+    (r"^moveresize,curmove", "Move the window with the mouse"), (r"^moveresize", "Resize the window with the mouse"),
+    (r"^tag,", "Move window to a tag"), (r"^view,", "Go to a tag"), (r"^viewtoleft", "Previous tag"),
+    (r"^viewtoright", "Next tag"), (r"^tagmon", "Move the window to a monitor"), (r"^focusmon", "Focus a monitor"),
+    (r"^focusdir", "Focus a window"), (r"^move_client", "Move window"), (r"^setlayout|^switch_layout", "Layout"),
+    (r"^setkeymode", "Key mode"), (r"^reload_config", "Reload mango"), (r"^quit", "Quit mango"),
+    (r"overview", "Overview of the windows"),
 ]
 
 
@@ -175,9 +188,9 @@ def command_category(command, key, fallback):
 def action_category(action, key):
     if MOUSE_KEY.match(key):
         return "Mouse"
-    if re.search(r"workspace|monitor|output", action):
+    if re.search(r"workspace|monitor|output|^(view|tag)", action):
         return "Workspaces"
-    if re.search(r"^(window|focus|kill|fullscreen|floating|move|layout|split)", action):
+    if re.search(r"^(window|focus|kill|fullscreen|floating|move|layout|split|toggle|setlayout|switch_layout)", action):
         return "Windows"
     return "Window manager"
 
@@ -360,9 +373,71 @@ def sway_bind(combo, command, mode, apps, described):
     return bind
 
 
+# ---- mango
+
+MANGO_CONFIG = os.path.expanduser("~/.config/mango/config.conf")
+MANGO_BIND = re.compile(r"^(bind|mousebind|axisbind)[a-z]*=([^,]*),([^,]*),(.*)$")
+
+
+def mango_config_lines(path=MANGO_CONFIG, seen=None):
+    """The config's lines, with the files it sources (relative to its folder) in their place."""
+    seen = seen if seen is not None else set()
+    if path in seen:
+        return []
+    seen.add(path)
+    try:
+        with open(path, encoding="utf-8", errors="replace") as config:
+            text = config.read()
+    except OSError:
+        return []
+    lines = []
+    for line in text.splitlines():
+        line = line.strip()
+        sourced = re.match(r"^source(?:_optional)?=(.+)$", line)
+        if sourced:
+            included = os.path.join(os.path.dirname(path), os.path.expanduser(sourced.group(1).strip()))
+            lines += mango_config_lines(os.path.normpath(included), seen)
+        else:
+            lines.append(line)
+    return lines
+
+
+def mango_binds_from(lines):
+    binds, mode = [], ""
+    apps, described = desktop_entries(), keys_tsv_descriptions()
+    for line in lines:
+        if line.startswith("keymode="):
+            mode = "" if line == "keymode=default" else line.split("=", 1)[1]
+        elif bind := MANGO_BIND.match(line):
+            kind, mods, key, action = bind.groups()
+            if kind == "axisbind":
+                key = "axis_" + key.lower()   # the mouse wheel: UP or DOWN
+            binds.append(mango_bind(mods, key, action, mode, apps, described))
+    return binds
+
+
+def mango_bind(mods_text, key, action, mode, apps, described):
+    mods = normal_mods([] if mods_text.upper() == "NONE" else mods_text.split("+"))
+    bind = Bind(mods=mods, key=key, mode=mode, description=described.get(combo_id(mods, key), ""))
+    dispatch, _, argument = action.partition(",")
+    if dispatch in ("spawn", "spawn_shell"):
+        describe_exec(bind, argument, apps)
+    else:
+        bind.action = action
+        bind.category = action_category(action, key)
+        bind.description = bind.description or matching_phrase(action, MANGO_ACTIONS)
+        bind.run = ["mmsg", "dispatch", action]
+    if MOUSE_KEY.match(key):
+        bind.run = []
+        bind.category = "Mouse"
+    return bind
+
+
 def current_binds():
     if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
         binds = hypr_binds()
+    elif os.environ.get("MANGO_INSTANCE_SIGNATURE"):
+        binds = mango_binds_from(mango_config_lines())
     elif os.environ.get("SWAYSOCK"):
         binds = sway_binds_from(sway_config_text())
     else:

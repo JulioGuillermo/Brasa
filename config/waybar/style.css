@@ -155,4 +155,4 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
 #custom-quick { padding: 0 6px; font-size: 14px; }
 #custom-notif.notification, #custom-notif.inhibited-notification { color: @accent; text-shadow: 0 0 8px rgba(255, 0, 0, 0.8); }
 #custom-notif.dnd-none, #custom-notif.dnd-notification { color: @faint; }
-#language { color: @sub; padding: 0 6px; font-weight: bold; }
+#language, #custom-language { color: @sub; padding: 0 6px; font-weight: bold; }

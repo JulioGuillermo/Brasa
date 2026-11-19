@@ -31,8 +31,8 @@ here brasa-islands || setsid -f ~/.local/bin/brasa-islands >/dev/null 2>&1   # m
 on_sway && [ -s ~/.config/brasa/keyboard.conf ] && ~/.local/bin/brasa-keyboard apply
 # sway: your cursor theme (brasa-themes; Hyprland and mango load it from their config)
 on_sway && [ -s ~/.config/brasa/appearance.conf ] && ~/.local/bin/brasa-themes apply
-# sway: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)
-on_sway && { here -f "brasa-wm remote-watch" ||
+# sway and mango: remote keyboard in VNC/RDP viewers (Hyprland does it in hyprland.lua)
+[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && { here -f "brasa-wm remote-watch" ||
   setsid -f ~/.local/bin/brasa-wm remote-watch >/dev/null 2>&1; }
 run nm-applet --indicator
 run blueman-applet

@@ -63,7 +63,8 @@ waybar = {
   "group/g-power": {"orientation": "horizontal", "modules": ["battery", "custom/volt"]},
   "group/g-screen": {"orientation": "horizontal", "modules": ["custom/hz"]},
   "group/g-ctl": {"orientation": "horizontal",
-                  "modules": ["custom/split", "custom/awake", "sway/language", "hyprland/language", "network#wifi"] + (["bluetooth"] if HAS["bluetooth"] else [])
+                  "modules": ["custom/split", "custom/awake", "sway/language", "hyprland/language", "custom/language#mango",
+                              "network#wifi"] + (["bluetooth"] if HAS["bluetooth"] else [])
                              + ["wireplumber"] + (["backlight"] if HAS["backlight"] else [])},
 
   "cpu": {"interval": 1, "states": load, "tooltip": False},
@@ -130,6 +131,8 @@ waybar = {
                 "on-scroll-up": "brightnessctl -q s +5%", "on-scroll-down": "brightnessctl -q s 5%-"},
   "sway/language": {"format": "{short}", "tooltip-format": "{long}", "on-click": "~/.local/bin/brasa-wm layout-next",
                     "on-click-right": "~/.local/bin/brasa-keyboard"},
+  "custom/language#mango": {"exec": "~/.config/waybar/mango-language", "restart-interval": 5,
+                            "on-click": "~/.local/bin/brasa-wm layout-next", "on-click-right": "~/.local/bin/brasa-keyboard"},
   "hyprland/language": {"format": "{short}", "on-click": "~/.local/bin/brasa-wm layout-next",
                         "on-click-right": "~/.local/bin/brasa-keyboard"},
   "tray": {"icon-size": 16, "spacing": 8},

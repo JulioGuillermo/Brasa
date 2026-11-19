@@ -499,11 +499,13 @@ Layouts per tag, `Super+w` goes through dwindle → master → scrolling side by
 the other → master in the middle → one at a time → grid. `Super+v` switches the split in dwindle. Key
 bindings are generated into `config/mango/binds.conf` like the others; `config/mango/keyboard.conf` and
 `cursor.conf` hold your layouts and cursor (written by `brasa-keyboard` and `brasa-themes`). The bar
-shows the tags through the standard ext-workspace protocol. `brasa-wm` drives it with `mmsg`
-(`lib/brasa-wm-mango.sh`). Not yet in mango: the window switcher and the island following the focused
-monitor, the keyboard layout in the bar, which apps keep the screen awake (the cup only knows "by
-hand"), saved monitors, the remote keyboard switching by itself in viewers, the remote session, and
-keys that do not repeat while held (mango 0.17 repeats every binding).
+shows the tags through the standard ext-workspace protocol, and the keyboard layout with
+`config/waybar/mango-language`. `brasa-wm` drives it with `mmsg` (`lib/brasa-wm-mango.sh`); each tag keeps
+its layout across logins (`config/mango/layouts.conf`, written by `Super+w`). The window switcher, the
+island on the focused monitor, saved monitors, the remote keyboard in viewers, the keys cheat sheet,
+the wallpaper and "Apps in other sessions" work as in the other two. Not in mango: which apps keep the
+screen awake (the cup only knows "by hand"), the remote session (sway or Hyprland serve it), and keys
+that do not repeat while held (mango 0.17 repeats every binding).
 
 **Touchscreen gestures**: Hyprland supports them with the hyprgrass plugin, not in the installer yet
 (it still has to be checked against the Lua configuration).
@@ -892,7 +894,7 @@ The card is built again at every opening, so a change to `panel.conf` shows at o
 | Section | What |
 |---|---|
 | This session | **Dialogs and passwords**: where they open now; *Bring here* sends them to this session. **Keyring**: locked or not; Lock / Unlock |
-| Apps in other sessions | every window open in the other sessions (local or remote, Hyprland or sway), with *Close* (as `Super+q`: the app can ask about unsaved work) and *Kill* (`kill -9`, all the app's windows) |
+| Apps in other sessions | every window open in the other sessions (local or remote, Hyprland, sway or mango), with *Close* (as `Super+q`: the app can ask about unsaved work) and *Kill* (`kill -9`, all the app's windows) |
 | Remote session | on, start at boot, window manager (when both are installed), size, scale; who is connected (`brasa-remote session …`) |
 | Share this desktop | off, mirror, screen or take (port 5901) |
 | SSH server | on, start at boot (asks for the password through polkit) |
@@ -912,8 +914,8 @@ brasa-follow keyring status|lock|unlock
 ```
 
 **Apps in other sessions** (`brasa-other-apps`): to open here an app that is already open in another
-session, close it there first. It finds the other sessions through `hyprctl instances` and the sway
-IPC sockets; the remote one is the one `brasa-remote` started.
+session, close it there first. It finds the other sessions through `hyprctl instances`, the sway
+IPC sockets and mango's (`mmsg`); the remote one is the one `brasa-remote` started.
 
 ```
 brasa-other-apps [list]           id, session, workspace, app, title

@@ -23,6 +23,7 @@ import glob, hashlib, json, os, re, shutil, socket, subprocess, sys, time
 
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "brasa", "monitors")
 HYPR = bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"))
+MANGO = bool(os.environ.get("MANGO_INSTANCE_SIGNATURE"))
 SWAY_TRANSFORMS = ["normal", "90", "180", "270", "flipped", "flipped-90", "flipped-180", "flipped-270"]
 # Settings are applied with wlr-randr (the standard wlr-output-management protocol), the same on
 # Hyprland and sway: live, one monitor at a time, without reloading; it also wins over what wdisplays
@@ -62,6 +63,8 @@ def outputs():
                             x=m["x"], y=m["y"], width=m["width"], height=m["height"], scale=m["scale"],
                             transform=m.get("transform", 0), rate=round(m["refreshRate"]), vrr=bool(m.get("vrr")),
                             rates=rates, focused=m.get("focused", False)))
+    elif MANGO:
+        res = wlr_outputs(mango_focused_monitor())
     else:
         for o in json.loads(run("swaymsg", "-t", "get_outputs", "-r") or "[]"):
             if not o.get("active"):
@@ -79,6 +82,32 @@ def outputs():
         o["key"] = key(o)
         o["vrr_min"] = vrr_min(o["name"])
     return res
+
+
+def wlr_outputs(focused):
+    """The enabled monitors as wlr-randr (the standard output management protocol) reports them."""
+    res = []
+    for o in json.loads(run("wlr-randr", "--json") or "[]"):
+        current = next((m for m in o.get("modes", []) if m.get("current")), None)
+        if not o.get("enabled") or not current:
+            continue
+        rates = sorted({round(m["refresh"]) for m in o["modes"]
+                        if m["width"] == current["width"] and m["height"] == current["height"]}, reverse=True)
+        res.append(dict(name=o["name"], desc=o.get("description") or "",
+                        make=o.get("make") or "", model=o.get("model") or "", serial=o.get("serial") or "",
+                        x=o["position"]["x"], y=o["position"]["y"], width=current["width"], height=current["height"],
+                        scale=o["scale"], transform=SWAY_TRANSFORMS.index(o["transform"]) if o["transform"] in SWAY_TRANSFORMS else 0,
+                        rate=round(current["refresh"]), vrr=bool(o.get("adaptive_sync")),
+                        rates=rates, focused=o["name"] == focused))
+    return res
+
+
+def mango_focused_monitor():
+    try:
+        monitors = json.loads(run("mmsg", "get", "all-monitors"))["monitors"]
+    except (ValueError, KeyError):
+        return None
+    return next((m["name"] for m in monitors if m.get("active")), None)
 
 
 def set_key(outs):
@@ -223,7 +252,7 @@ def update_bar():
 
 
 def watch():
-    """Re-apply on hotplug (debounced): Hyprland's event socket, or sway's output events."""
+    """Re-apply on hotplug (debounced): Hyprland's event socket, mango's monitor updates or sway's output events."""
     def settle():
         time.sleep(1.5)
         apply(); time.sleep(0.5); apply(); x11_dpi(); update_bar()
@@ -240,6 +269,18 @@ def watch():
             *lines, buf = buf.split(b"\n")
             if any(l.startswith((b"monitoradded", b"monitorremoved")) for l in lines):
                 settle()
+    elif MANGO:
+        # mango sends every monitor's state on any change: only a different set of monitors counts
+        p = subprocess.Popen(["mmsg", "watch", "all-monitors"], stdout=subprocess.PIPE, text=True)
+        known = None
+        for line in p.stdout:
+            try:
+                names = sorted(m["name"] for m in json.loads(line)["monitors"])
+            except (ValueError, KeyError):
+                continue
+            if known is not None and names != known:
+                settle()
+            known = names
     else:
         p = subprocess.Popen(["swaymsg", "-m", "-t", "subscribe", '["output"]'], stdout=subprocess.PIPE, text=True)
         for _ in p.stdout:

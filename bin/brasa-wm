@@ -13,6 +13,8 @@ pick_layout() {
     fuzzel --dmenu --index --prompt "Layout  " --width 36 --lines ${#MENU_IDS[@]} --select-index "$selected")
   [ -n "$picked" ] && [ "$picked" -ge 0 ] && echo "${MENU_IDS[$picked]}"
 }
+# VNC, RDP and VM viewers: while one has the focus every key goes to it (the "remote" key mode)
+REMOTE_VIEWERS='^(Vncviewer|vncviewer|wlvncc|xfreerdp|wlfreerdp|sdl-freerdp|sdl3-freerdp|remote-viewer|virt-viewer)$'
 only_sway() { ~/.local/bin/brasa-osd view-grid-symbolic "Groups of windows: only in sway"; }
 if [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
   . "$(dirname "$(readlink -f "$0")")/../lib/brasa-wm-mango.sh"
@@ -243,7 +245,7 @@ else
                  swaymsg -m -t subscribe '["window"]' | jq --unbuffered -r 'select(.change == "focus") |
                      (.container.app_id // .container.window_properties.class // "")' | while read -r app; do
                    cur=$(swaymsg -t get_binding_state -r | jq -r .name)
-                   if [[ $app =~ ^(Vncviewer|vncviewer|wlvncc|xfreerdp|wlfreerdp|sdl-freerdp|sdl3-freerdp|remote-viewer|virt-viewer)$ ]]; then
+                   if [[ $app =~ $REMOTE_VIEWERS ]]; then
                      [ "$cur" = remote ] || { swaymsg -q mode remote
                        ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard on · Ctrl+Super+Esc to leave"; }
                    elif [ "$cur" = remote ]; then swaymsg -q mode default; fi

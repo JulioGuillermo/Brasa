@@ -2,6 +2,7 @@
 # Keyboard layouts: pick the one to type with, add or remove layouts, from a searchable menu (fuzzel).
 # Usage: brasa-keyboard                  the menu: your layouts (pick one to use it), Add…, Remove…
 #        brasa-keyboard list             your layouts, the active one marked
+#        brasa-keyboard current          the active layout's short name (es, us...), for the bar
 #        brasa-keyboard add LAYOUT [VARIANT] | remove LAYOUT [VARIANT] | use N | apply
 # Saved in ~/.config/brasa/keyboard.conf (one "layout variant" per line). Hyprland loads it when it
 # starts (~/.local/state/brasa/keyboard.lua), mango too (config/mango/keyboard.conf); on sway
@@ -89,6 +90,7 @@ menu() { fuzzel --dmenu --index --prompt "$1  " --width 60 --lines 14 2>/dev/nul
 load
 case ${1:-menu} in
   apply) apply ;;
+  current) echo "${LAYOUTS[$(active)]}" ;;
   list) a=$(active); for i in "${!LAYOUTS[@]}"; do printf '%s %s\n' "$([ "$i" = "$a" ] && echo '●' || echo ' ')" "$(name "${LAYOUTS[$i]}" "${VARIANTS[$i]}")"; done ;;
   use) use "$2" ;;
   add)
@@ -114,5 +116,5 @@ case ${1:-menu} in
       i=$({ for i in "${!LAYOUTS[@]}"; do name "${LAYOUTS[$i]}" "${VARIANTS[$i]}"; done; } | menu "Remove") || exit 0
       exec "$0" remove "${LAYOUTS[$i]}" "${VARIANTS[$i]}"
     fi ;;
-  *) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

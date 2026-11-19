@@ -31,7 +31,7 @@ mkdir -p "$DIR"
 
 apply_desktop() {  # show it now in every running Brasa session
   # Hyprland: swaybg draws it; restart the one of each Hyprland instance (found also over SSH)
-  local sig wl p sock
+  local sig wl p sock env mango
   if command -v hyprctl >/dev/null; then
     while read -r sig wl; do
       [ -n "$sig" ] || continue
@@ -47,6 +47,15 @@ apply_desktop() {  # show it now in every running Brasa session
         WAYLAND_DISPLAY=$wl setsid -f swaybg -m fill -c "$BG" -i "$DESK" >/dev/null 2>&1
     done < <(hyprctl instances -j 2>/dev/null | jq -r '.[] | "\(.instance) \(.wl_socket)"')
   fi
+  # mango: swaybg draws it too; restart each one that runs in a mango session
+  for p in $(pgrep -u "$(id -u)" -x swaybg); do
+    env=$(tr '\0' '\n' < /proc/$p/environ 2>/dev/null)
+    mango=$(sed -n 's/^MANGO_INSTANCE_SIGNATURE=//p' <<< "$env")
+    [ -n "$mango" ] || continue
+    wl=$(sed -n 's/^WAYLAND_DISPLAY=//p' <<< "$env")
+    kill "$p"
+    WAYLAND_DISPLAY=$wl MANGO_INSTANCE_SIGNATURE=$mango setsid -f swaybg -m fill -c "$BG" -i "$DESK" >/dev/null 2>&1
+  done
   # sway / SwayFX (the local session and the remote one): each draws its own background
   for sock in "$XDG_RUNTIME_DIR"/sway-ipc.*.sock; do
     [ -S "$sock" ] && swaymsg -q -s "$sock" output '*' bg "$DESK" fill "$BG" 2>/dev/null

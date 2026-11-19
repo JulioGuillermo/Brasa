@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The windows open in the user's other sessions (Hyprland or sway, local or remote), to close them.
+"""The windows open in the user's other sessions (Hyprland, sway or mango, local or remote), to close them.
 
 Usage: brasa-other-apps [list]    one window per line: id, session, workspace, app, title
        brasa-other-apps json      the same, as JSON
@@ -85,8 +85,29 @@ def sway_windows():
                    "app": app, "title": view.get("name") or "", "workspace": workspace or ""}
 
 
+def mango_sockets():
+    own = os.environ.get("MANGO_INSTANCE_SIGNATURE")
+    for socket in glob.glob(f"{RUNTIME}/mango-*.sock"):
+        mango_pid = socket.removesuffix(".sock").split("-")[-1]
+        if socket != own and os.path.exists(f"/proc/{mango_pid}"):
+            yield socket
+
+
+def mango_env(socket):
+    return {**os.environ, "MANGO_INSTANCE_SIGNATURE": socket}
+
+
+def mango_windows():
+    for socket in mango_sockets():
+        clients = (output_json(["mmsg", "get", "all-clients"], mango_env(socket)) or {}).get("clients", [])
+        for client in clients:
+            yield {"id": f"mango:{socket}:{client['id']}", "session": session_name("mango", False),
+                   "pid": client["pid"], "app": client["appid"], "title": client["title"],
+                   "workspace": "+".join(str(tag) for tag in client["tags"])}
+
+
 def windows():
-    return list(hyprland_windows()) + list(sway_windows())
+    return list(hyprland_windows()) + list(sway_windows()) + list(mango_windows())
 
 
 def window_of(window_id):
@@ -103,6 +124,8 @@ def close(window_id):
     if wm == "hyprland":
         subprocess.run(["hyprctl", "dispatch", f'hl.dsp.window.close({{ window = "address:{which}" }})'],
                        env=hyprland_env(where), stdout=subprocess.DEVNULL)
+    elif wm == "mango":
+        subprocess.run(["mmsg", "dispatch", "killclient", f"client,{which}"], env=mango_env(where), stdout=subprocess.DEVNULL)
     else:
         subprocess.run(["swaymsg", "-s", where, f"[con_id={which}] kill"], stdout=subprocess.DEVNULL)
 

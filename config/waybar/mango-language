@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# mango: the keyboard layout in use, by its short name (waybar has a module for sway's and Hyprland's).
+mmsg watch keyboardlayout | while read -r _; do
+  ~/.local/bin/brasa-keyboard current
+done

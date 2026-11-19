@@ -1,4 +1,5 @@
-# brasa-wm's verbs in mango, sourced by brasa-wm (it sets $verb and $arg, pick_layout and only_sway).
+# brasa-wm's verbs in mango, sourced by brasa-wm (it sets $verb, $arg and REMOTE_VIEWERS, pick_layout and
+# only_sway).
 # mango is driven through mmsg: "mmsg dispatch NAME,ARGS" and "mmsg get WHAT" (JSON).
 
 dispatch() { mmsg dispatch "$1" >/dev/null; }
@@ -40,9 +41,30 @@ mango_layout() {
   esac
 }
 
+LAYOUTS_CONF=$(dirname "$(readlink -f "$0")")/../config/mango/layouts.conf
+PERSISTENT_TAGS=4   # always in the bar (no_hide), as config.conf says
+
+# Remembered per tag as rules config.conf loads; dwindle, the default, is not written
+save_layout() {
+  local tag=$1 layout=$2 rule
+  rule=$(tagrule "$tag" "$layout")
+  {
+    echo "# Written by brasa-wm (Super+w): each tag's window layout"
+    grep '^tagrule=' "$LAYOUTS_CONF" 2>/dev/null | grep -v "^tagrule=id:$tag,"
+    [ "$layout" = dwindle ] || echo "$rule"
+  } > "$LAYOUTS_CONF.new"
+  mv "$LAYOUTS_CONF.new" "$LAYOUTS_CONF"
+}
+tagrule() {
+  if [ "$1" -le $PERSISTENT_TAGS ]; then echo "tagrule=id:$1,no_hide:1,layout_name:$2"
+  else echo "tagrule=id:$1,layout_name:$2"; fi
+}
+
 set_layout() {
+  local tag; tag=$(current_tag)
   dispatch "setlayout,$1"
-  ~/.local/bin/brasa-osd view-grid-symbolic "Tag $(current_tag): $(layout_name "$1")"
+  save_layout "$tag" "$1"
+  ~/.local/bin/brasa-osd view-grid-symbolic "Tag $tag: $(layout_name "$1")"
 }
 
 each_monitor() { mmsg get all-monitors | jq -r '.monitors[].name'; }
@@ -61,7 +83,7 @@ case $verb in
   layout-next)  dispatch switch_keyboard_layout
                 ~/.local/bin/brasa-osd input-keyboard-symbolic "$(mmsg get keyboardlayout | jq -r .layout)" ;;
   reload)       ~/.local/bin/brasa-gen >/dev/null; dispatch reload_config
-                ~/.local/bin/brasa-fx restore ;;
+                ~/.local/bin/brasa-fx restore; ~/.local/bin/brasa-monitors apply --settle ;;   # the config's rules reset them
   layout-cycle|group-layout-cycle|bar-layout-click)
                 set_layout "$(next_layout "$(current_layout)")" ;;
   layout-set)   set_layout "$(mango_layout "$arg")" ;;
@@ -77,6 +99,14 @@ case $verb in
   remote-keys)  if [ "$(mmsg get keymode | jq -r .keymode)" = remote ]; then dispatch setkeymode,default; msg=off
                 else dispatch setkeymode,remote; msg="on · Ctrl+Super+Esc to leave"; fi
                 ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard $msg" ;;
+  remote-watch) # the remote key mode while a viewer has the focus, as Hyprland's config does
+                mmsg watch focusing-client | jq --unbuffered -r '.appid // ""' | while read -r app; do
+                  mode=$(mmsg get keymode | jq -r .keymode)
+                  if [[ $app =~ $REMOTE_VIEWERS ]]; then
+                    [ "$mode" = remote ] || { dispatch setkeymode,remote
+                      ~/.local/bin/brasa-osd input-keyboard-symbolic "Remote keyboard on · Ctrl+Super+Esc to leave"; }
+                  elif [ "$mode" = remote ]; then dispatch setkeymode,default; fi
+                done ;;
   keys-capture) if [ "$arg" = on ]; then dispatch setkeymode,remote; else dispatch setkeymode,default; fi ;;
   exit)         dispatch quit ;;
   touchpad)     st=${XDG_RUNTIME_DIR:-/tmp}/brasa-touchpad-off

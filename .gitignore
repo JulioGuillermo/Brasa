@@ -4,6 +4,7 @@ config/hypr/binds.lua
 config/mango/binds.conf
 config/mango/keyboard.conf
 config/mango/cursor.conf
+config/mango/layouts.conf
 config/hypr/hyprland-gui.lua
 __pycache__/
 config/waybar/segments.css

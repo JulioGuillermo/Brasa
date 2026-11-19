@@ -7,9 +7,9 @@ pub enum Scope {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Window {
-    /// Hyprland's address, or sway's con_id.
+    /// Hyprland's address, sway's con_id or mango's client id.
     pub id: String,
-    /// The class on Hyprland, the app_id on sway: what finds its .desktop file.
+    /// The class on Hyprland, the app_id on sway and mango: what finds its .desktop file.
     pub app_id: String,
     pub title: String,
     pub workspace: String,

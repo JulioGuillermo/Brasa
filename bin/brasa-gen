@@ -53,8 +53,9 @@ def mango_bind(mods, key, action, opts):
         dispatch = MANGO_WM[verb].format(arg)
     else:
         dispatch = "spawn_shell,~/.local/bin/brasa-wm " + verb
-    # l: also on the lock screen; r and p: on release, letting the key through (Caps Lock, Num Lock)
-    flags = ("l" if "locked" in opts else "") + ("rp" if "release" in opts else "")
+    # l: also on the lock screen; r and p: on release, letting the key through (Caps Lock, Num Lock);
+    # s: media keys by name, as several of them can share one physical key (Play and Pause)
+    flags = ("l" if "locked" in opts else "") + ("rp" if "release" in opts else "") + ("s" if key.startswith("XF86") else "")
     return f"bind{flags}={'+'.join(mods) or 'NONE'},{key},{dispatch}"
 
 
@@ -112,7 +113,7 @@ open(os.path.join(BRASA, "config/hypr/binds.lua"), "w").write("\n".join(hypr) + 
 mango += ["keymode=remote", "bind=CTRL+SUPER,Escape,spawn_shell,~/.local/bin/brasa-wm remote-keys"]
 open(os.path.join(BRASA, "config/mango/binds.conf"), "w").write("\n".join(mango) + "\n")
 # The files config.conf sources must exist: mango reports the missing ones as errors
-for choices in ("keyboard.conf", "cursor.conf"):
+for choices in ("keyboard.conf", "cursor.conf", "layouts.conf"):
     open(os.path.join(BRASA, "config/mango", choices), "a").close()
 print(f"brasa-gen: {len(sway) - 1} bindings generated")
 report(problems)
