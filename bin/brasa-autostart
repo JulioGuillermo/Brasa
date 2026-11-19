@@ -20,7 +20,11 @@ run() {
 # Hyprland and mango draw no wallpaper: swaybg does it (sway does it itself with "output * bg")
 on_sway || run swaybg -m fill -c '#00040f' -i ~/.local/share/backgrounds/brasa.png
 
-run swayosd-server
+if [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
+  run swayosd-server -s ~/.config/swayosd/style-mango.css
+else
+  run swayosd-server
+fi
 here -f 'brasa-monitors watch' || \
   setsid -f ~/.local/bin/brasa-monitors watch >/dev/null 2>&1   # re-apply on hotplug
 # The islands are the notification server: before anything sends one, which would start swaync through D-Bus

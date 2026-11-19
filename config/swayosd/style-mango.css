@@ -1,0 +1,4 @@
+/* Brasa · SwayOSD in mango: the same pill without its shadow, as mango blurs the shadow's corners dark */
+@import url("style.css");
+
+window#osd { box-shadow: none; }
