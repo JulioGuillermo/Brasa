@@ -5,11 +5,16 @@
 dispatch() { mmsg dispatch "$1" >/dev/null; }
 
 # The layouts Super+w goes through, in config.conf's circle_layout order, and their names
-LAYOUT_ORDER=(dwindle tile scroller vertical_scroller center_tile monocle grid)
+LAYOUT_ORDER=(dwindle tile scroller vertical_scroller center_tile monocle grid
+  right_tile vertical_tile deck vertical_deck vertical_grid fair vertical_fair)
 declare -A LAYOUT_NAMES=(
   [dwindle]="dwindle" [tile]="master" [scroller]="scrolling, side by side"
   [vertical_scroller]="scrolling, one above the other" [center_tile]="master in the middle"
-  [monocle]="one at a time" [grid]="grid")
+  [monocle]="one at a time" [grid]="grid"
+  [right_tile]="master on the right" [vertical_tile]="master on top"
+  [deck]="deck: the master and the rest stacked" [vertical_deck]="deck, the stack below"
+  [vertical_grid]="grid, by rows" [fair]="same size for all, in columns"
+  [vertical_fair]="same size for all, in rows")
 # mmsg reports a layout by its symbol
 declare -A LAYOUT_OF_SYMBOL=(
   [DW]=dwindle [T]=tile [S]=scroller [VS]=vertical_scroller [CT]=center_tile [M]=monocle [G]=grid

@@ -19,7 +19,7 @@ const SWAY_LAYOUTS: [(&str, &str); 4] = [
     ("tabbed", "Tabs"),
     ("stacking", "Stacked"),
 ];
-const MANGO_LAYOUTS: [(&str, &str); 7] = [
+const MANGO_LAYOUTS: [(&str, &str); 14] = [
     ("dwindle", "Dwindle · split the focused window"),
     ("tile", "Master · one big + a column"),
     ("scroller", "Scroll → · columns side by side"),
@@ -27,6 +27,13 @@ const MANGO_LAYOUTS: [(&str, &str); 7] = [
     ("center_tile", "Master in the middle"),
     ("monocle", "One at a time"),
     ("grid", "Grid"),
+    ("right_tile", "Master on the right"),
+    ("vertical_tile", "Master on top"),
+    ("deck", "Deck · the master + the rest stacked"),
+    ("vertical_deck", "Deck ↓ · the stack below"),
+    ("vertical_grid", "Grid ↓ · by rows"),
+    ("fair", "Fair · same size, in columns"),
+    ("vertical_fair", "Fair ↓ · same size, in rows"),
 ];
 const POWER_PROFILES: [(&str, &str); 3] =
     [("power-saver", "Power saver"), ("balanced", "Balanced"), ("performance", "Performance")];

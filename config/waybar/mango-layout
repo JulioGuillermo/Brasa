@@ -2,11 +2,14 @@
 # mango: the window layout of the focused tag (Super+w changes it), following mango's monitor updates.
 declare -A ICON=(
   [DW]=$'\U000F056E' [T]=$'\U000F0574' [CT]=$'\U000F0574' [S]=$'\U000F0BCD' [VS]=$'\U000F0BCE'
-  [M]=$'\U000F0293' [G]=$'\U000F0570')
+  [M]=$'\U000F0293' [G]=$'\U000F0570' [RT]=$'\U000F06FE' [VT]=$'\U000F06FC' [K]=$'\U000F0638'
+  [VK]=$'\U000F06C7' [VG]=$'\U000F0573' [F]=$'\U000F056D' [VF]=$'\U000F0729')
 declare -A NAME=(
   [DW]="dwindle: each window splits the focused one" [T]="master: one big window and a column"
   [CT]="master in the middle" [S]="scrolling, side by side" [VS]="scrolling, one above the other"
-  [M]="one at a time" [G]="grid")
+  [M]="one at a time" [G]="grid" [RT]="master on the right" [VT]="master on top"
+  [K]="deck: the master and the rest stacked" [VK]="deck, the stack below" [VG]="grid, by rows"
+  [F]="same size for all, in columns" [VF]="same size for all, in rows")
 
 last=""
 mmsg watch all-monitors | while read -r update; do
