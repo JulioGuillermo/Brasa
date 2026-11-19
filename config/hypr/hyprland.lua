@@ -64,6 +64,7 @@ hl.config({
     animations = { enabled = true },
 
     dwindle = { preserve_split = true },   -- the default layout; each workspace can have its own (Super+w)
+    scrolling = { explicit_column_widths = "0.5, 0.75, 1.0" },   -- the widths Super+s goes through
 
     -- X11 apps (XWayland) see the screen at its real resolution instead of being drawn at 100 % and
     -- blown up (blurry with a fractional scale). brasa-monitors tells them the scale through Xft.dpi,

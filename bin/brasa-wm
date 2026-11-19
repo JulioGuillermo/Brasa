@@ -119,6 +119,11 @@ if BRASA_FOLLOW_CENTERED then BRASA_FOLLOW_CENTERED() end"
                  ~/.local/bin/brasa-osd view-grid-symbolic "Workspace $ws: ${LAYOUT_NAMES[$next]}" ;;
     layout-current) saved_layout "$(hyprctl activeworkspace -j | jq -r .id)" ;;   # for the control panel
     group-layout-cycle) "$0" layout-cycle ;;   # no groups in Hyprland: the workspace's
+    width-cycle)  # the focused column's width, through scrolling:explicit_column_widths (hyprland.lua)
+                  case $(saved_layout "$(hyprctl activeworkspace -j | jq -r .id)") in
+                    scrolling*|focus*) d 'hl.dsp.layout("colresize +conf")' ;;
+                    *) ~/.local/bin/brasa-osd view-grid-symbolic "Window widths: only in the scrolling and focus layouts (Super+w)" ;;
+                  esac ;;
     split-toggle) if [ "$(saved_layout "$(hyprctl activeworkspace -j | jq -r .id)")" = dwindle ]; then
                     d 'hl.dsp.layout("togglesplit")'
                   else ~/.local/bin/brasa-osd view-grid-symbolic "Split: only in the dwindle layout (Super+w)"; fi ;;
@@ -231,6 +236,7 @@ else
                  esac
                  ~/.local/bin/brasa-osd view-grid-symbolic "Next window: $n" ;;
     next-window) next_window_layout ;;
+    width-cycle) ~/.local/bin/brasa-osd view-grid-symbolic "Window widths: only in the scrolling layouts of Hyprland and mango" ;;
     bar-layout-click) "$0" split-toggle ;;   # for the bar: splith, splitv, tabbed or stacking
     focus-parent|focus-child)
                  swaymsg -q focus "${verb#focus-}"

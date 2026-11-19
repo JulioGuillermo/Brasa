@@ -23,8 +23,10 @@ MANGO_WM = {"close": "killclient", "kill": "killclient,force", "fullscreen": "to
             "float": "togglefloating", "focus": "focusdir,{}", "move": "move_client,{}", "ws": "view,{},0",
             "movews": "tag,{},0", "focusmon": "focusmon,{}", "movewsmon": "tagmon,{}"}
 MANGO_TAGS = 9
-BRASA_WM_VERBS = {"kill", "touchpad", "remote-keys", "layout-cycle"}
-WM_VERBS = set(SWAY_WM) | BRASA_WM_VERBS
+# "wm resize DIRECTION": the focused window's size, by this many pixels (x, y) a press
+RESIZE_STEPS = {"wider": (40, 0), "narrower": (-40, 0), "taller": (0, 40), "shorter": (0, -40)}
+BRASA_WM_VERBS = {"kill", "touchpad", "remote-keys", "layout-cycle", "width-cycle"}
+WM_VERBS = set(SWAY_WM) | BRASA_WM_VERBS | {"resize"}
 
 
 def lua(s):
@@ -36,9 +38,29 @@ def action_problem(action):
     verb = rest.split(" ")[0]
     if kind == "exec" and rest.strip():
         return None
+    if kind == "wm" and verb == "resize":
+        direction = rest.partition(" ")[2]
+        return None if direction in RESIZE_STEPS else f'"{action}": resize {"|".join(RESIZE_STEPS)}'
     if kind == "wm" and verb in WM_VERBS:
         return None
     return f'unknown action "{action}" (exec COMMAND, wm VERB or none)'
+
+
+def sway_resize(direction):
+    x, y = RESIZE_STEPS[direction]
+    change = "grow" if x + y > 0 else "shrink"
+    side = "width" if x else "height"
+    return f"resize {change} {side} {abs(x + y)} px or 3 ppt"
+
+
+def hypr_resize(direction):
+    x, y = RESIZE_STEPS[direction]
+    return f"hl.dsp.window.resize({{ x = {x}, y = {y}, relative = true }})"
+
+
+def mango_resize(direction):
+    """mango moves the split instead of growing the window: brasa-wm turns it the right way."""
+    return f"spawn_shell,~/.local/bin/brasa-wm resize {direction}"
 
 
 def mango_bind(mods, key, action, opts):
@@ -47,6 +69,8 @@ def mango_bind(mods, key, action, opts):
     verb, _, arg = rest.partition(" ")
     if kind == "exec":
         dispatch = "spawn_shell," + rest
+    elif verb == "resize":
+        dispatch = mango_resize(arg)
     elif verb in MANGO_WM:
         if verb in ("ws", "movews") and arg.isdigit() and int(arg) > MANGO_TAGS:
             return None
@@ -85,6 +109,8 @@ for row in rows:
     flags = (" --locked" if "locked" in opts else "") + (" --release" if "release" in opts else "")
     if kind == "exec":
         cmd = "exec " + rest
+    elif verb == "resize":
+        cmd = sway_resize(arg)
     elif verb in BRASA_WM_VERBS:
         cmd = f"exec ~/.local/bin/brasa-wm {verb}"
     else:
@@ -94,6 +120,8 @@ for row in rows:
     hcombo = " + ".join(mods + [key])
     if kind == "exec":
         disp = f"hl.dsp.exec_cmd({lua(rest)})"
+    elif verb == "resize":
+        disp = hypr_resize(arg)
     elif verb in HYPR_WM:
         disp = HYPR_WM[verb].format(arg)
     else:  # reload, layout-next, touchpad

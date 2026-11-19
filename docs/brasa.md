@@ -271,6 +271,8 @@ search; Enter or a click runs it.
 | `Super+z` / `Super+Shift+z` | sway only: select one level up in the window tree (the group around the window, then the next one, up to the whole workspace) / one level down again |
 | `Super+←↑→↓`, `Super+hjkl` | Move focus |
 | `Super+Shift+←↑→↓`, `Super+Shift+hjkl` | Move the window |
+| `Super+Ctrl+h/l`, `Super+Ctrl+k/j` | The focused window narrower / wider, shorter / taller (hold to keep going). In tiled layouts it moves the split it shares with its neighbour; mango's own command moves the split one way only, so Brasa turns it round for a window on the far side |
+| `Super+s` | In the scrolling layouts (Hyprland's scrolling and focus, mango's scrollers): the focused window's width, 50 % → 75 % → 100 % (`scrolling:explicit_column_widths`, `scroller_proportion_preset`) |
 | `Super+1…9` | Go to workspace |
 | `Super+Shift+1…9` | Move the window to a workspace |
 | `Super+Alt+←→`, `Super+Alt+h/l` | Focus the monitor on the left / right |
@@ -509,7 +511,8 @@ bindings are generated into `config/mango/binds.conf` like the others; `config/m
 shows the tags through the standard ext-workspace protocol: only the ones with windows and the one in
 view, since mango tells nothing more (no faint empty 1–4 as in the other two). It shows the keyboard layout with
 `config/waybar/mango-language`. `brasa-wm` drives it with `mmsg` (`lib/brasa-wm-mango.sh`); each tag keeps
-its layout across logins (`config/mango/layouts.conf`, written by `Super+w`). The window switcher, the
+its layout across logins, per monitor since each monitor has its own tags (`config/mango/layouts.conf`,
+written by `Super+w`). The window switcher, the
 island on the focused monitor, saved monitors, the remote keyboard in viewers, the keys cheat sheet,
 the wallpaper and "Apps in other sessions" work as in the other two. Not in mango: which apps keep the
 screen awake (the cup says "an app", after 30 s without input: see the bar), `brasa-remote take`, and keys that do not repeat while held (mango 0.17 repeats every binding).

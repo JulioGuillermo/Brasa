@@ -6,7 +6,8 @@
 #   modifiers: SUPER, SHIFT, CTRL, ALT joined with +, or "-" for none.
 #   key: xkb name (d, Return, space, Left, F1, Print, XF86AudioMute...); "1..9" repeats the line with {n}.
 #   action: "wm <verb> [arg]" (close, kill, fullscreen, float, focus DIR, move DIR, ws N, movews N,
-#           focusmon DIR, movewsmon DIR, layout-next, reload, touchpad) or "exec <shell command>".
+#           focusmon DIR, movewsmon DIR, resize wider|narrower|taller|shorter, width-cycle, layout-next,
+#           reload, touchpad) or "exec <shell command>".
 #   options: locked (also works on the lock screen), repeat (repeats while held),
 #            release (runs on key release and lets the key through, for Caps Lock / Num Lock).
 #
@@ -61,6 +62,11 @@ SUPER+SHIFT	h	wm move left	Move window left
 SUPER+SHIFT	l	wm move right	Move window right
 SUPER+SHIFT	k	wm move up	Move window up
 SUPER+SHIFT	j	wm move down	Move window down
+SUPER+CTRL	h	wm resize narrower	Window narrower (hold to keep going)	repeat
+SUPER+CTRL	l	wm resize wider	Window wider (hold to keep going)	repeat
+SUPER+CTRL	k	wm resize shorter	Window shorter (hold to keep going)	repeat
+SUPER+CTRL	j	wm resize taller	Window taller (hold to keep going)	repeat
+SUPER	s	wm width-cycle	Window width in the scrolling layouts: 50 % → 75 % → 100 % (Hyprland and mango)
 # --- Workspaces
 SUPER	1..9	wm ws {n}	Go to workspace {n}
 SUPER+SHIFT	1..9	wm movews {n}	Move window to workspace {n}
