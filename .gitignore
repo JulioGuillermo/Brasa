@@ -15,13 +15,13 @@ config/swaync/config-sway.json
 config/swaync/menus.css
 config/swaync/island.css
 # Your own settings (~/.config/brasa is a link to this folder)
-remote.conf
-panel.conf
-keyboard.conf
-island.conf
-apps.conf
-my-keys.tsv
-appearance.conf
+/remote.conf
+/panel.conf
+/keyboard.conf
+/island.conf
+/apps.conf
+/my-keys.tsv
+/appearance.conf
 
 # The Rust islands: build output, and the switch that makes them the ones in use
 islands/target/
