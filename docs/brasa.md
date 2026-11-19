@@ -1107,7 +1107,8 @@ hangs since boot and the saved reports; `brasa-gpu-hangs show` prints the main l
 `brasa-test` opens sway inside a window, with its own session bus so it does not clash with
 GNOME's notifications. The modifier is **Alt** (GNOME keeps Super and Alt+Space). It looks a bit
 blurry because GNOME scales the window to 133 %; the real session is sharp. From a TTY
-(`Ctrl+Alt+F3`) you can also run `sway` directly at native resolution.
+(`Ctrl+Alt+F3`) you can also run `sway` directly at native resolution. `brasa-test mango` does the same with mango, from a
+copy of its config with Alt instead of Super.
 
 ## Known issues and untested bits
 

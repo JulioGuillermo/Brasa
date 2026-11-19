@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
-# Try Brasa inside GNOME: sway nested in a window, with Alt instead of Super.
-# Own session bus so swaync does not clash with GNOME's notifications.
-exec dbus-run-session sway -c ~/.config/brasa/config/sway/test.conf
+# Try Brasa inside GNOME: its window manager nested in a window, with Alt instead of Super (GNOME keeps
+# Super). Its own session bus, so notifications do not clash with GNOME's.
+# Usage: brasa-test [sway|mango]   (sway by default)
+case ${1:-sway} in
+  sway)
+    exec dbus-run-session sway -c ~/.config/brasa/config/sway/test.conf ;;
+  mango)
+    test_config=$(mktemp -d)
+    trap 'rm -rf "$test_config"' EXIT
+    cp ~/.config/mango/*.conf "$test_config"
+    sed -i 's/\bSUPER\b/ALT/g; s/ALT+ALT/ALT/g' "$test_config/config.conf" "$test_config/binds.conf"
+    dbus-run-session mango -c "$test_config/config.conf" ;;
+  *)
+    sed -n '4p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac
