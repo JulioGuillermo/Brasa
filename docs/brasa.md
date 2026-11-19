@@ -24,7 +24,7 @@
 21. [Colors](#colors)
 22. [GPU hangs](#gpu-hangs)
 23. [Trying it inside GNOME](#trying-it-inside-gnome)
-23. [Known issues and untested bits](#known-issues-and-untested-bits)
+24. [Known issues and untested bits](#known-issues-and-untested-bits)
 
 ## What it is
 
