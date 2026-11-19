@@ -26,3 +26,5 @@ config/swaync/island.css
 # The Rust islands: build output, and the switch that makes them the ones in use
 islands/target/
 rust-islands
+/config/mango/config.conf
+/config/mango/remote.conf

@@ -58,12 +58,25 @@ LAYOUTS_CONF=$(dirname "$(readlink -f "$0")")/../config/mango/layouts.conf
 # Remembered per tag as rules config.conf loads; dwindle, the default, is not written
 # Remembered per monitor, as each monitor has its own tags (a rule without monitor_name, from before, is
 # replaced the first time that tag changes)
+# The rule's name: mango 0.18 renamed it (brasa-gen renames the saved ones after an update)
+tag_rule_name() {
+  local version
+  version=$(mmsg get version | jq -r .version)
+  if [[ $version =~ ^0\.([0-9]+)\. ]] && [ "${BASH_REMATCH[1]}" -lt 18 ]; then
+    echo tagrule
+  else
+    echo tag_rule
+  fi
+}
+
 save_layout() {
-  local monitor=$1 tag=$2 layout=$3
+  local monitor=$1 tag=$2 layout=$3 rule
+  rule=$(tag_rule_name)
   {
     echo "# Written by brasa-wm (Super+w): each tag's window layout, per monitor"
-    grep '^tagrule=' "$LAYOUTS_CONF" 2>/dev/null | grep -v -E "^tagrule=id:$tag,(monitor_name:$monitor,)?layout_name:"
-    [ "$layout" = dwindle ] || echo "tagrule=id:$tag,monitor_name:$monitor,layout_name:$layout"
+    grep -E '^tag_?rule=' "$LAYOUTS_CONF" 2>/dev/null | grep -v -E "^tag_?rule=id:$tag,(monitor_name:$monitor,)?layout_name:" |
+      sed -E "s/^tag_?rule=/$rule=/"
+    [ "$layout" = dwindle ] || echo "$rule=id:$tag,monitor_name:$monitor,layout_name:$layout"
   } > "$LAYOUTS_CONF.new"
   mv "$LAYOUTS_CONF.new" "$LAYOUTS_CONF"
 }

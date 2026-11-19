@@ -502,17 +502,20 @@ Shared (the three): keyboard `es` + `us altgr-intl` (compose on Insert), repeat 
 tap to click and natural scrolling on the touchpad, touchscreen and pen mapped to the internal
 screen, the cursor theme you choose ([Icons and cursors](#icons-and-cursors)), 133 % scale on `eDP-1`, dynamic refresh rate.
 
-**mango** (`config/mango/config.conf`, mango 0.17+): the same look (rounded corners, red border, blur,
+**mango** (`config/mango/brasa.conf`, mango 0.17+): the same look (rounded corners, red border, blur,
 shadows) and Hyprland-like animations; tags instead of workspaces, `Super+1…9` as elsewhere (no tag 10).
-Layouts per tag, `Super+w` goes through dwindle → master → scrolling side by side → scrolling one above
-the other → master in the middle → one at a time → grid. `Super+v` switches the split in dwindle. Key
+Layouts per tag, `Super+w` goes through mango's 14 layouts, grouped as in `Super+Shift+w`'s list. `Super+v` switches the split in dwindle. Key
 bindings are generated into `config/mango/binds.conf` like the others; `config/mango/keyboard.conf` and
 `cursor.conf` hold your layouts and cursor (written by `brasa-keyboard` and `brasa-themes`). The bar
 shows the tags through the standard ext-workspace protocol: only the ones with windows and the one in
 view, since mango tells nothing more (no faint empty 1–4 as in the other two). It shows the keyboard layout with
 `config/waybar/mango-language`. `brasa-wm` drives it with `mmsg` (`lib/brasa-wm-mango.sh`); each tag keeps
 its layout across logins, per monitor since each monitor has its own tags (`config/mango/layouts.conf`,
-written by `Super+w`). The window switcher, the
+written by `Super+w`). mango 0.18 renamed most options (`windowrule` → `window_rule`, `gappih` →
+`gap_inner_horizontal`…): `brasa.conf` and `brasa-remote.conf` use the new names, and `brasa-gen` writes the
+`config.conf` and `remote.conf` mango reads in the names of the mango in use (`lib/brasa_mango_names.py`).
+mango runs `brasa-gen --mango-check` on every start and reload, so after a mango update the files follow
+and mango reloads by itself. The window switcher, the
 island on the focused monitor, saved monitors, the remote keyboard in viewers, the keys cheat sheet,
 the wallpaper and "Apps in other sessions" work as in the other two. Not in mango: which apps keep the
 screen awake (the cup says "an app", after 30 s without input: see the bar), `brasa-remote take`, and keys that do not repeat while held (mango 0.17 repeats every binding).
@@ -807,7 +810,7 @@ brasa-remote on | off | status | setup | help
 - **session on mango** (`session wm mango`, saved as `REMOTE_WM=mango`; the default when only mango is
   installed): like sway, mango runs with no physical screen, as the system service
   `brasa-remote-mango@<user>` with a logind session of its own, loading `config/mango/remote.conf`
-  (`config.conf` plus `brasa-remote _session-vnc`). The output follows the viewer's size over VNC and RDP,
+  (`config.conf` plus `brasa-remote _session-vnc`, written from `brasa-remote.conf`). The output follows the viewer's size over VNC and RDP,
   and its scale follows when `REMOTE_SCALE=auto`. Logs: `journalctl -u brasa-remote-mango@$USER`.
 - **The local session's environment**: Hyprland and mango hand theirs to the user's systemd when they
   start (which display, which compositor), so services and apps started through D-Bus open in that

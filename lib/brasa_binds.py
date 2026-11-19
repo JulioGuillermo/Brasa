@@ -406,8 +406,9 @@ def mango_binds_from(lines):
     binds, mode = [], ""
     apps, described = desktop_entries(), keys_tsv_descriptions()
     for line in lines:
-        if line.startswith("keymode="):
-            mode = "" if line == "keymode=default" else line.split("=", 1)[1]
+        if re.match(r"^key_?mode=", line):
+            mode = line.split("=", 1)[1]
+            mode = "" if mode == "default" else mode
         elif bind := MANGO_BIND.match(line):
             kind, mods, key, action = bind.groups()
             if kind == "axisbind":
