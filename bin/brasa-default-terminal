@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Makes the terminal of apps.conf (brasa-app terminal) the one other apps open:
+#   Thunar's "Open Terminal Here" and other Xfce apps: ~/.config/xfce4/helpers.rc
+#   apps run "in a terminal" through GLib (Terminal=true): ~/.config/xdg-terminals.list, for xdg-terminal-exec
+#   scripts and apps that read $TERMINAL: ~/.config/environment.d/90-brasa-terminal.conf (from the next login)
+# Run by install.sh and by the Settings window when the terminal changes.
+terminal=$("$(dirname "$(readlink -f "$0")")/brasa-app" --which terminal)
+[ -n "$terminal" ] && [ "$terminal" != none ] || exit 0
+
+# The desktop entry that starts it: TERMINAL.desktop, else the terminal entry whose command is it
+desktop_entry() {
+  local dir file
+  for dir in ~/.local/share/applications /usr/local/share/applications /usr/share/applications; do
+    [ -e "$dir/$terminal.desktop" ] && { echo "$terminal.desktop"; return; }
+  done
+  for file in ~/.local/share/applications/*.desktop /usr/local/share/applications/*.desktop \
+              /usr/share/applications/*.desktop; do
+    grep -q '^Categories=.*TerminalEmulator' "$file" 2>/dev/null || continue
+    if grep -m1 '^Exec=' "$file" | grep -qE "^Exec=(\S*/)?$terminal( |$)"; then
+      basename "$file"
+      return
+    fi
+  done
+}
+
+mkdir -p ~/.config/xfce4 ~/.config/environment.d
+helpers=~/.config/xfce4/helpers.rc
+{
+  grep -v '^TerminalEmulator=' "$helpers" 2>/dev/null
+  echo "TerminalEmulator=$terminal"
+} > "$helpers.new"
+mv "$helpers.new" "$helpers"
+
+entry=$(desktop_entry)
+if [ -n "$entry" ]; then
+  terminals=~/.config/xdg-terminals.list
+  {
+    echo "$entry"
+    grep -vxF "$entry" "$terminals" 2>/dev/null
+  } > "$terminals.new"
+  mv "$terminals.new" "$terminals"
+fi
+
+echo "TERMINAL=$terminal" > ~/.config/environment.d/90-brasa-terminal.conf

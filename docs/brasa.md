@@ -147,6 +147,10 @@ Generated files (`binds.conf`, `binds.lua`, `fx.conf`) are not edited by hand.
   command can be typed. The answers go to `~/.config/brasa/apps.conf` and the chosen apps get installed
   (Zen, Chrome and Wayscriber from the AUR). Later runs ask nothing and install what is missing, except
   for a role Brasa added since. `--apps` asks again, with the current choice as Enter.
+  The terminal becomes the one other apps open too (`brasa-default-terminal`): Thunar's "Open Terminal
+  Here" (`~/.config/xfce4/helpers.rc`), apps that run in a terminal through GLib (`xdg-terminal-exec`,
+  `~/.config/xdg-terminals.list`) and `$TERMINAL` (`~/.config/environment.d/90-brasa-terminal.conf`, from
+  the next login).
 - `--yes`: asks nothing: no login screen or zsh unless they are already Brasa's, and the default apps
   (the ones already set, else the first installed).
 - `--no-deps`: only links, installs no packages. Running it again is safe (it adds new links).
@@ -226,6 +230,7 @@ without opening them, in sway and Hyprland alike:
   **nothing** (turns off Brasa's binding on those keys). Each change is saved and applied at once.
 - **Apps**: which app each `brasa-app` key opens, as in `apps.conf`. **Automatic** follows the list
   (the row says which one it opens now); an app not installed says so (`./install.sh` installs it).
+  Changing the terminal also changes the one other apps open (see the installer's **Apps**).
 
 After editing: `Super+Shift+r` (regenerates with `brasa-gen` and reloads the window manager).
 The key bindings window (`Super+F1`) does not read this file: it asks the running window manager for

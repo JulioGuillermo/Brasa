@@ -303,6 +303,7 @@ wdisplays         wdisplays               wdisplays                   wdisplays 
 btop              btop                    btop                        btop                      btop                      btop
 fuser             psmisc                  psmisc                      psmisc                    psmisc                    psmisc
 foot              foot                    foot                        foot                      foot                      foot
+xdg-terminal-exec xdg-terminal-exec       xdg-terminal-exec           xdg-terminal-exec         xdg-terminal-exec         -
 font              ttf-hack-nerd           -                           -                         -                         font-hack-nerd
 '
 PKGS_SWAY='
@@ -669,6 +670,9 @@ run python3 "$HERE/docs/gen-waybar-swaync.py" "$HERE/config" || problem "Could n
 
 say "Generating key bindings from keys.tsv"
 run "$HERE/bin/brasa-gen" || problem "brasa-gen failed: key bindings were not generated"
+
+say "Your terminal (${APP[terminal]}) as the one other apps open (Thunar's \"Open Terminal Here\"...)"
+run "$HERE/bin/brasa-default-terminal"
 
 if [ $GREETER = 1 ]; then
   say "Login screen (greetd + nwg-hello)"

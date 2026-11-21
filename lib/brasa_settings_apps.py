@@ -1,6 +1,8 @@
 """The Apps page of Brasa settings: which app each brasa-app key opens (apps.conf). A change applies on
 the next key press."""
+import os
 import shutil
+import subprocess
 
 import gi
 
@@ -66,5 +68,6 @@ class AppsPage(Adw.PreferencesPage):
 
     def changed(self):
         apps_conf.save({row.role: row.value() for row in self.rows})
+        subprocess.run([os.path.join(apps_conf.BRASA, "bin", "brasa-default-terminal")])
         for row in self.rows:
             row.show_now()
