@@ -76,8 +76,9 @@ menu separator { min-height: 1px; margin: 4px 8px; background: @faint; }
 #custom-l1, #custom-l2, #custom-l3, #custom-l4, #custom-l5, #custom-l6,
 #custom-c1, #custom-c2, #custom-r0, #custom-r1, #custom-r2, #custom-r3 {
   font-family: "Hack Nerd Font";
-  font-size: 20px;
+  font-size: 26px;
   padding: 0;
+  margin: -2px 0 -4px 0;               /* the 26 px glyph fills the 28 px bar without growing it */
 }
 #custom-c1 { color: @seg2; background: transparent; }
 #custom-c2 { color: @seg2; background: transparent; }
