@@ -362,10 +362,29 @@ available() {  # is the package in the repositories?
     apk)     apk search -qx "$1" 2>/dev/null | grep -qx "$1" ;;
   esac
 }
+# pacman: the packages not installed, or installed in an older version than the repositories'. One built
+# by hand in the same or a newer version (mango with a fix) stays: pacman -S --needed would downgrade it
+pacman_to_install() {
+  local package installed offered
+  for package in "$@"; do
+    installed=$(pacman -Q "$package" 2>/dev/null | awk '{print $2}')
+    offered=$(LC_ALL=C pacman -Si "$package" 2>/dev/null | awk -F': ' '/^Version/ {print $2; exit}')
+    if [ -z "$installed" ] || [ -z "$offered" ] || [ "$(vercmp "$installed" "$offered")" -lt 0 ]; then
+      echo "$package"
+    fi
+  done
+}
+
 install_repo() {
   [ $# -eq 0 ] && return 0
+  if [ "$PM" = pacman ]; then
+    local wanted
+    mapfile -t wanted < <(pacman_to_install "$@")
+    [ ${#wanted[@]} -eq 0 ] && return 0
+    set -- "${wanted[@]}"
+  fi
   case $PM in
-    pacman)  run $SUDO pacman -S --needed "$@" ;;
+    pacman)  run $SUDO pacman -S "$@" ;;
     apt-get) run $SUDO apt-get install -y "$@" ;;
     dnf)     run $SUDO dnf install -y "$@" ;;
     zypper)  run $SUDO zypper install -y "$@" ;;
